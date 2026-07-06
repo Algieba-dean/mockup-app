@@ -337,16 +337,19 @@ export const updateCanvas = async (
             originY: 'center',
           });
 
-          // 为内屏组件添加相对圆角裁切
+          // 为内屏组件添加绝对定位圆角裁切，防止被图片缩放比率再次缩放
           const clipPath = new Rect({
-            left: 0,
-            top: 0,
+            left: centerX,
+            top: centerY,
             width: screenWidth,
             height: screenHeight,
             rx: cornerRadius - 10 * devScale * R,
             ry: cornerRadius - 10 * devScale * R,
             originX: 'center',
             originY: 'center',
+            absolutePositioned: true,
+            angle: devInst.angle,
+            skewX: devInst.skewX,
           });
 
           img.clipPath = clipPath;

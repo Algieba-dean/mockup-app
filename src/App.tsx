@@ -301,6 +301,19 @@ function App() {
     reader.readAsDataURL(file);
   };
 
+  useEffect(() => {
+    (window as any).__uploadScreenshot = (dataUrl: string) => {
+      setScreenshots((prev) => {
+        const updated = [...prev, dataUrl];
+        setSelectedScreenshotIndex(updated.length - 1);
+        return updated;
+      });
+      setDevices((prevDevs) =>
+        prevDevs.map((d, i) => i === 0 ? { ...d, screenshotSrc: dataUrl } : d)
+      );
+    };
+  }, [screenshots]);
+
   // Manage slides
   const handleAddPage = () => {
     const newId = `page-${Date.now()}`;
