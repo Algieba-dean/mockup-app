@@ -73,7 +73,7 @@ function App() {
       bgBlur: 10,
       showFrostedGlass: false,
       devices: [
-        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80, screenshotScale: 1.05, screenshotOffsetY: 25 }
       ],
       titleFontFamily: 'Playfair Display',
       subtitleFontFamily: 'Geist',
@@ -89,7 +89,7 @@ function App() {
       bgBlur: 10,
       showFrostedGlass: false,
       devices: [
-        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80, screenshotScale: 1.05, screenshotOffsetY: 25 }
       ],
       titleFontFamily: 'Playfair Display',
       subtitleFontFamily: 'Geist',
@@ -110,7 +110,7 @@ function App() {
   const [bgBlur, setBgBlur] = useState<number>(10);
   const [showFrostedGlass, setShowFrostedGlass] = useState<boolean>(false);
   const [devices, setDevices] = useState<DeviceInstance[]>([
-    { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+    { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80, screenshotScale: 1.05, screenshotOffsetY: 25 }
   ]);
   const [titleText, setTitleText] = useState<string>('Manage Everything');
   const [subtitleText, setSubtitleText] = useState<string>('A beautiful minimal workspace');

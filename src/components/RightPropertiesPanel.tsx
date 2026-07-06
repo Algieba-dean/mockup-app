@@ -172,6 +172,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
       scale: 0.8,
       offsetX: devices.length * 40,
       offsetY: 100,
+      screenshotScale: 1.0,
+      screenshotOffsetY: 0,
     };
     setDevices([...devices, newDev]);
     setActiveDeviceIndex(devices.length);
@@ -521,6 +523,30 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     max="600"
                     value={activeDevice.offsetY || 0}
                     onChange={(e) => updateActiveDevice({ offsetY: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
+                  <input
+                    type="range"
+                    min="80"
+                    max="150"
+                    value={Math.round((activeDevice.screenshotScale || 1.0) * 100)}
+                    onChange={(e) => updateActiveDevice({ screenshotScale: parseInt(e.target.value) / 100 })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
+                  <input
+                    type="range"
+                    min="-100"
+                    max="100"
+                    value={activeDevice.screenshotOffsetY || 0}
+                    onChange={(e) => updateActiveDevice({ screenshotOffsetY: parseInt(e.target.value) })}
                     style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
                   />
                 </div>

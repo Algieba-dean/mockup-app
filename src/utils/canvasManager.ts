@@ -9,6 +9,8 @@ export interface DeviceInstance {
   scale: number;
   offsetX: number;
   offsetY: number;
+  screenshotScale?: number;   // 内屏截图缩放比例
+  screenshotOffsetY?: number; // 内屏截图垂直偏移
 }
 
 export interface CanvasState {
@@ -328,11 +330,14 @@ export const updateCanvas = async (
           const scaleY = screenHeight / img.height!;
           const scale = Math.max(scaleX, scaleY);
 
+          const scrScale = scale * (devInst.screenshotScale || 1.0);
+          const scrOffsetY = (devInst.screenshotOffsetY || 0) * R;
+
           img.set({
             left: 0,
-            top: 0,
-            scaleX: scale,
-            scaleY: scale,
+            top: scrOffsetY,
+            scaleX: scrScale,
+            scaleY: scrScale,
             originX: 'center',
             originY: 'center',
           });

@@ -48,33 +48,46 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
         position: 'relative',
         backgroundColor: isDragging ? 'var(--bg-tertiary)' : 'transparent',
         transition: 'background-color 0.2s ease',
+        overflow: 'hidden',
+        height: '100%',
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Outer container representing the actual scaled layout size in DOM */}
+      {/* 内层独立滚动容器，确保 Canvas 滚动时悬浮栏位置保持静止 */}
       <div style={{
-        width: `${1242 * (zoom / 100)}px`,
-        height: `${2208 * (zoom / 100)}px`,
-        position: 'relative',
-        flexShrink: 0,
+        position: 'absolute',
+        inset: 0,
+        overflow: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 40px 100px 40px', // 底部预留 padding 防止缩放栏遮挡 Canvas
       }}>
-        {/* Inner container scaled using transform */}
+        {/* Outer container representing the actual scaled layout size in DOM */}
         <div style={{
-          width: '1242px',
-          height: '2208px',
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: `translate(-50%, -50%) scale(${zoom / 100})`,
-          transformOrigin: 'center center',
-          boxShadow: '0 12px 40px var(--shadow-color)',
-          border: '1px solid var(--border-primary)',
-          backgroundColor: 'var(--bg-secondary)',
-          transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+          width: `${1242 * (zoom / 100)}px`,
+          height: `${2208 * (zoom / 100)}px`,
+          position: 'relative',
+          flexShrink: 0,
         }}>
-          <canvas ref={canvasRef} />
+          {/* Inner container scaled using transform */}
+          <div style={{
+            width: '1242px',
+            height: '2208px',
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: `translate(-50%, -50%) scale(${zoom / 100})`,
+            transformOrigin: 'center center',
+            boxShadow: '0 12px 40px var(--shadow-color)',
+            border: '1px solid var(--border-primary)',
+            backgroundColor: 'var(--bg-secondary)',
+            transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}>
+            <canvas ref={canvasRef} />
+          </div>
         </div>
       </div>
 
@@ -99,8 +112,8 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
         </div>
       )}
 
-      {/* 缩放悬浮控制栏 */}
-      <div className="viewport-zoom-bar">
+      {/* 缩放悬浮控制栏 - 独立于滚动层，永远固定于可见区域底部 */}
+      <div className="viewport-zoom-bar" style={{ zIndex: 15 }}>
         <button className="ds-btn ds-btn-icon-only" style={{ width: '28px', height: '28px' }} onClick={handleZoomOut} title="缩小">
           <ZoomOut size={14} />
         </button>
