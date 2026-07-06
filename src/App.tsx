@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import { Layers } from 'lucide-react';
 import { AppHeader } from './components/AppHeader';
 import { LeftSidebar } from './components/LeftSidebar';
+import type { CustomPreset } from './components/LeftSidebar';
 import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
 import { AssetDock } from './components/AssetDock';
@@ -95,6 +96,81 @@ function App() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<number>(-1);
 
+  const [customPresets, setCustomPresets] = useState<CustomPreset[]>(() => {
+    try {
+      const saved = localStorage.getItem('mockup_app_custom_presets');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleSavePreset = (name: string) => {
+    const newPreset: CustomPreset = {
+      id: `preset-${Date.now()}`,
+      name: name || `自定义风格预设 ${customPresets.length + 1}`,
+      createdAt: new Date().toLocaleString(),
+      state: {
+        bgType,
+        bgColor,
+        bgGradient,
+        bgImageSrc,
+        bgBlur,
+        showFrostedGlass,
+        titleText,
+        subtitleText,
+        titleFontSize,
+        subtitleFontSize,
+        titleFontFamily,
+        subtitleFontFamily,
+        devices: devices.map(({ id, deviceModel, angle, skewX, scale, offsetX, offsetY, screenshotScale, screenshotOffsetY }) => ({
+          id,
+          deviceModel,
+          angle,
+          skewX,
+          scale,
+          offsetX,
+          offsetY,
+          screenshotScale,
+          screenshotOffsetY
+        }))
+      }
+    };
+    const updated = [...customPresets, newPreset];
+    setCustomPresets(updated);
+    localStorage.setItem('mockup_app_custom_presets', JSON.stringify(updated));
+  };
+
+  const handleDeletePreset = (id: string) => {
+    const updated = customPresets.filter(p => p.id !== id);
+    setCustomPresets(updated);
+    localStorage.setItem('mockup_app_custom_presets', JSON.stringify(updated));
+  };
+
+  const handleApplyPreset = (preset: CustomPreset) => {
+    setBgType(preset.state.bgType);
+    setBgColor(preset.state.bgColor);
+    setBgGradient(preset.state.bgGradient);
+    setBgImageSrc(preset.state.bgImageSrc);
+    setBgBlur(preset.state.bgBlur);
+    setShowFrostedGlass(preset.state.showFrostedGlass);
+    setTitleText(preset.state.titleText);
+    setSubtitleText(preset.state.subtitleText);
+    setTitleFontSize(preset.state.titleFontSize);
+    setSubtitleFontSize(preset.state.subtitleFontSize);
+    setTitleFontFamily(preset.state.titleFontFamily);
+    setSubtitleFontFamily(preset.state.subtitleFontFamily);
+    
+    setDevices(prevDevs => {
+      return preset.state.devices.map((presetDev, index) => {
+        const currentDev = prevDevs[index];
+        return {
+          ...presetDev,
+          screenshotSrc: currentDev ? currentDev.screenshotSrc : undefined
+        };
+      });
+    });
+  };
 
   const [bgType, setBgType] = useState<'solid' | 'gradient' | 'image' | 'panoramic'>('solid');
   const [bgColor, setBgColor] = useState<string>('#f5f5f4');
@@ -436,6 +512,10 @@ function App() {
           onUploadScreenshot={handleUploadScreenshot}
           onSelectScreenshot={setSelectedScreenshotIndex}
           selectedScreenshotIndex={selectedScreenshotIndex}
+          customPresets={customPresets}
+          onSavePreset={handleSavePreset}
+          onDeletePreset={handleDeletePreset}
+          onApplyPreset={handleApplyPreset}
           collapsed={leftSidebarCollapsed}
         />
 

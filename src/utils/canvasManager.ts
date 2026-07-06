@@ -321,10 +321,17 @@ export const updateCanvas = async (
       // 6C. 载入内屏截图并应用几何形变裁切
       if (devInst.screenshotSrc) {
         try {
-          const img = await FabricImage.fromURL(devInst.screenshotSrc);
-
           const screenWidth = devWidth - (screenBorderWidth * 2) - 4 * R;
           const screenHeight = devHeight - (screenBorderWidth * 2) - 4 * R;
+
+          // 1. 载入原始图片
+          const img = await FabricImage.fromURL(devInst.screenshotSrc);
+
+          // 2. 创建离线 Canvas 进行高保真区域裁剪与缩放，防止溢出边框影响 Group 中心点计算
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = screenWidth;
+          tempCanvas.height = screenHeight;
+          const tempCtx = tempCanvas.getContext('2d')!;
 
           const scaleX = screenWidth / img.width!;
           const scaleY = screenHeight / img.height!;
@@ -333,32 +340,36 @@ export const updateCanvas = async (
           const scrScale = scale * (devInst.screenshotScale || 1.0);
           const scrOffsetY = (devInst.screenshotOffsetY || 0) * R;
 
-          img.set({
+          const drawW = img.width! * scrScale;
+          const drawH = img.height! * scrScale;
+          const drawX = (screenWidth - drawW) / 2;
+          const drawY = (screenHeight - drawH) / 2 + scrOffsetY;
+
+          // 将裁剪缩放后的截图绘制到离线 canvas 上
+          tempCtx.drawImage(img._element as HTMLImageElement, drawX, drawY, drawW, drawH);
+
+          // 3. 从离线 canvas 创建 Fabric 图像对象，此对象的宽高刚好等于屏幕宽高，绝不溢出
+          const croppedImg = new FabricImage(tempCanvas, {
             left: 0,
-            top: scrOffsetY,
-            scaleX: scrScale,
-            scaleY: scrScale,
+            top: 0,
             originX: 'center',
             originY: 'center',
           });
 
-          // 为内屏组件添加绝对定位圆角裁切，防止被图片缩放比率再次缩放
+          // 4. 为其应用相对圆角裁剪
           const clipPath = new Rect({
-            left: centerX,
-            top: centerY,
+            left: 0,
+            top: 0,
             width: screenWidth,
             height: screenHeight,
             rx: cornerRadius - 10 * devScale * R,
             ry: cornerRadius - 10 * devScale * R,
             originX: 'center',
             originY: 'center',
-            absolutePositioned: true,
-            angle: devInst.angle,
-            skewX: devInst.skewX,
           });
 
-          img.clipPath = clipPath;
-          groupParts.push(img);
+          croppedImg.clipPath = clipPath;
+          groupParts.push(croppedImg);
         } catch (error) {
           console.error('Failed to load screenshot image in Fabric.js', error);
         }

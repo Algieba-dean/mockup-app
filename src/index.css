@@ -407,3 +407,14 @@ p, span, label, input, button, textarea, select {
   background-color: var(--bg-tertiary);
   border-style: dashed;
 }
+
+/* Custom Preset Card Hover Styles */
+.custom-preset-card:hover {
+  border-color: var(--border-focus) !important;
+  background-color: var(--bg-tertiary) !important;
+}
+
+.custom-preset-card button:hover {
+  color: var(--ink-primary) !important;
+}
+

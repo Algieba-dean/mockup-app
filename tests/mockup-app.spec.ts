@@ -94,4 +94,42 @@ test.describe('MockupApp E2E Tests', () => {
     // 3. Verify the file downloaded correctly
     expect(download.suggestedFilename()).toBe('mockup_app_screenshots.zip');
   });
+
+  test('should support saving, applying and deleting custom design presets', async ({ page }) => {
+    // 1. Enter custom title
+    const titleInput = page.locator('input[placeholder="请输入主标题"]');
+    await titleInput.fill('Preset Title Test');
+
+    // 2. Click Save Preset button, handle prompt dialog
+    page.on('dialog', async dialog => {
+      if (dialog.type() === 'prompt') {
+        await dialog.accept('E2E Custom Preset');
+      } else if (dialog.type() === 'confirm') {
+        await dialog.accept(); // For delete confirmation
+      }
+    });
+
+    const savePresetBtn = page.locator('button:has-text("保存当前风格为预设")');
+    await expect(savePresetBtn).toBeVisible();
+    await savePresetBtn.click();
+
+    // 3. Check if preset card appears
+    const presetCard = page.locator('.custom-preset-card:has-text("E2E Custom Preset")');
+    await expect(presetCard).toBeVisible();
+
+    // 4. Modify title input text
+    await titleInput.fill('Different Title');
+    await expect(titleInput).toHaveValue('Different Title');
+
+    // 5. Click the custom preset card to load settings back
+    await presetCard.click();
+    await expect(titleInput).toHaveValue('Preset Title Test');
+
+    // 6. Delete the preset
+    const deleteBtn = presetCard.locator('button[title="删除预设"]');
+    await deleteBtn.click();
+
+    // 7. Verify preset is deleted
+    await expect(presetCard).not.toBeVisible();
+  });
 });

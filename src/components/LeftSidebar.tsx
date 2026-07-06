@@ -1,5 +1,26 @@
 import React, { useRef } from 'react';
-import { Plus, Image as ImageIcon } from 'lucide-react';
+import { Plus, Image as ImageIcon, Trash2, Bookmark } from 'lucide-react';
+
+export interface CustomPreset {
+  id: string;
+  name: string;
+  createdAt: string;
+  state: {
+    bgType: 'solid' | 'gradient' | 'image' | 'panoramic';
+    bgColor: string;
+    bgGradient: string[];
+    bgImageSrc: string;
+    bgBlur: number;
+    showFrostedGlass: boolean;
+    titleText: string;
+    subtitleText: string;
+    titleFontSize: number;
+    subtitleFontSize: number;
+    titleFontFamily: string;
+    subtitleFontFamily: string;
+    devices: any[];
+  }
+}
 
 interface LeftSidebarProps {
   activeTool: string;
@@ -7,6 +28,10 @@ interface LeftSidebarProps {
   onUploadScreenshot: (file: File) => void;
   onSelectScreenshot: (index: number) => void;
   selectedScreenshotIndex: number;
+  customPresets: CustomPreset[];
+  onSavePreset: (name: string) => void;
+  onDeletePreset: (id: string) => void;
+  onApplyPreset: (preset: CustomPreset) => void;
   collapsed?: boolean;
 }
 
@@ -16,6 +41,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onUploadScreenshot,
   onSelectScreenshot,
   selectedScreenshotIndex,
+  customPresets,
+  onSavePreset,
+  onDeletePreset,
+  onApplyPreset,
   collapsed = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,11 +59,17 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     fileInputRef.current?.click();
   };
 
+  const triggerSavePreset = () => {
+    const name = prompt('请输入自定义设计预设名称：', `自定义风格预设 ${customPresets.length + 1}`);
+    if (name && name.trim()) {
+      onSavePreset(name.trim());
+    }
+  };
+
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       {activeTool === 'screenshots' ? (
         <>
-
           {/* 素材上传 */}
           <div className="sidebar-title">截图素材</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -87,6 +122,82 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     }}
                   >
                     <img src={src} alt={`Screenshot ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 自定义风格预设 */}
+          <div className="sidebar-title">自定义设计预设</div>
+          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button
+              className="ds-btn"
+              onClick={triggerSavePreset}
+              style={{ width: '100%', height: '40px', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}
+            >
+              <Bookmark size={14} style={{ marginRight: '6px' }} />
+              <span>保存当前风格为预设</span>
+            </button>
+
+            {customPresets.length === 0 ? (
+              <div style={{
+                border: '1px dashed var(--border-primary)',
+                padding: '24px 16px',
+                textAlign: 'center',
+                color: 'var(--ink-secondary)',
+                fontSize: '12px',
+              }}>
+                暂无自定义设计预设
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {customPresets.map((preset) => (
+                  <div
+                    key={preset.id}
+                    className="custom-preset-card"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      borderRadius: '4px',
+                    }}
+                    onClick={() => onApplyPreset(preset)}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {preset.name}
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'var(--ink-secondary)' }}>
+                        {preset.createdAt}
+                      </span>
+                    </div>
+                    <button
+                      className="ds-btn ds-btn-icon-only"
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        padding: 0,
+                        backgroundColor: 'transparent',
+                        borderColor: 'transparent',
+                        color: 'var(--ink-secondary)',
+                        transition: 'color 0.15s ease',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`确认删除预设「${preset.name}」吗？`)) {
+                          onDeletePreset(preset.id);
+                        }
+                      }}
+                      title="删除预设"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 ))}
               </div>
