@@ -15,8 +15,8 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(exportBtn).toBeVisible();
 
     // 3. Verify sidebar section titles
-    await expect(page.locator('text=排版模版')).toBeVisible();
-    await expect(page.locator('text=画布背景')).toBeVisible();
+    await expect(page.locator('.sidebar-title:has-text("截图素材")')).toBeVisible();
+    await expect(page.locator('.sidebar-title:has-text("画布背景")')).toBeVisible();
   });
 
   test('should toggle sidebar collapse correctly', async ({ page }) => {

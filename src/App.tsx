@@ -25,12 +25,6 @@ interface MockupPage {
   subtitleFontFamily: string;
 }
 
-const PRESETS = [
-  { id: 'preset-gallery-light', name: '美术策展 (Gallery Light)', description: '经典纸白背景，高对比度衬线体标题' },
-  { id: 'preset-linear-dark', name: '极简暗黑 (Minimal Dark)', description: '深色背景，纤细文字，居中手机外壳' },
-  { id: 'preset-monochrome-gray', name: '石墨硬朗 (Graphite Gray)', description: '中灰色背景，黑白高对比排版' },
-];
-
 const EXPORT_PRESETS = [
   { id: 'ios-6.9', name: 'iPhone 16 Pro Max (6.9" - 1290x2796)', width: 1290, height: 2796, folder: 'ios/iphone_6.9' },
   { id: 'ios-6.5', name: 'iPhone XS/11 Pro Max (6.5" - 1242x2688)', width: 1242, height: 2688, folder: 'ios/iphone_6.5' },
@@ -101,8 +95,7 @@ function App() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<number>(-1);
 
-  // Layout parameters for active page
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('preset-gallery-light');
+
   const [bgType, setBgType] = useState<'solid' | 'gradient' | 'image' | 'panoramic'>('solid');
   const [bgColor, setBgColor] = useState<string>('#f5f5f4');
   const [bgGradient, setBgGradient] = useState<string[]>(['#f5f5f4', '#e5e5e4']);
@@ -208,23 +201,6 @@ function App() {
     titleFontFamily,
     subtitleFontFamily,
   ]);
-
-  // Sync preset changes
-  useEffect(() => {
-    if (selectedPresetId === 'preset-linear-dark') {
-      setBgType('solid');
-      setBgColor('#0a0a0a');
-      setTheme('dark');
-    } else if (selectedPresetId === 'preset-gallery-light') {
-      setBgType('solid');
-      setBgColor('#f5f5f4');
-      setTheme('light');
-    } else if (selectedPresetId === 'preset-monochrome-gray') {
-      setBgType('solid');
-      setBgColor('#4a4a4a');
-      setTheme('dark');
-    }
-  }, [selectedPresetId]);
 
   // Draw and render the FabricJS canvas when state changes
   useEffect(() => {
@@ -456,9 +432,6 @@ function App() {
         {/* 左侧栏 */}
         <LeftSidebar
           activeTool={activeTool}
-          presets={PRESETS}
-          selectedPresetId={selectedPresetId}
-          onSelectPreset={setSelectedPresetId}
           screenshots={screenshots}
           onUploadScreenshot={handleUploadScreenshot}
           onSelectScreenshot={setSelectedScreenshotIndex}

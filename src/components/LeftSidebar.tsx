@@ -1,17 +1,8 @@
 import React, { useRef } from 'react';
-import { Plus, Sparkles, Image as ImageIcon } from 'lucide-react';
-
-interface Preset {
-  id: string;
-  name: string;
-  description: string;
-}
+import { Plus, Image as ImageIcon } from 'lucide-react';
 
 interface LeftSidebarProps {
   activeTool: string;
-  presets: Preset[];
-  selectedPresetId: string;
-  onSelectPreset: (presetId: string) => void;
   screenshots: string[];
   onUploadScreenshot: (file: File) => void;
   onSelectScreenshot: (index: number) => void;
@@ -21,9 +12,6 @@ interface LeftSidebarProps {
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   activeTool,
-  presets,
-  selectedPresetId,
-  onSelectPreset,
   screenshots,
   onUploadScreenshot,
   onSelectScreenshot,
@@ -46,32 +34,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       {activeTool === 'screenshots' ? (
         <>
-          {/* 模板预设 */}
-          <div className="sidebar-title">排版模版</div>
-          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {presets.map((preset) => (
-              <div
-                key={preset.id}
-                onClick={() => onSelectPreset(preset.id)}
-                style={{
-                  padding: '12px',
-                  border: '1px solid',
-                  borderColor: selectedPresetId === preset.id ? 'var(--border-focus)' : 'var(--border-primary)',
-                  backgroundColor: 'var(--bg-secondary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <div style={{ fontWeight: 500, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={14} />
-                  {preset.name}
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--ink-secondary)', marginTop: '4px' }}>
-                  {preset.description}
-                </div>
-              </div>
-            ))}
-          </div>
 
           {/* 素材上传 */}
           <div className="sidebar-title">截图素材</div>
