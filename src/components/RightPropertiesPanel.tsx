@@ -92,9 +92,11 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           screenshotSrc: devices[0]?.screenshotSrc || screenshots[0],
           angle: 0,
           skewX: 0,
-          scale: 0.95,
+          scale: 1.28,
           offsetX: 0,
-          offsetY: 80,
+          offsetY: 60,
+          screenshotScale: 1.05,
+          screenshotOffsetY: 25,
         }
       ]);
       setActiveDeviceIndex(0);
