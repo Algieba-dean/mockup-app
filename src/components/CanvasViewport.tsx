@@ -54,12 +54,15 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
       onDrop={handleDrop}
     >
       <div style={{
+        width: '1242px',
+        height: '2208px',
         boxShadow: '0 12px 40px var(--shadow-color)',
         border: '1px solid var(--border-primary)',
         backgroundColor: 'var(--bg-secondary)',
         transform: `scale(${zoom / 100})`,
         transformOrigin: 'center center',
         transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+        flexShrink: 0,
       }}>
         <canvas ref={canvasRef} />
       </div>

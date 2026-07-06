@@ -8,20 +8,19 @@ import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
 import { AssetDock } from './components/AssetDock';
 import { updateCanvas } from './utils/canvasManager';
+import type { DeviceInstance } from './utils/canvasManager';
 
 interface MockupPage {
   id: string;
   title: string;
   subtitle: string;
-  screenshotSrc?: string;
-  bgType: 'solid' | 'gradient' | 'image';
+  bgType: 'solid' | 'gradient' | 'image' | 'panoramic';
   bgColor: string;
   bgGradient?: string[];
   bgImageSrc?: string;
   bgBlur: number;
   showFrostedGlass: boolean;
-  deviceModel: string;
-  deviceColor: 'dark' | 'light';
+  devices: DeviceInstance[];
   titleFontFamily: string;
   subtitleFontFamily: string;
 }
@@ -30,6 +29,14 @@ const PRESETS = [
   { id: 'preset-gallery-light', name: '美术策展 (Gallery Light)', description: '经典纸白背景，高对比度衬线体标题' },
   { id: 'preset-linear-dark', name: '极简暗黑 (Minimal Dark)', description: '深色背景，纤细文字，居中手机外壳' },
   { id: 'preset-monochrome-gray', name: '石墨硬朗 (Graphite Gray)', description: '中灰色背景，黑白高对比排版' },
+];
+
+const EXPORT_PRESETS = [
+  { id: 'ios-6.9', name: 'iPhone 16 Pro Max (6.9" - 1290x2796)', width: 1290, height: 2796, folder: 'ios/iphone_6.9' },
+  { id: 'ios-6.5', name: 'iPhone XS/11 Pro Max (6.5" - 1242x2688)', width: 1242, height: 2688, folder: 'ios/iphone_6.5' },
+  { id: 'ios-5.5', name: 'iPhone 8 Plus (5.5" - 1242x2208)', width: 1242, height: 2208, folder: 'ios/iphone_5.5' },
+  { id: 'ios-ipad', name: 'iPad Pro 12.9" (2048x2732)', width: 2048, height: 2732, folder: 'ios/ipad_12.9' },
+  { id: 'android-phone', name: 'Android Phone (1242x2208)', width: 1242, height: 2208, folder: 'android/phone' },
 ];
 
 function App() {
@@ -41,9 +48,17 @@ function App() {
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState<boolean>(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState<boolean>(false);
 
-  // Export Loading State
+  // Export States
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<string>('');
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [exportSizes, setExportSizes] = useState<Record<string, boolean>>({
+    'ios-6.9': true,
+    'ios-6.5': false,
+    'ios-5.5': true,
+    'ios-ipad': false,
+    'android-phone': true,
+  });
 
   // Multi-page slides list
   const [pages, setPages] = useState<MockupPage[]>([
@@ -57,8 +72,9 @@ function App() {
       bgImageSrc: '',
       bgBlur: 10,
       showFrostedGlass: false,
-      deviceModel: 'iphone_16_pro',
-      deviceColor: 'light',
+      devices: [
+        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+      ],
       titleFontFamily: 'Playfair Display',
       subtitleFontFamily: 'Geist',
     },
@@ -72,8 +88,9 @@ function App() {
       bgImageSrc: '',
       bgBlur: 10,
       showFrostedGlass: false,
-      deviceModel: 'iphone_16_pro',
-      deviceColor: 'light',
+      devices: [
+        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+      ],
       titleFontFamily: 'Playfair Display',
       subtitleFontFamily: 'Geist',
     },
@@ -86,14 +103,15 @@ function App() {
 
   // Layout parameters for active page
   const [selectedPresetId, setSelectedPresetId] = useState<string>('preset-gallery-light');
-  const [bgType, setBgType] = useState<'solid' | 'gradient' | 'image'>('solid');
+  const [bgType, setBgType] = useState<'solid' | 'gradient' | 'image' | 'panoramic'>('solid');
   const [bgColor, setBgColor] = useState<string>('#f5f5f4');
   const [bgGradient, setBgGradient] = useState<string[]>(['#f5f5f4', '#e5e5e4']);
   const [bgImageSrc, setBgImageSrc] = useState<string>('');
   const [bgBlur, setBgBlur] = useState<number>(10);
   const [showFrostedGlass, setShowFrostedGlass] = useState<boolean>(false);
-  const [deviceModel, setDeviceModel] = useState<string>('iphone_16_pro');
-  const [deviceColor, setDeviceColor] = useState<'dark' | 'light'>('light');
+  const [devices, setDevices] = useState<DeviceInstance[]>([
+    { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+  ]);
   const [titleText, setTitleText] = useState<string>('Manage Everything');
   const [subtitleText, setSubtitleText] = useState<string>('A beautiful minimal workspace');
   const [titleFontSize, setTitleFontSize] = useState<number>(54);
@@ -146,16 +164,11 @@ function App() {
       setBgImageSrc(activePage.bgImageSrc || '');
       setBgBlur(activePage.bgBlur !== undefined ? activePage.bgBlur : 10);
       setShowFrostedGlass(!!activePage.showFrostedGlass);
-      setDeviceModel(activePage.deviceModel || 'iphone_16_pro');
-      setDeviceColor(activePage.deviceColor || 'light');
+      setDevices(activePage.devices || [
+        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
+      ]);
       setTitleFontFamily(activePage.titleFontFamily || 'Playfair Display');
       setSubtitleFontFamily(activePage.subtitleFontFamily || 'Geist');
-      if (activePage.screenshotSrc) {
-        const index = screenshots.indexOf(activePage.screenshotSrc);
-        setSelectedScreenshotIndex(index);
-      } else {
-        setSelectedScreenshotIndex(-1);
-      }
     }
   }, [activePageIndex]);
 
@@ -174,11 +187,9 @@ function App() {
               bgImageSrc: bgImageSrc,
               bgBlur: bgBlur,
               showFrostedGlass: showFrostedGlass,
-              deviceModel: deviceModel,
-              deviceColor: deviceColor,
+              devices: devices,
               titleFontFamily: titleFontFamily,
               subtitleFontFamily: subtitleFontFamily,
-              screenshotSrc: selectedScreenshotIndex !== -1 ? screenshots[selectedScreenshotIndex] : undefined,
             }
           : page
       )
@@ -192,12 +203,9 @@ function App() {
     bgImageSrc,
     bgBlur,
     showFrostedGlass,
-    deviceModel,
-    deviceColor,
+    devices,
     titleFontFamily,
     subtitleFontFamily,
-    selectedScreenshotIndex,
-    screenshots,
   ]);
 
   // Sync preset changes
@@ -220,10 +228,8 @@ function App() {
   // Draw and render the FabricJS canvas when state changes
   useEffect(() => {
     if (fabricCanvas) {
-      const screenshotSrc = selectedScreenshotIndex !== -1 ? screenshots[selectedScreenshotIndex] : undefined;
-
       const draw = async () => {
-        // Load fonts if browser supports document.fonts
+        // Load fonts dynamically
         if (document.fonts && document.fonts.load) {
           try {
             await Promise.all([
@@ -244,8 +250,7 @@ function App() {
             bgImageSrc,
             bgBlur,
             showFrostedGlass,
-            deviceModel,
-            deviceColor,
+            devices,
             titleText,
             subtitleText,
             titleFontSize,
@@ -253,7 +258,7 @@ function App() {
             titleFontFamily,
             subtitleFontFamily,
           },
-          screenshotSrc
+          activePageIndex
         );
       };
 
@@ -268,16 +273,13 @@ function App() {
     bgImageSrc,
     bgBlur,
     showFrostedGlass,
-    deviceModel,
-    deviceColor,
+    devices,
     titleText,
     subtitleText,
     titleFontSize,
     subtitleFontSize,
     titleFontFamily,
     subtitleFontFamily,
-    selectedScreenshotIndex,
-    screenshots,
   ]);
 
   // Handle uploading screenshots
@@ -288,6 +290,11 @@ function App() {
         const newSrc = e.target.result;
         setScreenshots((prev) => [...prev, newSrc]);
         setSelectedScreenshotIndex(screenshots.length);
+        
+        // Auto bind uploaded screen to the active selected device
+        setDevices((prevDevs) =>
+          prevDevs.map((d, i) => i === 0 ? { ...d, screenshotSrc: newSrc } : d)
+        );
       }
     };
     reader.readAsDataURL(file);
@@ -306,8 +313,7 @@ function App() {
       bgImageSrc: bgImageSrc,
       bgBlur: bgBlur,
       showFrostedGlass: showFrostedGlass,
-      deviceModel: deviceModel,
-      deviceColor: deviceColor,
+      devices: devices.map(d => ({ ...d, id: `dev-${d.id}-${Date.now()}` })),
       titleFontFamily: titleFontFamily,
       subtitleFontFamily: subtitleFontFamily,
     };
@@ -334,57 +340,69 @@ function App() {
     return new Blob([ab], { type: mimeString });
   };
 
-  // ZIP export handler
-  const handleExport = async () => {
-    if (pages.length === 0) return;
+  // Trigger size modal config
+  const handleExport = () => {
+    setShowExportModal(true);
+  };
+
+  // Run the ZIP export sequentially
+  const runZipExport = async () => {
+    const selectedPresets = EXPORT_PRESETS.filter(p => exportSizes[p.id]);
+    if (selectedPresets.length === 0) {
+      alert('请至少勾选一个导出尺寸规格！');
+      return;
+    }
+
+    setShowExportModal(false);
     setIsExporting(true);
     setExportProgress('准备画布环境...');
 
     try {
-      // 1. 创建离线渲染的临时 canvas 元素
-      const exportEl = document.createElement('canvas');
-      exportEl.width = 1242;
-      exportEl.height = 2208;
-      const exportCanvas = new Canvas(exportEl);
-
       const zip = new JSZip();
 
-      // 2. 循环绘制每个页面并转换为 PNG
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        setExportProgress(`正在渲染第 ${i + 1} 张图片 (${page.title})...`);
+      // 创建离线 canvas 元素
+      const exportEl = document.createElement('canvas');
+      const exportCanvas = new Canvas(exportEl);
 
-        await updateCanvas(
-          exportCanvas,
-          {
-            bgType: page.bgType || 'solid',
-            bgColor: page.bgColor,
-            bgGradient: page.bgGradient,
-            bgImageSrc: page.bgImageSrc,
-            bgBlur: page.bgBlur !== undefined ? page.bgBlur : 10,
-            showFrostedGlass: !!page.showFrostedGlass,
-            deviceModel: page.deviceModel || deviceModel,
-            deviceColor: page.deviceColor || deviceColor,
-            titleText: page.title,
-            subtitleText: page.subtitle,
-            titleFontSize: titleFontSize,
-            subtitleFontSize: subtitleFontSize,
-            titleFontFamily: page.titleFontFamily || 'Playfair Display',
-            subtitleFontFamily: page.subtitleFontFamily || 'Geist',
-          },
-          page.screenshotSrc
-        );
+      for (const preset of selectedPresets) {
+        // 重置物理像素大小以重采样
+        exportCanvas.setDimensions({ width: preset.width, height: preset.height });
 
-        // 导出无损 png 数据
-        const dataUrl = exportCanvas.toDataURL({ format: 'png', quality: 1.0, multiplier: 1 });
-        const blob = dataURItoBlob(dataUrl);
-        zip.file(`mockup_page_${i + 1}.png`, blob);
+        for (let i = 0; i < pages.length; i++) {
+          const page = pages[i];
+          setExportProgress(`正在渲染 [${preset.name}] 第 ${i + 1}/${pages.length} 页...`);
+
+          await updateCanvas(
+            exportCanvas,
+            {
+              bgType: page.bgType || 'solid',
+              bgColor: page.bgColor,
+              bgGradient: page.bgGradient,
+              bgImageSrc: page.bgImageSrc,
+              bgBlur: page.bgBlur !== undefined ? page.bgBlur : 10,
+              showFrostedGlass: !!page.showFrostedGlass,
+              devices: page.devices || [],
+              titleText: page.title,
+              subtitleText: page.subtitle,
+              titleFontSize: titleFontSize,
+              subtitleFontSize: subtitleFontSize,
+              titleFontFamily: page.titleFontFamily || 'Playfair Display',
+              subtitleFontFamily: page.subtitleFontFamily || 'Geist',
+            },
+            i
+          );
+
+          // 导出 PNG
+          const dataUrl = exportCanvas.toDataURL({ format: 'png', quality: 1.0, multiplier: 1 });
+          const blob = dataURItoBlob(dataUrl);
+          zip.file(`${preset.folder}/page_${i + 1}.png`, blob);
+        }
       }
 
       setExportProgress('正在生成压缩包，请稍候...');
       const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-      // 3. 触发客户端本地下载
+      // 下载
       const downloadUrl = URL.createObjectURL(zipBlob);
       const downloadLink = document.createElement('a');
       downloadLink.href = downloadUrl;
@@ -394,11 +412,10 @@ function App() {
       document.body.removeChild(downloadLink);
       URL.revokeObjectURL(downloadUrl);
 
-      // 4. 清理 Fabric 临时实例
       exportCanvas.dispose();
     } catch (error) {
       console.error('Error generating mockup ZIP export:', error);
-      alert('导出失败，请在控制台查看详细错误日志。');
+      alert('导出失败，请查看控制台错误日志。');
     } finally {
       setIsExporting(false);
       setExportProgress('');
@@ -496,8 +513,9 @@ function App() {
           setBgBlur={setBgBlur}
           showFrostedGlass={showFrostedGlass}
           setShowFrostedGlass={setShowFrostedGlass}
-          deviceModel={deviceModel}
-          setDeviceModel={setDeviceModel}
+          devices={devices}
+          setDevices={setDevices}
+          screenshots={screenshots}
           titleText={titleText}
           setTitleText={setTitleText}
           subtitleText={subtitleText}
@@ -514,6 +532,79 @@ function App() {
         />
       </div>
 
+      {/* 导出多尺寸配置模态弹窗 */}
+      {showExportModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9998,
+        }}>
+          <div className="ds-panel" style={{
+            width: '440px',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-primary)',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+          }}>
+            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0, color: 'var(--ink-primary)' }}>
+              一键多尺寸商店图打包
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span className="ds-label">选择要包含在 ZIP 中的规格分类</span>
+              {EXPORT_PRESETS.map(preset => (
+                <label
+                  key={preset.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '13px',
+                    padding: '8px 12px',
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  <span style={{ color: 'var(--ink-primary)' }}>{preset.name}</span>
+                  <input
+                    type="checkbox"
+                    checked={exportSizes[preset.id] || false}
+                    onChange={(e) => setExportSizes({ ...exportSizes, [preset.id]: e.target.checked })}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--ink-primary)' }}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                className="ds-btn"
+                style={{ flex: 1 }}
+                onClick={() => setShowExportModal(false)}
+              >
+                取消
+              </button>
+              <button
+                className="ds-btn ds-btn-active"
+                style={{ flex: 1 }}
+                onClick={runZipExport}
+              >
+                开始生成并打包
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 导出打包的加载指示器 */}
       {isExporting && (
         <div style={{
@@ -528,7 +619,6 @@ function App() {
           gap: '20px',
           zIndex: 9999,
         }}>
-          {/* 精致的黑白加载器 */}
           <div style={{
             width: '40px',
             height: '40px',

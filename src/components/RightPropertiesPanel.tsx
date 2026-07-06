@@ -1,12 +1,13 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import marbleBg from '../assets/white_marble_bg.jpg';
 import grainBg from '../assets/minimal_grain_bg.jpg';
+import type { DeviceInstance } from '../utils/canvasManager';
 
 interface RightPropertiesPanelProps {
   activeTool: string;
   // Canvas Background
-  bgType: 'solid' | 'gradient' | 'image';
-  setBgType: (type: 'solid' | 'gradient' | 'image') => void;
+  bgType: 'solid' | 'gradient' | 'image' | 'panoramic';
+  setBgType: (type: 'solid' | 'gradient' | 'image' | 'panoramic') => void;
   bgColor: string;
   setBgColor: (color: string) => void;
   setBgGradient: (grad: string[]) => void;
@@ -17,9 +18,10 @@ interface RightPropertiesPanelProps {
   showFrostedGlass: boolean;
   setShowFrostedGlass: (show: boolean) => void;
 
-  // Device Model
-  deviceModel: string;
-  setDeviceModel: (model: string) => void;
+  // Device instances array (Multi-device support)
+  devices: DeviceInstance[];
+  setDevices: (devices: DeviceInstance[]) => void;
+  screenshots: string[];
 
   // Typography
   titleText: string;
@@ -51,8 +53,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   setBgBlur,
   showFrostedGlass,
   setShowFrostedGlass,
-  deviceModel,
-  setDeviceModel,
+  devices = [],
+  setDevices,
+  screenshots = [],
   titleText,
   setTitleText,
   subtitleText,
@@ -77,6 +80,64 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   ];
 
   const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeDeviceIndex, setActiveDeviceIndex] = useState<number>(0);
+
+  // Auto layout preset triggers
+  const applyPresetLayout = (presetType: 'single' | 'double' | 'skew') => {
+    if (presetType === 'single') {
+      setDevices([
+        {
+          id: 'dev-1',
+          deviceModel: 'iphone_16_pro_light',
+          screenshotSrc: devices[0]?.screenshotSrc || screenshots[0],
+          angle: 0,
+          skewX: 0,
+          scale: 0.95,
+          offsetX: 0,
+          offsetY: 80,
+        }
+      ]);
+      setActiveDeviceIndex(0);
+    } else if (presetType === 'double') {
+      setDevices([
+        {
+          id: 'dev-1',
+          deviceModel: 'iphone_16_pro',
+          screenshotSrc: devices[0]?.screenshotSrc || screenshots[0],
+          angle: -5,
+          skewX: 0,
+          scale: 0.82,
+          offsetX: -180,
+          offsetY: 150,
+        },
+        {
+          id: 'dev-2',
+          deviceModel: 'iphone_16_pro_light',
+          screenshotSrc: devices[1]?.screenshotSrc || screenshots[0],
+          angle: 5,
+          skewX: 0,
+          scale: 0.82,
+          offsetX: 180,
+          offsetY: 150,
+        }
+      ]);
+      setActiveDeviceIndex(0);
+    } else if (presetType === 'skew') {
+      setDevices([
+        {
+          id: 'dev-1',
+          deviceModel: 'iphone_16_pro',
+          screenshotSrc: devices[0]?.screenshotSrc || screenshots[0],
+          angle: 12,
+          skewX: -5,
+          scale: 0.88,
+          offsetX: 0,
+          offsetY: 120,
+        }
+      ]);
+      setActiveDeviceIndex(0);
+    }
+  };
 
   const handleCustomBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -90,6 +151,39 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
     }
   };
 
+  // Safe fetch of current device under edit
+  const activeDevice = devices[activeDeviceIndex] || devices[0];
+
+  const updateActiveDevice = (fields: Partial<DeviceInstance>) => {
+    const idx = devices[activeDeviceIndex] ? activeDeviceIndex : 0;
+    const newDevices = devices.map((dev, i) =>
+      i === idx ? { ...dev, ...fields } : dev
+    );
+    setDevices(newDevices);
+  };
+
+  const addDevice = () => {
+    const newDev: DeviceInstance = {
+      id: `dev-${Date.now()}`,
+      deviceModel: 'iphone_16_pro',
+      screenshotSrc: screenshots[0],
+      angle: 0,
+      skewX: 0,
+      scale: 0.8,
+      offsetX: devices.length * 40,
+      offsetY: 100,
+    };
+    setDevices([...devices, newDev]);
+    setActiveDeviceIndex(devices.length);
+  };
+
+  const deleteDevice = (index: number) => {
+    if (devices.length <= 1) return;
+    const newDevices = devices.filter((_, i) => i !== index);
+    setDevices(newDevices);
+    setActiveDeviceIndex(Math.max(0, index - 1));
+  };
+
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       {activeTool === 'screenshots' ? (
@@ -97,40 +191,47 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           {/* 画布背景 */}
           <div className="sidebar-title">画布背景</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* 背景类型切换选项卡 */}
             <div className="ds-input-group">
               <label className="ds-label">填充方式</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
                 <button
                   className={`ds-btn ${bgType === 'solid' ? 'ds-btn-active' : ''}`}
-                  style={{ fontSize: '11px', padding: '6px 0' }}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
                   onClick={() => setBgType('solid')}
                 >
                   纯色
                 </button>
                 <button
                   className={`ds-btn ${bgType === 'gradient' ? 'ds-btn-active' : ''}`}
-                  style={{ fontSize: '11px', padding: '6px 0' }}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
                   onClick={() => setBgType('gradient')}
                 >
                   渐变
                 </button>
                 <button
                   className={`ds-btn ${bgType === 'image' ? 'ds-btn-active' : ''}`}
-                  style={{ fontSize: '11px', padding: '6px 0' }}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
                   onClick={() => {
                     setBgType('image');
-                    if (!bgImageSrc) {
+                    if (!bgImageSrc || bgImageSrc.length < 50) {
                       setBgImageSrc(marbleBg);
                     }
                   }}
                 >
-                  纹理图
+                  纹理
+                </button>
+                <button
+                  className={`ds-btn ${bgType === 'panoramic' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => {
+                    setBgType('panoramic');
+                  }}
+                >
+                  连图
                 </button>
               </div>
             </div>
 
-            {/* A. 纯色背景配置 */}
             {bgType === 'solid' && (
               <div className="ds-input-group">
                 <label className="ds-label">背景色预设</label>
@@ -164,7 +265,6 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       cursor: 'pointer',
                       flexShrink: 0,
                     }}
-                    title="选取自定义背景颜色"
                   />
                   <input
                     type="text"
@@ -178,7 +278,6 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               </div>
             )}
 
-            {/* B. 渐变背景配置 */}
             {bgType === 'gradient' && (
               <div className="ds-input-group" style={{ gap: '8px' }}>
                 <label className="ds-label">渐变模板</label>
@@ -197,19 +296,18 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     }}
                     onClick={() => {
                       setBgGradient(grad.colors);
-                      setBgColor(grad.colors[0]); // 联动明暗对比计算
+                      setBgColor(grad.colors[0]);
                     }}
                   >
-                    <span style={{ textShadow: '0 1px 2px rgba(255,255,255,0.2)' }}>{grad.name}</span>
+                    <span>{grad.name}</span>
                   </button>
                 ))}
               </div>
             )}
 
-            {/* C. 纹理图片背景配置 */}
-            {bgType === 'image' && (
+            {(bgType === 'image' || bgType === 'panoramic') && (
               <div className="ds-input-group" style={{ gap: '10px' }}>
-                <label className="ds-label">纹理图选择</label>
+                <label className="ds-label">底图选择</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                   <button
                     className={`ds-btn ${bgImageSrc === marbleBg ? 'ds-btn-active' : ''}`}
@@ -227,7 +325,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                   </button>
                 </div>
 
-                <div style={{ marginTop: '4px' }}>
+                <div>
                   <input
                     type="file"
                     ref={imageFileInputRef}
@@ -240,7 +338,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     style={{ width: '100%', fontSize: '12px' }}
                     onClick={() => imageFileInputRef.current?.click()}
                   >
-                    上传自定义背景图
+                    {bgType === 'panoramic' ? '上传超宽连图背景' : '上传自定义背景图'}
                   </button>
                 </div>
               </div>
@@ -250,8 +348,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           {/* 渲染特效设置 */}
           <div className="sidebar-title">视觉特效</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* 1. 背景模糊滤镜 */}
-            {bgType === 'image' && (
+            {(bgType === 'image' || bgType === 'panoramic') && (
               <div className="ds-input-group">
                 <label className="ds-label">背景高斯模糊 ({bgBlur}px)</label>
                 <input
@@ -265,7 +362,6 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               </div>
             )}
 
-            {/* 2. 毛玻璃背板 */}
             <div className="ds-input-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <label className="ds-label" style={{ marginBottom: 0, cursor: 'pointer' }} htmlFor="frosted-glass-toggle">
                 加装毛玻璃背板
@@ -285,28 +381,166 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
           </div>
 
-          {/* 设备设置 */}
-          <div className="sidebar-title">外壳型号</div>
-          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div className="ds-input-group">
-              <label className="ds-label">机型选择</label>
-              <select
-                className="ds-select"
-                value={deviceModel}
-                onChange={(e) => setDeviceModel(e.target.value)}
-              >
-                <option value="iphone_16_pro">iPhone 16 Pro (深色边框)</option>
-                <option value="iphone_16_pro_light">iPhone 16 Pro (银白边框)</option>
-                <option value="ipad_pro">iPad Pro (平板大壳)</option>
-                <option value="google_pixel">Google Pixel (安卓极简)</option>
-              </select>
+          {/* 设备与布局设置 */}
+          <div className="sidebar-title">设备布局预设</div>
+          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+              <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('single')}>单机居中</button>
+              <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('double')}>双机左右</button>
+              <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('skew')}>倾斜悬浮</button>
             </div>
+          </div>
+
+          <div className="sidebar-title">多机型混搭与三维偏置</div>
+          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* 设备选择页签 */}
+            <div className="ds-input-group">
+              <label className="ds-label">活动设备调整</label>
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px' }}>
+                {devices.map((dev, idx) => (
+                  <button
+                    key={dev.id}
+                    className={`ds-btn ${activeDeviceIndex === idx ? 'ds-btn-active' : ''}`}
+                    style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}
+                    onClick={() => setActiveDeviceIndex(idx)}
+                  >
+                    设备 {idx + 1}
+                  </button>
+                ))}
+                <button
+                  className="ds-btn"
+                  style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0, borderStyle: 'dashed' }}
+                  onClick={addDevice}
+                >
+                  + 新增
+                </button>
+              </div>
+            </div>
+
+            {activeDevice && (
+              <>
+                <div className="ds-input-group">
+                  <label className="ds-label">设备机型</label>
+                  <select
+                    className="ds-select"
+                    value={activeDevice.deviceModel}
+                    onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
+                  >
+                    <option value="iphone_16_pro">iPhone 16 Pro (深色)</option>
+                    <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
+                    <option value="ipad_pro">iPad Pro (平板)</option>
+                    <option value="google_pixel">Google Pixel (安卓)</option>
+                  </select>
+                </div>
+
+                {/* 截图联动选择 */}
+                <div className="ds-input-group">
+                  <label className="ds-label">绑定内屏截图</label>
+                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 0' }}>
+                    <button
+                      className={`ds-btn ${!activeDevice.screenshotSrc ? 'ds-btn-active' : ''}`}
+                      style={{ padding: '4px 8px', fontSize: '11px', flexShrink: 0 }}
+                      onClick={() => updateActiveDevice({ screenshotSrc: undefined })}
+                    >
+                      无截图
+                    </button>
+                    {screenshots.map((src, sIdx) => (
+                      <button
+                        key={sIdx}
+                        onClick={() => updateActiveDevice({ screenshotSrc: src })}
+                        style={{
+                          width: '32px',
+                          height: '48px',
+                          border: '1px solid',
+                          borderColor: activeDevice.screenshotSrc === src ? 'var(--border-focus)' : 'var(--border-primary)',
+                          padding: 0,
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2.5D Sliders */}
+                <div className="ds-input-group">
+                  <label className="ds-label">旋转角度 ({activeDevice.angle || 0}°)</label>
+                  <input
+                    type="range"
+                    min="-45"
+                    max="45"
+                    value={activeDevice.angle || 0}
+                    onChange={(e) => updateActiveDevice({ angle: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label">三维错切 ({activeDevice.skewX || 0}°)</label>
+                  <input
+                    type="range"
+                    min="-20"
+                    max="20"
+                    value={activeDevice.skewX || 0}
+                    onChange={(e) => updateActiveDevice({ skewX: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
+                  <input
+                    type="range"
+                    min="40"
+                    max="150"
+                    value={Math.round((activeDevice.scale || 1) * 100)}
+                    onChange={(e) => updateActiveDevice({ scale: parseInt(e.target.value) / 100 })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label">水平偏移 ({activeDevice.offsetX || 0}px)</label>
+                  <input
+                    type="range"
+                    min="-500"
+                    max="500"
+                    value={activeDevice.offsetX || 0}
+                    onChange={(e) => updateActiveDevice({ offsetX: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
+                  <input
+                    type="range"
+                    min="-200"
+                    max="600"
+                    value={activeDevice.offsetY || 0}
+                    onChange={(e) => updateActiveDevice({ offsetY: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+
+                {devices.length > 1 && (
+                  <button
+                    className="ds-btn"
+                    style={{ width: '100%', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                    onClick={() => deleteDevice(activeDeviceIndex)}
+                  >
+                    删除当前选中的设备
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
           {/* 文案与排版 */}
           <div className="sidebar-title">文案与排版</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* 字体选择 */}
             <div className="ds-input-group">
               <label className="ds-label">标题字体</label>
               <select
@@ -337,7 +571,6 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               </select>
             </div>
 
-            {/* 文字内容 */}
             <div className="ds-input-group">
               <label className="ds-label">主标题内容</label>
               <input

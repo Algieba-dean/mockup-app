@@ -1,14 +1,24 @@
 import { Canvas, Rect, Textbox, FabricImage, Group, Shadow, Gradient, filters } from 'fabric';
 
+export interface DeviceInstance {
+  id: string;
+  deviceModel: string;
+  screenshotSrc?: string;
+  angle: number;
+  skewX: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}
+
 export interface CanvasState {
-  bgType: 'solid' | 'gradient' | 'image';
+  bgType: 'solid' | 'gradient' | 'image' | 'panoramic';
   bgColor: string;
-  bgGradient?: string[]; // Array of hex strings, e.g. ['#f5f5f4', '#e5e5e4']
+  bgGradient?: string[]; // Array of hex strings
   bgImageSrc?: string;
   bgBlur: number;
   showFrostedGlass: boolean;
-  deviceModel: string;
-  deviceColor: 'dark' | 'light';
+  devices: DeviceInstance[]; // Supports multi-device layout
   titleText: string;
   subtitleText: string;
   titleFontSize: number;
@@ -79,18 +89,44 @@ const DEVICE_DB: Record<string, DeviceMetric> = {
 export const updateCanvas = async (
   canvas: Canvas,
   state: CanvasState,
-  screenshotSrc?: string
+  pageIndex: number = 0
 ) => {
   // 1. 清空画布
   canvas.clear();
 
-  // 设置统一的输出分辨率 (App Store 6.5" 适配规范比率)
-  const canvasWidth = 1242;
-  const canvasHeight = 2208;
-  canvas.setDimensions({ width: canvasWidth, height: canvasHeight });
+  // 获取当前实际画布分辨率以进行动态比率缩放 (基准物理高度为 2208)
+  const canvasWidth = canvas.getWidth();
+  const canvasHeight = canvas.getHeight();
+  const R = canvasHeight / 2208; // 相对重采样缩放系数
 
   // 2. 绘制画布背景
-  if (state.bgType === 'image' && state.bgImageSrc) {
+  if (state.bgType === 'panoramic' && state.bgImageSrc) {
+    // ASO 全局连图模式
+    try {
+      const bgImg = await FabricImage.fromURL(state.bgImageSrc);
+      const scale = canvasHeight / bgImg.height!;
+      
+      bgImg.set({
+        left: -pageIndex * canvasWidth, // 根据页面索引平移切片
+        top: 0,
+        scaleX: scale,
+        scaleY: scale,
+        selectable: false,
+        hoverCursor: 'default',
+      });
+
+      if (state.bgBlur > 0) {
+        const blurFilter = new filters.Blur({ blur: state.bgBlur / 30 });
+        bgImg.filters.push(blurFilter);
+        bgImg.applyFilters();
+      }
+      canvas.add(bgImg);
+    } catch (error) {
+      console.error('Failed to load panoramic background', error);
+      drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
+    }
+  } else if (state.bgType === 'image' && state.bgImageSrc) {
+    // 普通单页纹理背景
     try {
       const bgImg = await FabricImage.fromURL(state.bgImageSrc);
       const scaleX = canvasWidth / bgImg.width!;
@@ -106,7 +142,6 @@ export const updateCanvas = async (
         hoverCursor: 'default',
       });
 
-      // 应用背景模糊滤镜 (Gaussian Blur)
       if (state.bgBlur > 0) {
         const blurFilter = new filters.Blur({ blur: state.bgBlur / 30 });
         bgImg.filters.push(blurFilter);
@@ -115,10 +150,10 @@ export const updateCanvas = async (
       canvas.add(bgImg);
     } catch (error) {
       console.error('Failed to load template background image', error);
-      // 回退纯色背景
       drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
     }
   } else if (state.bgType === 'gradient' && state.bgGradient && state.bgGradient.length >= 2) {
+    // 渐变填充模式
     const gradientBackground = new Rect({
       left: 0,
       top: 0,
@@ -145,15 +180,16 @@ export const updateCanvas = async (
     drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
   }
 
-  // 辅助计算对比高亮色
+  // 3. 相对定位计算对比色
   const contrastingColor = getContrastingColor(state.bgColor, state.bgType);
 
-  // 3. 绘制主标题
+  // 4. 绘制主标题 (使用 R 动态比率重新计算坐标与字号)
+  const titleTop = 180 * R;
   const title = new Textbox(state.titleText || '主标题文本', {
-    left: 80,
-    top: 180,
-    width: canvasWidth - 160,
-    fontSize: state.titleFontSize,
+    left: 80 * R,
+    top: titleTop,
+    width: canvasWidth - 160 * R,
+    fontSize: state.titleFontSize * R,
     fontFamily: `${state.titleFontFamily}, Georgia, serif`,
     fontWeight: '500',
     fill: contrastingColor,
@@ -163,13 +199,13 @@ export const updateCanvas = async (
   });
   canvas.add(title);
 
-  // 4. 绘制副标题
+  // 5. 绘制副标题 (紧跟标题高度，动态定位)
   const subtitleColor = contrastingColor === '#0f0f0f' ? '#575756' : '#d4d4d8';
   const subtitle = new Textbox(state.subtitleText || '这里是您的副标题文本说明', {
-    left: 120,
-    top: 180 + title.height! + 24,
-    width: canvasWidth - 240,
-    fontSize: state.subtitleFontSize,
+    left: 120 * R,
+    top: titleTop + title.height! + 24 * R,
+    width: canvasWidth - 240 * R,
+    fontSize: state.subtitleFontSize * R,
     fontFamily: `${state.subtitleFontFamily}, -apple-system, sans-serif`,
     fontWeight: '300',
     fill: subtitleColor,
@@ -179,147 +215,176 @@ export const updateCanvas = async (
   });
   canvas.add(subtitle);
 
-  // 5. 根据机型数据库获取设备适配参数
-  const dev = DEVICE_DB[state.deviceModel] || DEVICE_DB.iphone_16_pro;
-  const devWidth = dev.width;
-  const devHeight = dev.height;
-  const devLeft = (canvasWidth - devWidth) / 2;
-  const devTop = 640;
-  const cornerRadius = dev.rx;
-  const screenBorderWidth = dev.screenBorderWidth;
-  const activeDeviceColor = dev.color;
+  // 6. 多设备迭代渲染逻辑 (支持设备混搭与三维偏角计算)
+  if (state.devices && state.devices.length > 0) {
+    for (const devInst of state.devices) {
+      const dev = DEVICE_DB[devInst.deviceModel] || DEVICE_DB.iphone_16_pro;
+      
+      // 动态比率缩放的宽、高、圆角半径
+      const devScale = devInst.scale || 1.0;
+      const devWidth = dev.width * devScale * R;
+      const devHeight = dev.height * devScale * R;
+      
+      // 计算外壳在 Canvas 的绝对中心坐标
+      const centerX = canvasWidth / 2 + devInst.offsetX * R;
+      const centerY = 680 * R + devHeight / 2 + devInst.offsetY * R;
+      
+      const cornerRadius = dev.rx * devScale * R;
+      const screenBorderWidth = dev.screenBorderWidth * devScale * R;
+      const activeDeviceColor = dev.color;
 
-  // 6. 绘制圆角毛玻璃背板 (Frosted Glass Panel Effect)
-  if (state.showFrostedGlass) {
-    const glassWidth = devWidth + 120;
-    const glassHeight = devHeight + 140;
-    const glassLeft = devLeft - 60;
-    const glassTop = devTop - 70;
-    const glassRadius = cornerRadius + 20;
+      // 6A. 渲染毛玻璃底板 (Frosted Glass Panel)
+      if (state.showFrostedGlass) {
+        const glassWidth = devWidth + 100 * R;
+        const glassHeight = devHeight + 120 * R;
+        const glassRadius = cornerRadius + 16 * R;
 
-    const glassShadow = new Shadow({
-      color: activeDeviceColor === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.4)',
-      blur: 50,
-      offsetX: 0,
-      offsetY: 10,
-    });
+        const glassShadow = new Shadow({
+          color: activeDeviceColor === 'light' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.4)',
+          blur: 50 * R,
+          offsetX: 0,
+          offsetY: 10 * R,
+        });
 
-    const glassPanel = new Rect({
-      left: glassLeft,
-      top: glassTop,
-      width: glassWidth,
-      height: glassHeight,
-      rx: glassRadius,
-      ry: glassRadius,
-      fill: activeDeviceColor === 'light' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.08)',
-      stroke: activeDeviceColor === 'light' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.15)',
-      strokeWidth: 1.5,
-      shadow: glassShadow,
-      selectable: false,
-      hoverCursor: 'default',
-    });
+        const glassPanel = new Rect({
+          left: centerX,
+          top: centerY,
+          width: glassWidth,
+          height: glassHeight,
+          rx: glassRadius,
+          ry: glassRadius,
+          fill: activeDeviceColor === 'light' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.08)',
+          stroke: activeDeviceColor === 'light' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.15)',
+          strokeWidth: 1.5 * R,
+          shadow: glassShadow,
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          angle: devInst.angle,
+          skewX: devInst.skewX,
+        });
 
-    canvas.add(glassPanel);
-  }
+        canvas.add(glassPanel);
+      }
 
-  // 7. 绘制手机外壳边缘投影
-  const deviceShadow = new Shadow({
-    color: 'rgba(0, 0, 0, 0.35)',
-    blur: 40,
-    offsetX: 0,
-    offsetY: 15,
-  });
+      // 6B. 光学投影补偿算法 (角度越大，投影偏移越明显)
+      const rad = (devInst.angle * Math.PI) / 180;
+      const shadowX = 15 * Math.sin(rad) * R;
+      const shadowY = 25 * Math.cos(rad) * R;
 
-  // A. 外壳边缘主体
-  const bezelOuter = new Rect({
-    left: devLeft,
-    top: devTop,
-    width: devWidth,
-    height: devHeight,
-    rx: cornerRadius,
-    ry: cornerRadius,
-    fill: activeDeviceColor === 'light' ? '#f5f5f4' : '#18181b',
-    stroke: activeDeviceColor === 'light' ? '#d4d4d8' : '#27272a',
-    strokeWidth: 6,
-    shadow: deviceShadow,
-    selectable: false,
-  });
+      const deviceShadow = new Shadow({
+        color: 'rgba(0, 0, 0, 0.35)',
+        blur: 40 * R,
+        offsetX: shadowX,
+        offsetY: shadowY,
+      });
 
-  // B. 屏幕黑色内侧边缘
-  const bezelInner = new Rect({
-    left: devLeft + screenBorderWidth,
-    top: devTop + screenBorderWidth,
-    width: devWidth - (screenBorderWidth * 2),
-    height: devHeight - (screenBorderWidth * 2),
-    rx: cornerRadius - 8,
-    ry: cornerRadius - 8,
-    fill: '#000000',
-    selectable: false,
-  });
+      // 准备构成手机 Group 的各个图层（全部基于相对原点 0,0 绘制）
+      const groupParts: any[] = [];
 
-  // C. 动态岛 (Dynamic Island)
-  const islandWidth = 160;
-  const islandHeight = 36;
-  const island = new Rect({
-    left: devLeft + (devWidth - islandWidth) / 2,
-    top: devTop + screenBorderWidth + 16,
-    width: islandWidth,
-    height: islandHeight,
-    rx: 18,
-    ry: 18,
-    fill: '#000000',
-    selectable: false,
-  });
+      // Bezel 外边框
+      const bezelOuter = new Rect({
+        left: 0,
+        top: 0,
+        width: devWidth,
+        height: devHeight,
+        rx: cornerRadius,
+        ry: cornerRadius,
+        fill: activeDeviceColor === 'light' ? '#f5f5f4' : '#18181b',
+        stroke: activeDeviceColor === 'light' ? '#d4d4d8' : '#27272a',
+        strokeWidth: 6 * R,
+        originX: 'center',
+        originY: 'center',
+      });
+      groupParts.push(bezelOuter);
 
-  // 将手机边框组件合为一组
-  const deviceGroup = new Group([bezelOuter, bezelInner], {
-    selectable: false,
-    hoverCursor: 'default',
-  });
-  canvas.add(deviceGroup);
+      // Bezel 内屏黑边
+      const bezelInner = new Rect({
+        left: 0,
+        top: 0,
+        width: devWidth - (screenBorderWidth * 2),
+        height: devHeight - (screenBorderWidth * 2),
+        rx: cornerRadius - 8 * devScale * R,
+        ry: cornerRadius - 8 * devScale * R,
+        fill: '#000000',
+        originX: 'center',
+        originY: 'center',
+      });
+      groupParts.push(bezelInner);
 
-  // 8. 加载截图并裁切贴合至手机屏幕
-  if (screenshotSrc) {
-    try {
-      const img = await FabricImage.fromURL(screenshotSrc);
+      // 6C. 载入内屏截图并应用几何形变裁切
+      if (devInst.screenshotSrc) {
+        try {
+          const img = await FabricImage.fromURL(devInst.screenshotSrc);
 
-      const screenWidth = devWidth - (screenBorderWidth * 2) - 4;
-      const screenHeight = devHeight - (screenBorderWidth * 2) - 4;
-      const screenLeft = devLeft + screenBorderWidth + 2;
-      const screenTop = devTop + screenBorderWidth + 2;
+          const screenWidth = devWidth - (screenBorderWidth * 2) - 4 * R;
+          const screenHeight = devHeight - (screenBorderWidth * 2) - 4 * R;
 
-      const scaleX = screenWidth / img.width!;
-      const scaleY = screenHeight / img.height!;
-      const scale = Math.max(scaleX, scaleY);
+          const scaleX = screenWidth / img.width!;
+          const scaleY = screenHeight / img.height!;
+          const scale = Math.max(scaleX, scaleY);
 
-      img.set({
-        left: screenLeft + (screenWidth - img.width! * scale) / 2,
-        top: screenTop + (screenHeight - img.height! * scale) / 2,
-        scaleX: scale,
-        scaleY: scale,
+          img.set({
+            left: 0,
+            top: 0,
+            scaleX: scale,
+            scaleY: scale,
+            originX: 'center',
+            originY: 'center',
+          });
+
+          // 为内屏组件添加相对圆角裁切
+          const clipPath = new Rect({
+            left: 0,
+            top: 0,
+            width: screenWidth,
+            height: screenHeight,
+            rx: cornerRadius - 10 * devScale * R,
+            ry: cornerRadius - 10 * devScale * R,
+            originX: 'center',
+            originY: 'center',
+          });
+
+          img.clipPath = clipPath;
+          groupParts.push(img);
+        } catch (error) {
+          console.error('Failed to load screenshot image in Fabric.js', error);
+        }
+      }
+
+      // 6D. 如果有动态岛，在顶端覆盖渲染
+      if (dev.hasIsland) {
+        const islandWidth = 160 * devScale * R;
+        const islandHeight = 36 * devScale * R;
+        const island = new Rect({
+          left: 0,
+          top: -devHeight / 2 + screenBorderWidth + 16 * devScale * R + islandHeight / 2,
+          width: islandWidth,
+          height: islandHeight,
+          rx: 18 * devScale * R,
+          ry: 18 * devScale * R,
+          fill: '#000000',
+          originX: 'center',
+          originY: 'center',
+        });
+        groupParts.push(island);
+      }
+
+      // 创建统一的设备 Group
+      const deviceGroup = new Group(groupParts, {
+        left: centerX,
+        top: centerY,
+        originX: 'center',
+        originY: 'center',
+        angle: devInst.angle,
+        skewX: devInst.skewX,
+        shadow: deviceShadow,
         selectable: false,
+        hoverCursor: 'default',
       });
 
-      const clipPath = new Rect({
-        left: screenLeft,
-        top: screenTop,
-        width: screenWidth,
-        height: screenHeight,
-        rx: cornerRadius - 10,
-        ry: cornerRadius - 10,
-        absolutePositioned: true,
-      });
-
-      img.clipPath = clipPath;
-      canvas.add(img);
-    } catch (error) {
-      console.error('Failed to load screenshot image in Fabric.js', error);
+      canvas.add(deviceGroup);
     }
-  }
-
-  // 9. 如果是 iPhone，在最上方渲染动态岛，避免被截图遮挡
-  if (dev.hasIsland) {
-    canvas.add(island);
   }
 
   // 重新渲染画布
@@ -345,8 +410,8 @@ const drawSolidBackground = (canvas: Canvas, w: number, h: number, color: string
 /**
  * 辅助函数：根据背景明暗色，动态返回对比高反差文本颜色 (黑或白)
  */
-const getContrastingColor = (hexcolor: string, bgType: 'solid' | 'gradient' | 'image'): string => {
-  if (bgType === 'image') return '#0f0f0f'; // 纹理背景统一黑字
+const getContrastingColor = (hexcolor: string, bgType: 'solid' | 'gradient' | 'image' | 'panoramic'): string => {
+  if (bgType === 'image' || bgType === 'panoramic') return '#0f0f0f'; // 纹理背景统一黑字
   const hex = hexcolor.replace('#', '');
   if (hex.length !== 6) return '#0f0f0f';
   const r = parseInt(hex.substring(0, 2), 16);
