@@ -53,18 +53,29 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Outer container representing the actual scaled layout size in DOM */}
       <div style={{
-        width: '1242px',
-        height: '2208px',
-        boxShadow: '0 12px 40px var(--shadow-color)',
-        border: '1px solid var(--border-primary)',
-        backgroundColor: 'var(--bg-secondary)',
-        transform: `scale(${zoom / 100})`,
-        transformOrigin: 'center center',
-        transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+        width: `${1242 * (zoom / 100)}px`,
+        height: `${2208 * (zoom / 100)}px`,
+        position: 'relative',
         flexShrink: 0,
       }}>
-        <canvas ref={canvasRef} />
+        {/* Inner container scaled using transform */}
+        <div style={{
+          width: '1242px',
+          height: '2208px',
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: `translate(-50%, -50%) scale(${zoom / 100})`,
+          transformOrigin: 'center center',
+          boxShadow: '0 12px 40px var(--shadow-color)',
+          border: '1px solid var(--border-primary)',
+          backgroundColor: 'var(--bg-secondary)',
+          transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}>
+          <canvas ref={canvasRef} />
+        </div>
       </div>
 
       {/* 拖拽指示蒙层 */}

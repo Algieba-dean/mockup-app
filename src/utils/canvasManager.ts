@@ -194,6 +194,8 @@ export const updateCanvas = async (
     fontWeight: '500',
     fill: contrastingColor,
     textAlign: 'center',
+    originX: 'left',
+    originY: 'top',
     selectable: false,
     splitByGrapheme: true,
   });
@@ -210,6 +212,8 @@ export const updateCanvas = async (
     fontWeight: '300',
     fill: subtitleColor,
     textAlign: 'center',
+    originX: 'left',
+    originY: 'top',
     selectable: false,
     splitByGrapheme: true,
   });

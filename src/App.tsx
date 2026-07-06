@@ -145,6 +145,7 @@ function App() {
         backgroundColor: '#f5f5f4',
       });
       setFabricCanvas(canvas);
+      (window as any).__canvas = canvas;
 
       return () => {
         canvas.dispose();
