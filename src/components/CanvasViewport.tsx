@@ -6,6 +6,9 @@ interface CanvasViewportProps {
   setZoom: (z: number) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onFileDrop: (file: File) => void;
+  bgColor?: string;
+  bgType?: 'solid' | 'gradient' | 'image' | 'panoramic';
+  bgGradient?: string[];
 }
 
 export const CanvasViewport: React.FC<CanvasViewportProps> = ({
@@ -13,6 +16,9 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
   setZoom,
   canvasRef,
   onFileDrop,
+  bgColor = '#f5f5f4',
+  bgType = 'solid',
+  bgGradient = [],
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -46,8 +52,17 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
       style={{
         flex: 1,
         position: 'relative',
-        backgroundColor: isDragging ? 'var(--bg-tertiary)' : 'transparent',
-        transition: 'background-color 0.2s ease',
+        backgroundColor: isDragging
+          ? 'var(--bg-tertiary)'
+          : bgType === 'gradient' && bgGradient.length >= 2
+            ? undefined
+            : bgColor,
+        background: isDragging
+          ? undefined
+          : bgType === 'gradient' && bgGradient.length >= 2
+            ? `linear-gradient(180deg, ${bgGradient[0]}, ${bgGradient[1]})`
+            : undefined,
+        transition: 'background-color 0.3s ease, background 0.3s ease',
         overflow: 'hidden',
         height: '100%',
       }}
@@ -81,9 +96,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
             top: '50%',
             transform: `translate(-50%, -50%) scale(${zoom / 100})`,
             transformOrigin: 'center center',
-            boxShadow: '0 12px 40px var(--shadow-color)',
-            border: '1px solid var(--border-primary)',
-            backgroundColor: 'var(--bg-secondary)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
             transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
           }}>
             <canvas ref={canvasRef} />

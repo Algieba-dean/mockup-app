@@ -528,6 +528,9 @@ function App() {
                 setZoom={setZoom}
                 canvasRef={canvasRef}
                 onFileDrop={handleUploadScreenshot}
+                bgColor={bgColor}
+                bgType={bgType}
+                bgGradient={bgGradient}
               />
 
               {/* 底部故事画幅 Dock */}

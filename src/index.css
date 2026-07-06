@@ -307,7 +307,6 @@ p, span, label, input, button, textarea, select {
   display: grid;
   grid-template-rows: 1fr var(--dock-height);
   height: 100%;
-  background-color: var(--bg-primary);
   position: relative;
 }
 
