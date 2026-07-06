@@ -1,0 +1,409 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Geist:wght@100..900&family=Inter:wght@100..900&family=Lora:ital,wght@0,400..700;1,400..700&family=Outfit:wght@100..900&family=Playfair+Display:ital,wght@0,400..700;1,400..700&display=swap');
+
+/* ==========================================================================
+   1. Design System & Variables (The Editorial Curator)
+   ========================================================================== */
+
+:root {
+  /* Fonts */
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Theme: Dark (Default) */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #121212;
+  --bg-tertiary: #1c1c1c;
+  --ink-primary: #f5f5f4;
+  --ink-secondary: #a8a29e;
+  --ink-tertiary: #575756;
+  --border-primary: #262626;
+  --border-secondary: #404040;
+  --border-focus: #ffffff;
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --shadow-active: rgba(255, 255, 255, 0.05);
+
+  --transition-speed: 0.15s;
+  --transition-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layout scale */
+  --header-height: 56px;
+  --sidebar-width: 320px;
+  --dock-height: 120px;
+}
+
+/* Light Theme overrides */
+:root.light {
+  --bg-primary: #fbfbfa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f4f4f3;
+  --ink-primary: #121212;
+  --ink-secondary: #575756;
+  --ink-tertiary: #a8a29e;
+  --border-primary: #e5e5e4;
+  --border-secondary: #cccccc;
+  --border-focus: #000000;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+  --shadow-active: rgba(0, 0, 0, 0.15);
+}
+
+/* ==========================================================================
+   2. Resets & Document Defaults
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--ink-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  overflow: hidden; /* App Shell controls scrolling */
+  transition: background-color var(--transition-speed) var(--transition-ease),
+              color var(--transition-speed) var(--transition-ease);
+}
+
+/* Scrollbars styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-secondary);
+}
+
+/* ==========================================================================
+   3. Base Typography
+   ========================================================================== */
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  color: var(--ink-primary);
+  letter-spacing: -0.01em;
+}
+
+p, span, label, input, button, textarea, select {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+}
+
+/* ==========================================================================
+   4. UI Utilities & Premium Component Base Styles
+   ========================================================================== */
+
+/* Buttons */
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  color: var(--ink-primary);
+  cursor: pointer;
+  outline: none;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  transition: all var(--transition-speed) var(--transition-ease);
+}
+
+.ds-btn:hover {
+  border-color: var(--border-focus);
+  background-color: var(--ink-primary);
+  color: var(--bg-primary);
+}
+
+.ds-btn-active {
+  border-color: var(--border-focus);
+  background-color: var(--ink-primary);
+  color: var(--bg-primary);
+}
+
+.ds-btn-icon-only {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+/* Inputs & Form Fields */
+.ds-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ds-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-secondary);
+  font-weight: 500;
+}
+
+.ds-input {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--ink-primary);
+  outline: none;
+  font-size: 0.8125rem;
+  transition: border-color var(--transition-speed) var(--transition-ease);
+}
+
+.ds-input:focus {
+  border-color: var(--border-focus);
+}
+
+/* Select dropdown */
+.ds-select {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--ink-primary);
+  outline: none;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 32px;
+  transition: border-color var(--transition-speed) var(--transition-ease);
+}
+
+.ds-select:focus {
+  border-color: var(--border-focus);
+}
+
+/* Cards & Panel containers */
+.ds-panel {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  padding: 24px;
+}
+
+/* ==========================================================================
+   5. MockupApp Layout Grid (App Shell)
+   ========================================================================== */
+
+.app-shell {
+  display: grid;
+  grid-template-rows: var(--header-height) 1fr;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-primary);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-logo h1 {
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+}
+
+.app-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.app-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-main {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
+  height: calc(100vh - var(--header-height));
+  overflow: hidden;
+  transition: grid-template-columns var(--transition-speed) var(--transition-ease);
+}
+
+.app-main.left-collapsed {
+  grid-template-columns: 0px 1fr var(--sidebar-width);
+}
+
+.app-main.right-collapsed {
+  grid-template-columns: var(--sidebar-width) 1fr 0px;
+}
+
+.app-main.both-collapsed {
+  grid-template-columns: 0px 1fr 0px;
+}
+
+/* Sidebar layouts */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  border-inline: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  height: 100%;
+  overflow-y: auto;
+  transition: width var(--transition-speed) var(--transition-ease),
+              opacity var(--transition-speed) var(--transition-ease),
+              border-width var(--transition-speed) var(--transition-ease);
+  width: var(--sidebar-width);
+}
+
+.sidebar.collapsed {
+  width: 0px;
+  opacity: 0;
+  overflow: hidden;
+  border-inline-width: 0px;
+}
+
+.sidebar-title {
+  padding: 16px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-secondary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.sidebar-content {
+  padding: 20px;
+  flex: 1;
+}
+
+/* Center viewport layout */
+.viewport-container {
+  display: grid;
+  grid-template-rows: 1fr var(--dock-height);
+  height: 100%;
+  background-color: var(--bg-primary);
+  position: relative;
+}
+
+.viewport-canvas-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: auto;
+  padding: 40px;
+}
+
+/* Viewport scaling controls overlay */
+.viewport-zoom-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  padding: 6px 12px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  z-index: 10;
+}
+
+.viewport-zoom-value {
+  font-size: 0.75rem;
+  font-weight: 500;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Bottom Asset Dock */
+.asset-dock {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-primary);
+  background-color: var(--bg-secondary);
+  height: 100%;
+  overflow: hidden;
+}
+
+.asset-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.asset-dock-header span {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-secondary);
+  font-weight: 600;
+}
+
+.asset-dock-scroll {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  overflow-x: auto;
+  flex: 1;
+}
+
+.asset-item-card {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border: 1px solid var(--border-primary);
+  background-color: var(--bg-primary);
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--transition-speed) var(--transition-ease);
+}
+
+.asset-item-card:hover {
+  border-color: var(--border-focus);
+}
+
+.asset-item-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.asset-item-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-tertiary);
+  border-style: dashed;
+}
