@@ -13,6 +13,7 @@ import { updateCanvas } from './utils/canvasManager';
 import type { DeviceInstance } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
 import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE } from './utils/iconManager';
+import { PrivacyToolWorkspace } from './components/PrivacyToolWorkspace';
 
 interface MockupPage {
   id: string;
@@ -684,7 +685,13 @@ function App() {
       />
 
       {/* 主工作区 */}
-      <div className={`app-main ${leftSidebarCollapsed && rightSidebarCollapsed ? 'both-collapsed' : leftSidebarCollapsed ? 'left-collapsed' : rightSidebarCollapsed ? 'right-collapsed' : ''}`}>
+      <div className={`app-main ${activeTool === 'privacy' ? 'full-bleed' : leftSidebarCollapsed && rightSidebarCollapsed ? 'both-collapsed' : leftSidebarCollapsed ? 'left-collapsed' : rightSidebarCollapsed ? 'right-collapsed' : ''}`}>
+        {activeTool === 'privacy' ? (
+          <main className="privacy-tool-container">
+            <PrivacyToolWorkspace onToast={showToast} />
+          </main>
+        ) : (
+        <>
         {/* 左侧栏 */}
         <LeftSidebar
           activeTool={activeTool}
@@ -808,6 +815,8 @@ function App() {
           iconForegroundScale={iconForegroundScale}
           setIconForegroundScale={setIconForegroundScale}
         />
+        </>
+        )}
       </div>
 
       {/* 图标导出平台选择模态弹窗 */}

@@ -187,4 +187,55 @@ test.describe('MockupApp E2E Tests', () => {
     ]);
     expect(download.suggestedFilename()).toBe('mockup_app_icons.zip');
   });
+
+  test('should walk through the Privacy Policy wizard and generate a document', async ({ page }) => {
+    // 1. Switch to the Privacy & Terms tool
+    await page.locator('button:has-text("隐私与条款")').click();
+    await expect(page.locator('.legal-workspace')).toBeVisible();
+
+    // 2. Step 1: "下一步" stays disabled until required fields are valid
+    const nextBtn = page.locator('.legal-workspace button:has-text("下一步")').first();
+    await expect(nextBtn).toBeDisabled();
+
+    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
+    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+    await expect(nextBtn).toBeEnabled();
+    await nextBtn.click();
+
+    // 3. Step 2: select a couple of data types, then continue
+    await page.locator('.legal-checkbox-row:has-text("Email address")').click();
+    await page.locator('.legal-checkbox-row:has-text("Usage and log data")').click();
+    await page.locator('.legal-workspace button:has-text("下一步")').click();
+
+    // 4. Step 3: select a third-party service
+    await page.locator('.legal-checkbox-row:has-text("Google Analytics (GA4)")').click();
+    await page.locator('.legal-workspace button:has-text("下一步")').click();
+
+    // 5. Step 4: enable GDPR, then generate
+    await page.locator('.legal-checkbox-row:has-text("适用 GDPR")').click();
+    await page.locator('.legal-workspace button:has-text("生成")').click();
+
+    // 6. Result screen renders the generated document with expected sections
+    await expect(page.locator('h2:has-text("Privacy Policy")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Third-Party Services")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Your GDPR Data Protection Rights")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Log Data")')).toBeVisible();
+    await expect(page.locator('h3:has-text("International Data Transfers")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Account and Data Deletion")')).toBeVisible();
+
+    // 7. Download HTML triggers a file download
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('button:has-text("下载 HTML")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('privacy-policy.html');
+
+    // 8. Switching to Terms of Use keeps its own independent, untouched step state
+    await page.locator('button[role="tab"]:has-text("使用条款")').click();
+    await expect(page.locator('input[placeholder="例如 MockupApp"]')).toHaveValue('');
+
+    // 9. Switching back to Privacy Policy preserves the generated result (per-mode state)
+    await page.locator('button[role="tab"]:has-text("隐私政策")').click();
+    await expect(page.locator('h2:has-text("Privacy Policy")')).toBeVisible();
+  });
 });

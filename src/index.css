@@ -293,6 +293,138 @@ p, span, label, input, button, textarea, select {
   grid-template-columns: 0px 1fr 0px;
 }
 
+.app-main.full-bleed {
+  grid-template-columns: 1fr;
+}
+
+/* ==========================================================================
+   Privacy Policy / Terms of Use wizard
+   ========================================================================== */
+
+.privacy-tool-container {
+  height: 100%;
+  overflow-y: auto;
+  padding: 48px 24px 80px;
+  background-color: var(--bg-primary);
+}
+
+.legal-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.legal-mode-switch {
+  display: flex;
+  gap: 4px;
+  align-self: center;
+}
+
+.legal-step-indicator {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  list-style: none;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.legal-step-indicator li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.legal-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  transition: all var(--transition-speed) var(--transition-ease);
+}
+
+.legal-step-dot.is-done {
+  cursor: pointer;
+  border-color: var(--border-focus);
+  color: var(--ink-primary);
+}
+
+.legal-step-dot.is-current {
+  border-color: var(--border-focus);
+  background-color: var(--ink-primary);
+  color: var(--bg-primary);
+  cursor: default;
+}
+
+.legal-step-label {
+  font-size: 0.6875rem;
+  color: var(--ink-secondary);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 90px;
+}
+
+.legal-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.legal-checkbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--ink-primary);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color var(--transition-speed) var(--transition-ease);
+}
+
+.legal-checkbox-row:hover {
+  border-color: var(--border-secondary);
+}
+
+.legal-resume-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 0.8125rem;
+  color: var(--ink-primary);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .legal-step-label {
+    display: none;
+  }
+
+  .privacy-tool-container {
+    padding: 32px 16px 64px;
+  }
+}
+
 /* Sidebar layouts */
 .sidebar {
   display: flex;

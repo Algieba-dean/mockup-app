@@ -37,16 +37,18 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
   return (
     <header className="app-header">
       <div className="app-logo">
-        <button
-          className="ds-btn ds-btn-icon-only"
-          style={{ border: 'none' }}
-          onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-          title={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
-          aria-label={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
-        >
-          {leftSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-        </button>
-        <Layers size={18} strokeWidth={1.5} style={{ marginLeft: '8px' }} />
+        {activeTool !== 'privacy' && (
+          <button
+            className="ds-btn ds-btn-icon-only"
+            style={{ border: 'none' }}
+            onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+            title={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
+            aria-label={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
+          >
+            {leftSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+        )}
+        <Layers size={18} strokeWidth={1.5} style={{ marginLeft: activeTool !== 'privacy' ? '8px' : '0' }} />
         <h1 style={{ fontSize: '15px' }}>MockupApp</h1>
       </div>
 
@@ -69,28 +71,38 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
         >
           文案助手
         </button>
+        <button
+          className={`ds-btn ${activeTool === 'privacy' ? 'ds-btn-active' : ''}`}
+          onClick={() => setActiveTool('privacy')}
+        >
+          隐私与条款
+        </button>
       </nav>
 
       <div className="app-actions">
-        <button
-          className="ds-btn ds-btn-icon-only"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="撤销 (Ctrl+Z)"
-          aria-label="撤销"
-        >
-          <Undo2 size={16} />
-        </button>
-        <button
-          className="ds-btn ds-btn-icon-only"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="重做 (Ctrl+Shift+Z)"
-          aria-label="重做"
-        >
-          <Redo2 size={16} />
-        </button>
-        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
+        {activeTool !== 'privacy' && (
+          <>
+            <button
+              className="ds-btn ds-btn-icon-only"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="撤销 (Ctrl+Z)"
+              aria-label="撤销"
+            >
+              <Undo2 size={16} />
+            </button>
+            <button
+              className="ds-btn ds-btn-icon-only"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="重做 (Ctrl+Shift+Z)"
+              aria-label="重做"
+            >
+              <Redo2 size={16} />
+            </button>
+            <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
+          </>
+        )}
         <button
           className="ds-btn ds-btn-icon-only"
           onClick={toggleTheme}
@@ -99,24 +111,30 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <button
-          className="ds-btn"
-          onClick={onExport}
-          title="导出 ZIP 压缩包"
-        >
-          <Download size={16} />
-          <span>导出 ZIP</span>
-        </button>
-        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
-        <button
-          className="ds-btn ds-btn-icon-only"
-          style={{ border: 'none' }}
-          onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
-          title={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
-          aria-label={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
-        >
-          {rightSidebarCollapsed ? <PanelRight size={16} /> : <PanelRightClose size={16} />}
-        </button>
+        {activeTool !== 'privacy' && (
+          <button
+            className="ds-btn"
+            onClick={onExport}
+            title="导出 ZIP 压缩包"
+          >
+            <Download size={16} />
+            <span>导出 ZIP</span>
+          </button>
+        )}
+        {activeTool !== 'privacy' && (
+          <>
+            <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
+            <button
+              className="ds-btn ds-btn-icon-only"
+              style={{ border: 'none' }}
+              onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+              title={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
+              aria-label={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
+            >
+              {rightSidebarCollapsed ? <PanelRight size={16} /> : <PanelRightClose size={16} />}
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
