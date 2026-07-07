@@ -451,7 +451,35 @@ button:focus-visible {
 }
 
 /* ==========================================================================
-   8. Responsive: Mobile (<768px)
+   8. Responsive: Tablet (769-1024px)
+   ========================================================================== */
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  :root {
+    --sidebar-width: 260px;
+    --dock-height: 100px;
+  }
+
+  .app-header {
+    padding: 0 16px;
+  }
+
+  .app-nav .ds-btn {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+  }
+
+  .sidebar-content {
+    padding: 16px;
+  }
+
+  .viewport-canvas-wrapper {
+    padding: 24px;
+  }
+}
+
+/* ==========================================================================
+   9. Responsive: Mobile (<768px)
    ========================================================================== */
 
 @media (max-width: 768px) {

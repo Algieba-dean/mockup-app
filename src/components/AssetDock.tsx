@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { FocusTrap } from './FocusTrap';
 
 interface MockupPage {
   id: string;
@@ -15,7 +16,7 @@ interface AssetDockProps {
   onDeletePage: (index: number) => void;
 }
 
-export const AssetDock: React.FC<AssetDockProps> = ({
+export const AssetDock: React.FC<AssetDockProps> = React.memo(({
   pages,
   activePageIndex,
   setActivePageIndex,
@@ -145,15 +146,16 @@ export const AssetDock: React.FC<AssetDockProps> = ({
             justifyContent: 'center',
             zIndex: 'var(--z-modal)',
           }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmDeleteIndex(null); }}
+          onClick={() => setConfirmDeleteIndex(null)}
         >
+          <FocusTrap onEscape={() => setConfirmDeleteIndex(null)}>
           <div className="ds-panel" style={{
             width: '320px',
             display: 'flex',
             flexDirection: 'column',
             gap: '16px',
             boxShadow: 'var(--shadow-lg)',
-          }}>
+          }} onClick={(e) => e.stopPropagation()}>
             <span style={{ fontSize: '14px', color: 'var(--ink-primary)' }}>
               确定要删除画幅 P{confirmDeleteIndex + 1} 吗？此操作无法恢复。
             </span>
@@ -177,8 +179,9 @@ export const AssetDock: React.FC<AssetDockProps> = ({
               </button>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>
   );
-};
+});

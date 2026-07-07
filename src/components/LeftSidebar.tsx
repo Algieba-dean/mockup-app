@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Plus, Image as ImageIcon, Trash2, Bookmark } from 'lucide-react';
+import { FocusTrap } from './FocusTrap';
 
 export interface CustomPreset {
   id: string;
@@ -56,16 +57,24 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   };
 
   const [confirmDeletePresetId, setConfirmDeletePresetId] = useState<string | null>(null);
+  const [showPresetNameInput, setShowPresetNameInput] = useState(false);
+  const [presetNameValue, setPresetNameValue] = useState('');
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
 
   const triggerSavePreset = () => {
-    const name = prompt('请输入自定义设计预设名称：', `自定义风格预设 ${customPresets.length + 1}`);
-    if (name && name.trim()) {
-      onSavePreset(name.trim());
+    setPresetNameValue(`自定义风格预设 ${customPresets.length + 1}`);
+    setShowPresetNameInput(true);
+  };
+
+  const confirmSavePreset = () => {
+    if (presetNameValue.trim()) {
+      onSavePreset(presetNameValue.trim());
     }
+    setShowPresetNameInput(false);
+    setPresetNameValue('');
   };
 
   return (
@@ -223,15 +232,16 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             justifyContent: 'center',
             zIndex: 'var(--z-modal)',
           }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmDeletePresetId(null); }}
+          onClick={() => setConfirmDeletePresetId(null)}
         >
+          <FocusTrap onEscape={() => setConfirmDeletePresetId(null)}>
           <div className="ds-panel" style={{
             width: '300px',
             display: 'flex',
             flexDirection: 'column',
             gap: '16px',
             boxShadow: 'var(--shadow-lg)',
-          }}>
+          }} onClick={(e) => e.stopPropagation()}>
             <span style={{ fontSize: '14px', color: 'var(--ink-primary)' }}>
               确认删除预设「{customPresets.find(p => p.id === confirmDeletePresetId)?.name}」吗？
             </span>
@@ -240,6 +250,49 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={() => { onDeletePreset(confirmDeletePresetId); setConfirmDeletePresetId(null); }}>确定删除</button>
             </div>
           </div>
+          </FocusTrap>
+        </div>
+      )}
+      {/* Custom preset name input (replaces prompt()) */}
+      {showPresetNameInput && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+          onClick={() => { setShowPresetNameInput(false); setPresetNameValue(''); }}
+        >
+          <FocusTrap onEscape={() => { setShowPresetNameInput(false); setPresetNameValue(''); }}>
+          <div className="ds-panel" style={{
+            width: '320px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            boxShadow: 'var(--shadow-lg)',
+          }} onClick={(e) => e.stopPropagation()}>
+            <label className="ds-label" htmlFor="preset-name-input">预设名称</label>
+            <input
+              id="preset-name-input"
+              type="text"
+              className="ds-input"
+              value={presetNameValue}
+              onChange={(e) => setPresetNameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmSavePreset(); }}
+              placeholder="请输入预设名称"
+            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="ds-btn" style={{ flex: 1 }} onClick={() => { setShowPresetNameInput(false); setPresetNameValue(''); }}>取消</button>
+              <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={confirmSavePreset}>保存预设</button>
+            </div>
+          </div>
+          </FocusTrap>
         </div>
       )}
     </aside>

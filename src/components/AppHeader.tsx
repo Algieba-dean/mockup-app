@@ -14,7 +14,7 @@ interface AppHeaderProps {
   setRightSidebarCollapsed: (collapsed: boolean) => void;
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({
+export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
   activeTool,
   setActiveTool,
   theme,
@@ -92,4 +92,4 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
     </header>
   );
-};
+});

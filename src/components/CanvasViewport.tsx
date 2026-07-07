@@ -12,7 +12,7 @@ interface CanvasViewportProps {
   hasScreenshots?: boolean;
 }
 
-export const CanvasViewport: React.FC<CanvasViewportProps> = ({
+export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   zoom,
   setZoom,
   canvasRef,
@@ -194,4 +194,4 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
       </div>
     </div>
   );
-};
+});

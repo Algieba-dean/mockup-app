@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Canvas } from 'fabric';
 import JSZip from 'jszip';
 import { Layers } from 'lucide-react';
@@ -8,6 +8,7 @@ import type { CustomPreset } from './components/LeftSidebar';
 import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
 import { AssetDock } from './components/AssetDock';
+import { FocusTrap } from './components/FocusTrap';
 import { updateCanvas } from './utils/canvasManager';
 import type { DeviceInstance } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
@@ -351,7 +352,7 @@ function App() {
   ]);
 
   // Handle uploading screenshots
-  const handleUploadScreenshot = (file: File) => {
+  const handleUploadScreenshot = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result && typeof e.target.result === 'string') {
@@ -368,7 +369,7 @@ function App() {
       }
     };
     reader.readAsDataURL(file);
-  };
+  }, []);
 
   useEffect(() => {
     (window as any).__uploadScreenshot = (dataUrl: string) => {
@@ -406,12 +407,14 @@ function App() {
     setActivePageIndex(pages.length);
   };
 
-  const handleDeletePage = (index: number) => {
-    if (pages.length <= 1) return;
-    const newPages = pages.filter((_, i) => i !== index);
-    setPages(newPages);
-    setActivePageIndex(Math.max(0, index - 1));
-  };
+  const handleDeletePage = useCallback((index: number) => {
+    setPages((prev) => {
+      if (prev.length <= 1) return prev;
+      const newPages = prev.filter((_, i) => i !== index);
+      setActivePageIndex(Math.max(0, index - 1));
+      return newPages;
+    });
+  }, [setPages]);
 
   // Helper utility: Convert Data URL to binary Blob
   const dataURItoBlob = (dataURI: string) => {
@@ -539,7 +542,7 @@ function App() {
         />
 
         {/* 画布视口 */}
-        <div className="viewport-container">
+        <main className="viewport-container">
           {activeTool === 'screenshots' ? (
             <>
               <CanvasViewport
@@ -587,7 +590,7 @@ function App() {
               </button>
             </div>
           )}
-        </div>
+        </main>
 
         {/* 右侧属性控制面板 */}
         <RightPropertiesPanel
@@ -628,7 +631,6 @@ function App() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="export-modal-title"
-          onKeyDown={(e) => { if (e.key === 'Escape') setShowExportModal(false); }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -638,7 +640,9 @@ function App() {
             justifyContent: 'center',
             zIndex: 'var(--z-modal)',
           }}
+          onClick={() => setShowExportModal(false)}
         >
+          <FocusTrap onEscape={() => setShowExportModal(false)}>
           <div className="ds-panel" style={{
             width: '440px',
             backgroundColor: 'var(--bg-secondary)',
@@ -648,7 +652,7 @@ function App() {
             flexDirection: 'column',
             gap: '20px',
             boxShadow: 'var(--shadow-lg)',
-          }}>
+          }} onClick={(e) => e.stopPropagation()}>
             <h3 id="export-modal-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0, color: 'var(--ink-primary)' }}>
               一键多尺寸商店图打包
             </h3>
@@ -698,6 +702,7 @@ function App() {
               </button>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
 
