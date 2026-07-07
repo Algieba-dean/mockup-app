@@ -100,18 +100,15 @@ test.describe('MockupApp E2E Tests', () => {
     const titleInput = page.locator('input[placeholder="请输入主标题"]');
     await titleInput.fill('Preset Title Test');
 
-    // 2. Click Save Preset button, handle prompt dialog
-    page.on('dialog', async dialog => {
-      if (dialog.type() === 'prompt') {
-        await dialog.accept('E2E Custom Preset');
-      } else if (dialog.type() === 'confirm') {
-        await dialog.accept(); // For delete confirmation
-      }
-    });
-
+    // 2. Click Save Preset button, opens custom name-input modal
     const savePresetBtn = page.locator('button:has-text("保存当前风格为预设")');
     await expect(savePresetBtn).toBeVisible();
     await savePresetBtn.click();
+
+    const presetNameInput = page.locator('#preset-name-input');
+    await expect(presetNameInput).toBeVisible();
+    await presetNameInput.fill('E2E Custom Preset');
+    await page.locator('button:has-text("保存预设")').click();
 
     // 3. Check if preset card appears
     const presetCard = page.locator('.custom-preset-card:has-text("E2E Custom Preset")');
@@ -125,11 +122,37 @@ test.describe('MockupApp E2E Tests', () => {
     await presetCard.click();
     await expect(titleInput).toHaveValue('Preset Title Test');
 
-    // 6. Delete the preset
+    // 6. Delete the preset, opens custom confirmation modal
     const deleteBtn = presetCard.locator('button[title="删除预设"]');
     await deleteBtn.click();
+    await page.locator('button:has-text("确定删除")').click();
 
     // 7. Verify preset is deleted
     await expect(presetCard).not.toBeVisible();
+  });
+
+  test('should support undo/redo via header buttons', async ({ page }) => {
+    const titleInput = page.locator('input[placeholder="请输入主标题"]');
+    const undoBtn = page.locator('button[aria-label="撤销"]');
+    const redoBtn = page.locator('button[aria-label="重做"]');
+
+    // 1. Initially no history to undo/redo
+    await expect(undoBtn).toBeDisabled();
+    await expect(redoBtn).toBeDisabled();
+
+    // 2. Make a change
+    const originalValue = await titleInput.inputValue();
+    await titleInput.fill('Undo Test Title');
+    await titleInput.blur();
+
+    // 3. Undo should now be enabled
+    await expect(undoBtn).toBeEnabled();
+    await undoBtn.click();
+    await expect(titleInput).toHaveValue(originalValue);
+
+    // 4. Redo should now be enabled
+    await expect(redoBtn).toBeEnabled();
+    await redoBtn.click();
+    await expect(titleInput).toHaveValue('Undo Test Title');
   });
 });

@@ -1,7 +1,7 @@
 # device-mix Specification
 
 ## Purpose
-TBD - created by archiving change panoramic-and-floating-mockups. Update Purpose after archive.
+Enable a single slide page to showcase more than one device model side by side (e.g., iPhone next to iPad), so users can produce composite marketing shots that mix form factors without leaving the canvas. Extends the base rendering surface from `screenshot-canvas` by allowing multiple positioned device instances per page, each bound to its own screenshot asset.
 ## Requirements
 ### Requirement: Multiple mockup instances per page
 The system SHALL support adding and rendering multiple device bezel instances on a single slide page.

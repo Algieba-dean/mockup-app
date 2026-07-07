@@ -1,7 +1,7 @@
 # customization-controls Specification
 
 ## Purpose
-TBD - created by archiving change editor-features-upgrade. Update Purpose after archive.
+Let users tailor typography and device shell to match their brand identity, covering font family selection for titles/subtitles and swapping between multiple device bezel models. This capability shares canvas rendering state (`canvasManager.ts`) with `advanced-templates`; the two were shipped together in `editor-features-upgrade` and should be reviewed jointly when modifying rendering/redraw behavior.
 ## Requirements
 ### Requirement: Typography font selector
 The system SHALL support choosing the title and subtitle font family from Lora, Geist, Playfair Display, and Cormorant Garamond.

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from 'lucide-react';
+import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Undo2, Redo2 } from 'lucide-react';
 
 interface AppHeaderProps {
   activeTool: string;
@@ -12,6 +12,11 @@ interface AppHeaderProps {
   setLeftSidebarCollapsed: (collapsed: boolean) => void;
   rightSidebarCollapsed: boolean;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
+  // Undo/Redo
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
@@ -24,6 +29,10 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
   setLeftSidebarCollapsed,
   rightSidebarCollapsed,
   setRightSidebarCollapsed,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }) => {
   return (
     <header className="app-header">
@@ -63,6 +72,25 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
       </nav>
 
       <div className="app-actions">
+        <button
+          className="ds-btn ds-btn-icon-only"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="撤销 (Ctrl+Z)"
+          aria-label="撤销"
+        >
+          <Undo2 size={16} />
+        </button>
+        <button
+          className="ds-btn ds-btn-icon-only"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="重做 (Ctrl+Shift+Z)"
+          aria-label="重做"
+        >
+          <Redo2 size={16} />
+        </button>
+        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
         <button
           className="ds-btn ds-btn-icon-only"
           onClick={toggleTheme}

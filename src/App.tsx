@@ -108,7 +108,7 @@ function App() {
   });
 
   // Multi-page slides list (with undo/redo)
-  const { state: pages, set: setPages } = useHistory<MockupPage[]>(
+  const { state: pages, set: setPages, undo, redo, canUndo, canRedo } = useHistory<MockupPage[]>(
     loadSavedState('mockup_app_pages', DEFAULT_PAGES)
   );
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
@@ -523,6 +523,10 @@ function App() {
         setLeftSidebarCollapsed={setLeftSidebarCollapsed}
         rightSidebarCollapsed={rightSidebarCollapsed}
         setRightSidebarCollapsed={setRightSidebarCollapsed}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       {/* 主工作区 */}

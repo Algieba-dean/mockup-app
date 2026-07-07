@@ -1,7 +1,7 @@
 # skew-and-floating Specification
 
 ## Purpose
-TBD - created by archiving change panoramic-and-floating-mockups. Update Purpose after archive.
+Give designs a premium, dynamic 2.5D presentation by letting users rotate and skew the device bezel group, rather than being limited to flat, front-facing mockups. This is the visual-flair layer applied on top of the base bezel rendering from `screenshot-canvas`.
 ## Requirements
 ### Requirement: 2.5D skew and rotate bezel
 The system SHALL support rotating the phone bezel group using an angle slider, and applying a horizontal skew angle.

@@ -1,7 +1,7 @@
 # advanced-templates Specification
 
 ## Purpose
-TBD - created by archiving change editor-features-upgrade. Update Purpose after archive.
+Give the canvas background premium visual depth (gradients, texture images, frosted glass, Gaussian blur) so exported screenshots look brand-quality out of the box instead of flat solid colors. This capability shares canvas rendering state (`canvasManager.ts`) with `customization-controls`; the two were shipped together in `editor-features-upgrade` and should be reviewed jointly when modifying background/rendering behavior.
 ## Requirements
 ### Requirement: Advanced background type selection
 The system SHALL support selecting background types: Solid Color, Gradient, and Image.

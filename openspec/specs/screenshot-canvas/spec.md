@@ -1,7 +1,7 @@
 # screenshot-canvas Specification
 
 ## Purpose
-TBD - created by archiving change scaffold-base-app. Update Purpose after archive.
+Provide the core interactive Fabric.js canvas that underlies the entire screenshot beautification pipeline: it hosts the zoom/pan viewport, accepts screenshot assets via drag-and-drop, and renders the device bezel overlay that clips each screenshot into a realistic mockup frame. This is the foundational rendering surface that `advanced-templates`, `customization-controls`, `device-mix`, `panoramic-background`, and `skew-and-floating` all build on top of.
 ## Requirements
 ### Requirement: Interactive FabricJS Canvas Initialization
 The system SHALL initialize a Fabric.js canvas in the Center Viewport with zoom and pan controls.

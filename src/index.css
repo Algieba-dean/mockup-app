@@ -146,6 +146,17 @@ p, span, label, input, button, textarea, select {
   color: var(--bg-primary);
 }
 
+.ds-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ds-btn:disabled:hover {
+  border-color: var(--border-primary);
+  background-color: transparent;
+  color: var(--ink-primary);
+}
+
 .ds-btn-active {
   border-color: var(--border-focus);
   background-color: var(--ink-primary);

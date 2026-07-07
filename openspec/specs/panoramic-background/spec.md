@@ -1,7 +1,7 @@
 # panoramic-background Specification
 
 ## Purpose
-TBD - created by archiving change panoramic-and-floating-mockups. Update Purpose after archive.
+Allow a single wide artwork to visually flow across a multi-page slide set (a common App Store carousel technique), instead of forcing users to manually crop and align a background per page. The system slices one uploaded panoramic image into per-page segments and offsets each page's background accordingly.
 ## Requirements
 ### Requirement: Global wide background upload
 The system SHALL allow uploading a single wide background image that spans across all pages.
