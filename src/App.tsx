@@ -10,6 +10,7 @@ import { CanvasViewport } from './components/CanvasViewport';
 import { AssetDock } from './components/AssetDock';
 import { updateCanvas } from './utils/canvasManager';
 import type { DeviceInstance } from './utils/canvasManager';
+import { useHistory } from './utils/useHistory';
 
 interface MockupPage {
   id: string;
@@ -24,6 +25,8 @@ interface MockupPage {
   devices: DeviceInstance[];
   titleFontFamily: string;
   subtitleFontFamily: string;
+  titleFontSize: number;
+  subtitleFontSize: number;
 }
 
 const EXPORT_PRESETS = [
@@ -33,6 +36,54 @@ const EXPORT_PRESETS = [
   { id: 'ios-ipad', name: 'iPad Pro 12.9" (2048x2732)', width: 2048, height: 2732, folder: 'ios/ipad_12.9' },
   { id: 'android-phone', name: 'Android Phone (1242x2208)', width: 1242, height: 2208, folder: 'android/phone' },
 ];
+
+const DEFAULT_PAGES: MockupPage[] = [
+  {
+    id: 'page-1',
+    title: 'Manage Everything',
+    subtitle: 'A beautiful minimal workspace',
+    bgType: 'solid',
+    bgColor: '#f5f5f4',
+    bgGradient: ['#f5f5f4', '#e5e5e4'],
+    bgImageSrc: '',
+    bgBlur: 10,
+    showFrostedGlass: false,
+    devices: [
+      { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
+    ],
+    titleFontFamily: 'Playfair Display',
+    subtitleFontFamily: 'Geist',
+    titleFontSize: 54,
+    subtitleFontSize: 24,
+  },
+  {
+    id: 'page-2',
+    title: 'Absolute Control',
+    subtitle: 'Track your assets offline',
+    bgType: 'solid',
+    bgColor: '#e5e5e4',
+    bgGradient: ['#ffffff', '#d4d4d8'],
+    bgImageSrc: '',
+    bgBlur: 10,
+    showFrostedGlass: false,
+    devices: [
+      { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
+    ],
+    titleFontFamily: 'Playfair Display',
+    subtitleFontFamily: 'Geist',
+    titleFontSize: 54,
+    subtitleFontSize: 24,
+  },
+];
+
+function loadSavedState<T>(key: string, fallback: T): T {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function App() {
   // App Routing & Theme State
@@ -55,45 +106,17 @@ function App() {
     'android-phone': true,
   });
 
-  // Multi-page slides list
-  const [pages, setPages] = useState<MockupPage[]>([
-    {
-      id: 'page-1',
-      title: 'Manage Everything',
-      subtitle: 'A beautiful minimal workspace',
-      bgType: 'solid',
-      bgColor: '#f5f5f4',
-      bgGradient: ['#f5f5f4', '#e5e5e4'],
-      bgImageSrc: '',
-      bgBlur: 10,
-      showFrostedGlass: false,
-      devices: [
-        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
-      ],
-      titleFontFamily: 'Playfair Display',
-      subtitleFontFamily: 'Geist',
-    },
-    {
-      id: 'page-2',
-      title: 'Absolute Control',
-      subtitle: 'Track your assets offline',
-      bgType: 'solid',
-      bgColor: '#e5e5e4',
-      bgGradient: ['#ffffff', '#d4d4d8'],
-      bgImageSrc: '',
-      bgBlur: 10,
-      showFrostedGlass: false,
-      devices: [
-        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
-      ],
-      titleFontFamily: 'Playfair Display',
-      subtitleFontFamily: 'Geist',
-    },
-  ]);
+  // Multi-page slides list (with undo/redo)
+  const { state: pages, set: setPages } = useHistory<MockupPage[]>(
+    loadSavedState('mockup_app_pages', DEFAULT_PAGES)
+  );
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
+  // Note: undo/redo keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) are handled by useHistory hook
 
   // Asset Library
-  const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [screenshots, setScreenshots] = useState<string[]>(
+    () => loadSavedState<string[]>('mockup_app_screenshots', [])
+  );
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<number>(-1);
 
   const [customPresets, setCustomPresets] = useState<CustomPreset[]>(() => {
@@ -148,45 +171,71 @@ function App() {
   };
 
   const handleApplyPreset = (preset: CustomPreset) => {
-    setBgType(preset.state.bgType);
-    setBgColor(preset.state.bgColor);
-    setBgGradient(preset.state.bgGradient);
-    setBgImageSrc(preset.state.bgImageSrc);
-    setBgBlur(preset.state.bgBlur);
-    setShowFrostedGlass(preset.state.showFrostedGlass);
-    setTitleText(preset.state.titleText);
-    setSubtitleText(preset.state.subtitleText);
-    setTitleFontSize(preset.state.titleFontSize);
-    setSubtitleFontSize(preset.state.subtitleFontSize);
-    setTitleFontFamily(preset.state.titleFontFamily);
-    setSubtitleFontFamily(preset.state.subtitleFontFamily);
-    
-    setDevices(prevDevs => {
-      return preset.state.devices.map((presetDev, index) => {
-        const currentDev = prevDevs[index];
+    updateActivePage({
+      bgType: preset.state.bgType,
+      bgColor: preset.state.bgColor,
+      bgGradient: preset.state.bgGradient,
+      bgImageSrc: preset.state.bgImageSrc,
+      bgBlur: preset.state.bgBlur,
+      showFrostedGlass: preset.state.showFrostedGlass,
+      title: preset.state.titleText,
+      subtitle: preset.state.subtitleText,
+      titleFontSize: preset.state.titleFontSize,
+      subtitleFontSize: preset.state.subtitleFontSize,
+      titleFontFamily: preset.state.titleFontFamily,
+      subtitleFontFamily: preset.state.subtitleFontFamily,
+      devices: preset.state.devices.map((presetDev, index) => {
+        const currentDev = activePage.devices[index];
         return {
           ...presetDev,
           screenshotSrc: currentDev ? currentDev.screenshotSrc : undefined
         };
-      });
+      }),
     });
   };
 
-  const [bgType, setBgType] = useState<'solid' | 'gradient' | 'image' | 'panoramic'>('solid');
-  const [bgColor, setBgColor] = useState<string>('#f5f5f4');
-  const [bgGradient, setBgGradient] = useState<string[]>(['#f5f5f4', '#e5e5e4']);
-  const [bgImageSrc, setBgImageSrc] = useState<string>('');
-  const [bgBlur, setBgBlur] = useState<number>(10);
-  const [showFrostedGlass, setShowFrostedGlass] = useState<boolean>(false);
-  const [devices, setDevices] = useState<DeviceInstance[]>([
-    { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
-  ]);
-  const [titleText, setTitleText] = useState<string>('Manage Everything');
-  const [subtitleText, setSubtitleText] = useState<string>('A beautiful minimal workspace');
-  const [titleFontSize, setTitleFontSize] = useState<number>(54);
-  const [subtitleFontSize, setSubtitleFontSize] = useState<number>(24);
-  const [titleFontFamily, setTitleFontFamily] = useState<string>('Playfair Display');
-  const [subtitleFontFamily, setSubtitleFontFamily] = useState<string>('Geist');
+  // Single source of truth: derive current values from the active page
+  const activePage = pages[activePageIndex];
+
+  const updateActivePage = (fields: Partial<MockupPage>) => {
+    setPages(prev => prev.map((p, i) => i === activePageIndex ? { ...p, ...fields } : p));
+  };
+
+  // Convenience aliases for the active page's fields
+  const bgType = activePage.bgType;
+  const bgColor = activePage.bgColor;
+  const bgGradient = activePage.bgGradient || ['#f5f5f4', '#e5e5e4'];
+  const bgImageSrc = activePage.bgImageSrc || '';
+  const bgBlur = activePage.bgBlur;
+  const showFrostedGlass = activePage.showFrostedGlass;
+  const devices = activePage.devices;
+  const titleText = activePage.title;
+  const subtitleText = activePage.subtitle;
+  const titleFontSize = activePage.titleFontSize;
+  const subtitleFontSize = activePage.subtitleFontSize;
+  const titleFontFamily = activePage.titleFontFamily;
+  const subtitleFontFamily = activePage.subtitleFontFamily;
+
+  // Setter functions that update the active page directly
+  const setBgType = (v: 'solid' | 'gradient' | 'image' | 'panoramic') => updateActivePage({ bgType: v });
+  const setBgColor = (v: string) => updateActivePage({ bgColor: v });
+  const setBgGradient = (v: string[]) => updateActivePage({ bgGradient: v });
+  const setBgImageSrc = (v: string) => updateActivePage({ bgImageSrc: v });
+  const setBgBlur = (v: number) => updateActivePage({ bgBlur: v });
+  const setShowFrostedGlass = (v: boolean) => updateActivePage({ showFrostedGlass: v });
+  const setDevices = (v: DeviceInstance[] | ((prev: DeviceInstance[]) => DeviceInstance[])) => {
+    if (typeof v === 'function') {
+      setPages(prev => prev.map((p, i) => i === activePageIndex ? { ...p, devices: v(p.devices) } : p));
+    } else {
+      updateActivePage({ devices: v });
+    }
+  };
+  const setTitleText = (v: string) => updateActivePage({ title: v });
+  const setSubtitleText = (v: string) => updateActivePage({ subtitle: v });
+  const setTitleFontSize = (v: number) => updateActivePage({ titleFontSize: v });
+  const setSubtitleFontSize = (v: number) => updateActivePage({ subtitleFontSize: v });
+  const setTitleFontFamily = (v: string) => updateActivePage({ titleFontFamily: v });
+  const setSubtitleFontFamily = (v: string) => updateActivePage({ subtitleFontFamily: v });
 
   // Viewport Zoom
   const [zoom, setZoom] = useState<number>(30); // Default to 30% for a 1242x2208 canvas fitting on screen
@@ -222,61 +271,17 @@ function App() {
     }
   }, []);
 
-  // Sync active page changes to controls
-  useEffect(() => {
-    const activePage = pages[activePageIndex];
-    if (activePage) {
-      setTitleText(activePage.title);
-      setSubtitleText(activePage.subtitle);
-      setBgType(activePage.bgType || 'solid');
-      setBgColor(activePage.bgColor);
-      setBgGradient(activePage.bgGradient || ['#f5f5f4', '#e5e5e4']);
-      setBgImageSrc(activePage.bgImageSrc || '');
-      setBgBlur(activePage.bgBlur !== undefined ? activePage.bgBlur : 10);
-      setShowFrostedGlass(!!activePage.showFrostedGlass);
-      setDevices(activePage.devices || [
-        { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 0.95, offsetX: 0, offsetY: 80 }
-      ]);
-      setTitleFontFamily(activePage.titleFontFamily || 'Playfair Display');
-      setSubtitleFontFamily(activePage.subtitleFontFamily || 'Geist');
-    }
-  }, [activePageIndex]);
+  // No more bidirectional sync effects needed — pages[activePageIndex] is the
+  // single source of truth and the setter functions above update it directly.
 
-  // Sync controls changes back to active page
+  // Persist pages and screenshots to localStorage
   useEffect(() => {
-    setPages((prevPages) =>
-      prevPages.map((page, index) =>
-        index === activePageIndex
-          ? {
-              ...page,
-              title: titleText,
-              subtitle: subtitleText,
-              bgType: bgType,
-              bgColor: bgColor,
-              bgGradient: bgGradient,
-              bgImageSrc: bgImageSrc,
-              bgBlur: bgBlur,
-              showFrostedGlass: showFrostedGlass,
-              devices: devices,
-              titleFontFamily: titleFontFamily,
-              subtitleFontFamily: subtitleFontFamily,
-            }
-          : page
-      )
-    );
-  }, [
-    titleText,
-    subtitleText,
-    bgType,
-    bgColor,
-    bgGradient,
-    bgImageSrc,
-    bgBlur,
-    showFrostedGlass,
-    devices,
-    titleFontFamily,
-    subtitleFontFamily,
-  ]);
+    try { localStorage.setItem('mockup_app_pages', JSON.stringify(pages)); } catch { /* quota exceeded */ }
+  }, [pages]);
+
+  useEffect(() => {
+    try { localStorage.setItem('mockup_app_screenshots', JSON.stringify(screenshots)); } catch { /* quota exceeded */ }
+  }, [screenshots]);
 
   // Draw and render the FabricJS canvas when state changes
   useEffect(() => {
@@ -341,8 +346,10 @@ function App() {
     reader.onload = (e) => {
       if (e.target?.result && typeof e.target.result === 'string') {
         const newSrc = e.target.result;
-        setScreenshots((prev) => [...prev, newSrc]);
-        setSelectedScreenshotIndex(screenshots.length);
+        setScreenshots((prev) => {
+          setSelectedScreenshotIndex(prev.length);
+          return [...prev, newSrc];
+        });
         
         // Auto bind uploaded screen to the active selected device
         setDevices((prevDevs) =>
@@ -364,7 +371,7 @@ function App() {
         prevDevs.map((d, i) => i === 0 ? { ...d, screenshotSrc: dataUrl } : d)
       );
     };
-  }, [screenshots]);
+  }, []);
 
   // Manage slides
   const handleAddPage = () => {
@@ -382,6 +389,8 @@ function App() {
       devices: devices.map(d => ({ ...d, id: `dev-${d.id}-${Date.now()}` })),
       titleFontFamily: titleFontFamily,
       subtitleFontFamily: subtitleFontFamily,
+      titleFontSize: titleFontSize,
+      subtitleFontSize: subtitleFontSize,
     };
     setPages((prev) => [...prev, newPage]);
     setActivePageIndex(pages.length);
@@ -450,8 +459,8 @@ function App() {
               devices: page.devices || [],
               titleText: page.title,
               subtitleText: page.subtitle,
-              titleFontSize: titleFontSize,
-              subtitleFontSize: subtitleFontSize,
+              titleFontSize: page.titleFontSize || 54,
+              subtitleFontSize: page.subtitleFontSize || 24,
               titleFontFamily: page.titleFontFamily || 'Playfair Display',
               subtitleFontFamily: page.subtitleFontFamily || 'Geist',
             },
@@ -531,6 +540,7 @@ function App() {
                 bgColor={bgColor}
                 bgType={bgType}
                 bgGradient={bgGradient}
+                hasScreenshots={screenshots.length > 0}
               />
 
               {/* 底部故事画幅 Dock */}

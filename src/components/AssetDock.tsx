@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 interface MockupPage {
   id: string;
   title: string;
-  screenshotSrc?: string;
+  devices: { screenshotSrc?: string }[];
 }
 
 interface AssetDockProps {
@@ -57,7 +57,7 @@ export const AssetDock: React.FC<AssetDockProps> = ({
                 height: '76px',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: page.screenshotSrc ? 'center' : 'flex-end',
+                justifyContent: page.devices[0]?.screenshotSrc ? 'center' : 'flex-end',
                 alignItems: 'center',
                 padding: '4px',
                 fontSize: '9px',
@@ -65,8 +65,8 @@ export const AssetDock: React.FC<AssetDockProps> = ({
                 color: 'var(--ink-secondary)',
               }}
             >
-              {page.screenshotSrc ? (
-                <img src={page.screenshotSrc} alt={`Page ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {page.devices[0]?.screenshotSrc ? (
+                <img src={page.devices[0].screenshotSrc} alt={`Page ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ textAlign: 'center', margin: 'auto 0' }}>
                   空白画幅
@@ -99,9 +99,9 @@ export const AssetDock: React.FC<AssetDockProps> = ({
                   position: 'absolute',
                   top: '-4px',
                   right: '-4px',
-                  backgroundColor: '#ef4444',
-                  color: '#fff',
-                  border: 'none',
+                  backgroundColor: 'var(--ink-primary)',
+                  color: 'var(--bg-primary)',
+                  border: '1px solid var(--border-primary)',
                   borderRadius: '50%',
                   width: '16px',
                   height: '16px',

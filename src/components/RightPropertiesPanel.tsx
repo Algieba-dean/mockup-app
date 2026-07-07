@@ -1,7 +1,55 @@
 import React, { useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import marbleBg from '../assets/white_marble_bg.jpg';
 import grainBg from '../assets/minimal_grain_bg.jpg';
 import type { DeviceInstance } from '../utils/canvasManager';
+
+const SectionAccordion: React.FC<{
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}> = ({ title, defaultOpen = false, children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="sidebar-title"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          borderBottom: '1px solid var(--border-primary)',
+          cursor: 'pointer',
+          color: 'var(--ink-secondary)',
+        }}
+      >
+        <span>{title}</span>
+        <ChevronDown
+          size={14}
+          style={{
+            transition: 'transform 0.15s ease',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          }}
+        />
+      </button>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: open ? '1fr' : '0fr',
+          transition: 'grid-template-rows 0.2s ease',
+        }}
+      >
+        <div style={{ overflow: 'hidden' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface RightPropertiesPanelProps {
   activeTool: string;
@@ -193,7 +241,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
       {activeTool === 'screenshots' ? (
         <>
           {/* 画布背景 */}
-          <div className="sidebar-title">画布背景</div>
+          <SectionAccordion title="画布背景" defaultOpen={true}>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
               <label className="ds-label">填充方式</label>
@@ -348,9 +396,10 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               </div>
             )}
           </div>
+          </SectionAccordion>
 
           {/* 渲染特效设置 */}
-          <div className="sidebar-title">视觉特效</div>
+          <SectionAccordion title="视觉特效">
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {(bgType === 'image' || bgType === 'panoramic') && (
               <div className="ds-input-group">
@@ -384,19 +433,19 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               />
             </div>
           </div>
+          </SectionAccordion>
 
           {/* 设备与布局设置 */}
-          <div className="sidebar-title">设备布局预设</div>
-          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-              <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('single')}>单机居中</button>
-              <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('double')}>双机左右</button>
-              <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('skew')}>倾斜悬浮</button>
-            </div>
-          </div>
-
-          <div className="sidebar-title">多机型混搭与三维偏置</div>
+          <SectionAccordion title="设备布局与变换">
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div className="ds-input-group">
+              <label className="ds-label">快捷布局</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('single')}>单机居中</button>
+                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('double')}>双机左右</button>
+                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('skew')}>倾斜悬浮</button>
+              </div>
+            </div>
             {/* 设备选择页签 */}
             <div className="ds-input-group">
               <label className="ds-label">活动设备调整</label>
@@ -556,7 +605,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 {devices.length > 1 && (
                   <button
                     className="ds-btn"
-                    style={{ width: '100%', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                    style={{ width: '100%' }}
                     onClick={() => deleteDevice(activeDeviceIndex)}
                   >
                     删除当前选中的设备
@@ -565,9 +614,10 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               </>
             )}
           </div>
+          </SectionAccordion>
 
           {/* 文案与排版 */}
-          <div className="sidebar-title">文案与排版</div>
+          <SectionAccordion title="文案与排版">
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
               <label className="ds-label">标题字体</label>
@@ -645,6 +695,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               />
             </div>
           </div>
+          </SectionAccordion>
         </>
       ) : (
         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-secondary)', fontSize: '13px' }}>

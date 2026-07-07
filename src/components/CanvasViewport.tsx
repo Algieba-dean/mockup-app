@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize, Upload } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ZoomIn, ZoomOut, Maximize, Upload, Image } from 'lucide-react';
 
 interface CanvasViewportProps {
   zoom: number;
@@ -9,6 +9,7 @@ interface CanvasViewportProps {
   bgColor?: string;
   bgType?: 'solid' | 'gradient' | 'image' | 'panoramic';
   bgGradient?: string[];
+  hasScreenshots?: boolean;
 }
 
 export const CanvasViewport: React.FC<CanvasViewportProps> = ({
@@ -19,8 +20,10 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
   bgColor = '#f5f5f4',
   bgType = 'solid',
   bgGradient = [],
+  hasScreenshots = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const emptyStateFileRef = useRef<HTMLInputElement>(null);
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200));
   const handleZoomOut = () => setZoom(Math.max(zoom - 10, 10));
@@ -103,6 +106,57 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 空状态引导 */}
+      {!hasScreenshots && !isDragging && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '16px',
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '40px 48px',
+            border: '1px dashed var(--border-secondary)',
+            backgroundColor: 'var(--bg-secondary)',
+            pointerEvents: 'auto',
+          }}>
+            <Image size={32} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />
+            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--ink-primary)' }}>
+              拖拽应用截图到此处开始
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--ink-tertiary)' }}>
+              支持 PNG、JPG 格式
+            </span>
+            <input
+              ref={emptyStateFileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                if (e.target.files?.[0]) onFileDrop(e.target.files[0]);
+              }}
+            />
+            <button
+              className="ds-btn"
+              style={{ marginTop: '4px', fontSize: '12px' }}
+              onClick={() => emptyStateFileRef.current?.click()}
+            >
+              <Upload size={14} />
+              <span>选择文件上传</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 拖拽指示蒙层 */}
       {isDragging && (

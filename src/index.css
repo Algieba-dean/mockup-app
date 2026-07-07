@@ -274,14 +274,12 @@ p, span, label, input, button, textarea, select {
   background-color: var(--bg-secondary);
   height: 100%;
   overflow-y: auto;
-  transition: width var(--transition-speed) var(--transition-ease),
-              opacity var(--transition-speed) var(--transition-ease),
-              border-width var(--transition-speed) var(--transition-ease);
-  width: var(--sidebar-width);
+  overflow-x: hidden;
+  transition: opacity var(--transition-speed) var(--transition-ease);
+  min-width: 0;
 }
 
 .sidebar.collapsed {
-  width: 0px;
   opacity: 0;
   overflow: hidden;
   border-inline-width: 0px;
