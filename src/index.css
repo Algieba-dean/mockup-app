@@ -584,6 +584,11 @@ button:focus-visible {
     min-height: 44px;
   }
 
+  .platform-tab-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
   .asset-item-card {
     width: 52px;
     height: 52px;

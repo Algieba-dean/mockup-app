@@ -155,4 +155,36 @@ test.describe('MockupApp E2E Tests', () => {
     await redoBtn.click();
     await expect(titleInput).toHaveValue('Undo Test Title');
   });
+
+  test('should generate and export app icons in the Icon Generator workspace', async ({ page }) => {
+    // 1. Switch to the Icons tool
+    await page.locator('button:has-text("图标生成")').click();
+
+    // 2. Upload an icon source image via the left sidebar
+    const fileInput = page.locator('aside.sidebar input[type="file"]').first();
+    await fileInput.setInputFiles('example/09_multi_languages.png');
+
+    // 3. Warning banner should appear (source image is not square/1024px)
+    await expect(page.locator('text=建议原图 ≥1024×1024 正方形')).toBeVisible();
+
+    // 4. Platform toggle switches the safe-zone/mask preview
+    const androidTab = page.locator('button[role="tab"]:has-text("Android")');
+    await androidTab.click();
+    await expect(androidTab).toHaveAttribute('aria-selected', 'true');
+
+    // 5. Padding slider is available in the right panel
+    const paddingSlider = page.locator('#icon-padding');
+    await expect(paddingSlider).toBeVisible();
+
+    // 6. Trigger export and verify ZIP download
+    await page.locator('button:has-text("导出 ZIP")').click();
+    const modalTitle = page.locator('h3:has-text("导出应用图标包")');
+    await expect(modalTitle).toBeVisible();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('button:has-text("生成并下载")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('mockup_app_icons.zip');
+  });
 });

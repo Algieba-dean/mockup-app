@@ -31,7 +31,14 @@
 
 - **[`multi-size-export`](./multi-size-export/spec.md)** — 按 App Store / Google Play 标准分辨率批量导出为分文件夹的 ZIP 压缩包。
 
-## 6. 质量与完整性
+## 6. 图标生成（Icon Generator，独立工具分支）
+
+与"商店截图"共享 `workspace-scaffold` 的 4 区工作区范式与顶部工具路由，但拥有独立的画布渲染与导出管线（单图上传，非多页），不复用 `screenshot-canvas`/`multi-size-export`。
+
+- **[`icon-generator`](./icon-generator/spec.md)** — 单图上传、非阻断尺寸校验、iOS/Android 平台遮罩与安全区预览、内边距/背景填充/自适应前景缩放定制，含无障碍与响应式验收标准。
+- **[`icon-export`](./icon-export/spec.md)** — 导出为 iOS `AppIcon.appiconset`（含 `Contents.json`）与 Android mipmap/adaptive/Play Store 图标集的 ZIP 压缩包。
+
+## 7. 质量与完整性
 
 - **[`ui-quality-hardening`](./ui-quality-hardening/spec.md)** — 响应式适配、无障碍访问、性能优化、设计令牌统一（已完成，审计分 19/20）。
 - **[`screenshot-tool-completeness`](./screenshot-tool-completeness/spec.md)** — 功能完整性核查发现的收尾项：自定义弹窗 E2E 测试对齐、Undo/Redo 可见入口。
@@ -40,6 +47,8 @@
 
 - `advanced-templates` ⇄ `customization-controls`：两者均修改 `canvasManager.ts` 的渲染/重绘逻辑，同批次（`editor-features-upgrade`）交付，修改任一方时应同时检查另一方的验收标准。
 - `screenshot-canvas` 是 `device-mix`、`panoramic-background`、`skew-and-floating`、`advanced-templates`、`customization-controls` 的共同渲染基座，改动其核心接口前应先检查下游 5 个 capability 的影响面。
+- `icon-generator` ⇄ `icon-export`：同批次交付，`icon-export` 依赖 `icon-generator` 的 `iconPadding`/`iconBgColor`/`iconHasAlpha`/`iconForegroundScale` 状态渲染最终导出像素，修改任一方需同时检查另一方。
+- `--ink-tertiary` 令牌在正文/说明文字场景下对比度不达标（约 2.6:1，见 `icon-generator` 的无障碍验收标准），新增文字类 UI 时避免使用该令牌，应使用 `--ink-secondary` 或更高对比度令牌。
 
 ## 如何新增/修改能力
 

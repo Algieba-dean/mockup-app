@@ -93,6 +93,16 @@ interface RightPropertiesPanelProps {
   setSubtitleFontFamily: (font: string) => void;
 
   collapsed?: boolean;
+
+  // Icon workspace
+  hasIconImage?: boolean;
+  iconPadding?: number;
+  setIconPadding?: (v: number) => void;
+  iconBgColor?: string;
+  setIconBgColor?: (v: string) => void;
+  iconHasAlpha?: boolean;
+  iconForegroundScale?: number;
+  setIconForegroundScale?: (v: number) => void;
 }
 
 export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
@@ -124,6 +134,14 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   subtitleFontFamily,
   setSubtitleFontFamily,
   collapsed = false,
+  hasIconImage = false,
+  iconPadding = 0.12,
+  setIconPadding,
+  iconBgColor = '#f5f5f4',
+  setIconBgColor,
+  iconHasAlpha = false,
+  iconForegroundScale = 0.8,
+  setIconForegroundScale,
 }) => {
   const bgPresets = ['#ffffff', '#f5f5f4', '#e5e5e4', '#dcdcdc', '#8a8a8a', '#4a4a4a', '#1e1e1e', '#0a0a0a'];
   
@@ -719,6 +737,95 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           </div>
           </SectionAccordion>
         </>
+      ) : activeTool === 'icons' ? (
+        hasIconImage ? (
+          <SectionAccordion title="图标定制" defaultOpen={true}>
+            <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="ds-input-group">
+                <label className="ds-label" htmlFor="icon-padding">内边距 ({Math.round(iconPadding * 100)}%)</label>
+                <input
+                  id="icon-padding"
+                  type="range"
+                  min="0"
+                  max="40"
+                  value={Math.round(iconPadding * 100)}
+                  onChange={(e) => setIconPadding?.(parseInt(e.target.value) / 100)}
+                  style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                />
+              </div>
+
+              <div className="ds-input-group">
+                <label className="ds-label">背景填充色</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' }}>
+                  {bgPresets.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setIconBgColor?.(color)}
+                      style={{
+                        height: '24px',
+                        backgroundColor: color,
+                        border: '1px solid',
+                        borderColor: iconBgColor.toLowerCase() === color.toLowerCase() ? 'var(--border-focus)' : 'var(--border-primary)',
+                        cursor: 'pointer',
+                      }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="color"
+                    value={iconBgColor.startsWith('#') && iconBgColor.length === 7 ? iconBgColor : '#000000'}
+                    onChange={(e) => setIconBgColor?.(e.target.value)}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      padding: 0,
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="ds-input"
+                    style={{ fontSize: '0.8125rem', height: '32px' }}
+                    value={iconBgColor}
+                    onChange={(e) => setIconBgColor?.(e.target.value)}
+                    placeholder="#f5f5f4"
+                  />
+                </div>
+                {iconHasAlpha && (
+                  <span style={{ fontSize: '11px', color: 'var(--ink-secondary)' }}>
+                    检测到透明背景，已自动提取边缘色作为建议填充色，可手动覆盖。
+                  </span>
+                )}
+              </div>
+
+              {iconHasAlpha && (
+                <div className="ds-input-group">
+                  <label className="ds-label" htmlFor="icon-fg-scale">
+                    Android 前景缩放 ({Math.round(iconForegroundScale * 100)}%)
+                  </label>
+                  <input
+                    id="icon-fg-scale"
+                    type="range"
+                    min="50"
+                    max="100"
+                    value={Math.round(iconForegroundScale * 100)}
+                    onChange={(e) => setIconForegroundScale?.(parseInt(e.target.value) / 100)}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
+              )}
+            </div>
+          </SectionAccordion>
+        ) : (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-secondary)', fontSize: '13px' }}>
+            上传图标原图后可在此调整内边距与背景填充
+          </div>
+        )
       ) : (
         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-secondary)', fontSize: '13px' }}>
           本模块功能正在研发中

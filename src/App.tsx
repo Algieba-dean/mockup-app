@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas } from 'fabric';
 import JSZip from 'jszip';
 import { Layers } from 'lucide-react';
@@ -12,6 +12,7 @@ import { FocusTrap } from './components/FocusTrap';
 import { updateCanvas } from './utils/canvasManager';
 import type { DeviceInstance } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
+import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE } from './utils/iconManager';
 
 interface MockupPage {
   id: string;
@@ -137,6 +138,151 @@ function App() {
       return [];
     }
   });
+
+  // Icon Generator state
+  const iconInitialState = loadSavedState('mockup_app_icon_state', {
+    sourceDataUrl: null as string | null,
+    originalWidth: null as number | null,
+    originalHeight: null as number | null,
+    padding: 0.12,
+    bgColor: '#f5f5f4',
+    hasAlpha: false,
+    foregroundScale: 0.8,
+  });
+  const [iconSourceDataUrl, setIconSourceDataUrl] = useState<string | null>(iconInitialState.sourceDataUrl);
+  const [iconOriginalWidth, setIconOriginalWidth] = useState<number | null>(iconInitialState.originalWidth);
+  const [iconOriginalHeight, setIconOriginalHeight] = useState<number | null>(iconInitialState.originalHeight);
+  const [iconPadding, setIconPadding] = useState<number>(iconInitialState.padding);
+  const [iconBgColor, setIconBgColor] = useState<string>(iconInitialState.bgColor);
+  const [iconHasAlpha, setIconHasAlpha] = useState<boolean>(iconInitialState.hasAlpha);
+  const [iconForegroundScale, setIconForegroundScale] = useState<number>(iconInitialState.foregroundScale);
+  const [iconPlatformPreview, setIconPlatformPreview] = useState<'ios' | 'android'>('ios');
+  const [iconPreviewDataUrl, setIconPreviewDataUrl] = useState<string | null>(null);
+  const iconCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [showIconExportModal, setShowIconExportModal] = useState<boolean>(false);
+  const [iconExportPlatforms, setIconExportPlatforms] = useState<{ ios: boolean; android: boolean }>({ ios: true, android: true });
+
+  const iconWarning = useMemo(() => (
+    iconSourceDataUrl && iconOriginalWidth && iconOriginalHeight &&
+    (iconOriginalWidth !== iconOriginalHeight || Math.min(iconOriginalWidth, iconOriginalHeight) < 1024)
+      ? { width: iconOriginalWidth, height: iconOriginalHeight }
+      : null
+  ), [iconSourceDataUrl, iconOriginalWidth, iconOriginalHeight]);
+
+  const handleUploadIcon = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (!e.target?.result || typeof e.target.result !== 'string') return;
+      const img = new window.Image();
+      img.onload = () => {
+        const squareCanvas = cropImageToSquare(img);
+        const hasAlpha = detectAlphaChannel(squareCanvas);
+        setIconOriginalWidth(img.naturalWidth);
+        setIconOriginalHeight(img.naturalHeight);
+        setIconHasAlpha(hasAlpha);
+        if (hasAlpha) {
+          setIconBgColor(detectEdgeColor(squareCanvas));
+        }
+        setIconSourceDataUrl(squareCanvas.toDataURL('image/png'));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  // Persist icon generator state
+  useEffect(() => {
+    try {
+      localStorage.setItem('mockup_app_icon_state', JSON.stringify({
+        sourceDataUrl: iconSourceDataUrl,
+        originalWidth: iconOriginalWidth,
+        originalHeight: iconOriginalHeight,
+        padding: iconPadding,
+        bgColor: iconBgColor,
+        hasAlpha: iconHasAlpha,
+        foregroundScale: iconForegroundScale,
+      }));
+    } catch { /* quota exceeded */ }
+  }, [iconSourceDataUrl, iconOriginalWidth, iconOriginalHeight, iconPadding, iconBgColor, iconHasAlpha, iconForegroundScale]);
+
+  // Debounced icon canvas render
+  const iconDrawTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    if (!iconSourceDataUrl) {
+      setIconPreviewDataUrl(null);
+      return;
+    }
+    clearTimeout(iconDrawTimerRef.current);
+    iconDrawTimerRef.current = setTimeout(() => {
+      const canvas = iconCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const img = new window.Image();
+      img.onload = () => {
+        const effectivePadding = (iconPlatformPreview === 'android' && iconHasAlpha)
+          ? iconPadding + (1 - iconForegroundScale) * 0.5
+          : iconPadding;
+        renderIconFrame(ctx, { image: img, size: ICON_MASTER_SIZE, padding: effectivePadding, bgColor: iconBgColor });
+        setIconPreviewDataUrl(canvas.toDataURL('image/png'));
+      };
+      img.src = iconSourceDataUrl;
+    }, 150);
+    return () => clearTimeout(iconDrawTimerRef.current);
+  }, [iconSourceDataUrl, iconPadding, iconBgColor, iconHasAlpha, iconPlatformPreview, iconForegroundScale]);
+
+  const runIconZipExport = async () => {
+    if (!iconExportPlatforms.ios && !iconExportPlatforms.android) {
+      showToast('请至少勾选一个平台！');
+      return;
+    }
+    if (!iconSourceDataUrl) return;
+
+    setShowIconExportModal(false);
+    setIsExporting(true);
+    setExportProgress('准备图标画布环境...');
+
+    try {
+      const img = new window.Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('图标加载失败'));
+        img.src = iconSourceDataUrl;
+      });
+      const sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = img.naturalWidth;
+      sourceCanvas.height = img.naturalHeight;
+      sourceCanvas.getContext('2d')!.drawImage(img, 0, 0);
+
+      const zip = new JSZip();
+      await buildIconZip(zip, {
+        sourceCanvas,
+        padding: iconPadding,
+        bgColor: iconBgColor,
+        hasAlpha: iconHasAlpha,
+        foregroundScale: iconForegroundScale,
+        platforms: iconExportPlatforms,
+      }, (msg) => setExportProgress(msg));
+
+      setExportProgress('正在生成压缩包，请稍候...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = 'mockup_app_icons.zip';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Error generating icon ZIP export:', error);
+      showToast('导出失败，请查看控制台错误日志。');
+    } finally {
+      setIsExporting(false);
+      setExportProgress('');
+    }
+  };
 
   const handleSavePreset = (name: string) => {
     const newPreset: CustomPreset = {
@@ -430,6 +576,14 @@ function App() {
 
   // Trigger size modal config
   const handleExport = () => {
+    if (activeTool === 'icons') {
+      if (!iconSourceDataUrl) {
+        showToast('请先上传图标原图');
+        return;
+      }
+      setShowIconExportModal(true);
+      return;
+    }
     setShowExportModal(true);
   };
 
@@ -543,6 +697,9 @@ function App() {
           onDeletePreset={handleDeletePreset}
           onApplyPreset={handleApplyPreset}
           collapsed={leftSidebarCollapsed}
+          hasIconImage={!!iconSourceDataUrl}
+          iconPreviewDataUrl={iconPreviewDataUrl}
+          onUploadIcon={handleUploadIcon}
         />
 
         {/* 画布视口 */}
@@ -569,6 +726,22 @@ function App() {
                 onDeletePage={handleDeletePage}
               />
             </>
+          ) : activeTool === 'icons' ? (
+            <CanvasViewport
+              activeTool="icons"
+              zoom={zoom}
+              setZoom={setZoom}
+              canvasRef={canvasRef}
+              onFileDrop={handleUploadScreenshot}
+              iconCanvasRef={iconCanvasRef}
+              hasIconImage={!!iconSourceDataUrl}
+              onIconFileDrop={handleUploadIcon}
+              iconPlatformPreview={iconPlatformPreview}
+              setIconPlatformPreview={setIconPlatformPreview}
+              iconWarning={iconWarning}
+              iconPadding={iconPadding}
+              setIconPadding={setIconPadding}
+            />
           ) : (
             <div style={{
               display: 'flex',
@@ -584,10 +757,10 @@ function App() {
             }}>
               <Layers size={48} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', color: 'var(--ink-primary)' }}>
-                {activeTool === 'icons' ? '图标生成器 (Icon Maker)' : '文案助手 (ASO Copywriter)'}
+                文案助手 (ASO Copywriter)
               </h2>
               <p style={{ maxWidth: '400px', fontSize: '13px', lineHeight: 1.6 }}>
-                本模块正在进行纯前端 Fabric.js 画布算法开发。后续将支持从单张图片一键剪切导出 App Store/Google Play 全分辨率图标包及商店长描述 HTML 标签排版检验。
+                本模块正在进行纯前端商店长描述 HTML 标签排版检验开发。
               </p>
               <button className="ds-btn" onClick={() => setActiveTool('screenshots')}>
                 返回截图加壳工具
@@ -626,8 +799,111 @@ function App() {
           subtitleFontFamily={subtitleFontFamily}
           setSubtitleFontFamily={setSubtitleFontFamily}
           collapsed={rightSidebarCollapsed}
+          hasIconImage={!!iconSourceDataUrl}
+          iconPadding={iconPadding}
+          setIconPadding={setIconPadding}
+          iconBgColor={iconBgColor}
+          setIconBgColor={setIconBgColor}
+          iconHasAlpha={iconHasAlpha}
+          iconForegroundScale={iconForegroundScale}
+          setIconForegroundScale={setIconForegroundScale}
         />
       </div>
+
+      {/* 图标导出平台选择模态弹窗 */}
+      {showIconExportModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="icon-export-modal-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+          onClick={() => setShowIconExportModal(false)}
+        >
+          <FocusTrap onEscape={() => setShowIconExportModal(false)}>
+          <div className="ds-panel" style={{
+            width: '380px',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-primary)',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            boxShadow: 'var(--shadow-lg)',
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3 id="icon-export-modal-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0, color: 'var(--ink-primary)' }}>
+              导出应用图标包
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span className="ds-label">选择要包含在 ZIP 中的平台图标集</span>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-primary)',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}>
+                <span style={{ color: 'var(--ink-primary)' }}>App Store 图标（iOS 全尺寸 + Contents.json）</span>
+                <input
+                  type="checkbox"
+                  checked={iconExportPlatforms.ios}
+                  onChange={(e) => setIconExportPlatforms({ ...iconExportPlatforms, ios: e.target.checked })}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--ink-primary)' }}
+                />
+              </label>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-primary)',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}>
+                <span style={{ color: 'var(--ink-primary)' }}>Google Play 图标（Legacy + Adaptive + 512px）</span>
+                <input
+                  type="checkbox"
+                  checked={iconExportPlatforms.android}
+                  onChange={(e) => setIconExportPlatforms({ ...iconExportPlatforms, android: e.target.checked })}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--ink-primary)' }}
+                />
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                className="ds-btn"
+                style={{ flex: 1 }}
+                onClick={() => setShowIconExportModal(false)}
+              >
+                取消
+              </button>
+              <button
+                className="ds-btn ds-btn-active"
+                style={{ flex: 1 }}
+                onClick={runIconZipExport}
+              >
+                生成并下载
+              </button>
+            </div>
+          </div>
+          </FocusTrap>
+        </div>
+      )}
 
       {/* 导出多尺寸配置模态弹窗 */}
       {showExportModal && (
