@@ -99,7 +99,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
             top: '50%',
             transform: `translate(-50%, -50%) scale(${zoom / 100})`,
             transformOrigin: 'center center',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            boxShadow: '0 8px 32px var(--shadow-color)',
             transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
           }}>
             <canvas ref={canvasRef} />
@@ -117,7 +117,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           gap: '16px',
-          zIndex: 10,
+          zIndex: 'var(--z-sticky)',
           pointerEvents: 'none',
         }}>
           <div style={{
@@ -164,14 +164,14 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
           position: 'absolute',
           inset: '20px',
           border: '2px dashed var(--border-focus)',
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          color: '#fff',
+          backgroundColor: 'var(--overlay-bg-heavy)',
+          color: 'var(--overlay-text)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '12px',
-          zIndex: 20,
+          zIndex: 'var(--z-overlay)',
           pointerEvents: 'none',
         }}>
           <Upload size={32} />
@@ -180,15 +180,15 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
       )}
 
       {/* 缩放悬浮控制栏 - 独立于滚动层，永远固定于可见区域底部 */}
-      <div className="viewport-zoom-bar" style={{ zIndex: 15 }}>
-        <button className="ds-btn ds-btn-icon-only" style={{ width: '28px', height: '28px' }} onClick={handleZoomOut} title="缩小">
+      <div className="viewport-zoom-bar">
+        <button className="ds-btn ds-btn-icon-only" onClick={handleZoomOut} title="缩小" aria-label="缩小">
           <ZoomOut size={14} />
         </button>
         <span className="viewport-zoom-value">{zoom}%</span>
-        <button className="ds-btn ds-btn-icon-only" style={{ width: '28px', height: '28px' }} onClick={handleZoomIn} title="放大">
+        <button className="ds-btn ds-btn-icon-only" onClick={handleZoomIn} title="放大" aria-label="放大">
           <ZoomIn size={14} />
         </button>
-        <button className="ds-btn ds-btn-icon-only" style={{ width: '28px', height: '28px' }} onClick={handleZoomReset} title="重置 100%">
+        <button className="ds-btn ds-btn-icon-only" onClick={handleZoomReset} title="重置 100%" aria-label="重置缩放比例">
           <Maximize size={14} />
         </button>
       </div>

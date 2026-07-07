@@ -119,6 +119,15 @@ function App() {
   );
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<number>(-1);
 
+  // Toast notification (replaces alert())
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3500);
+  };
+
   const [customPresets, setCustomPresets] = useState<CustomPreset[]>(() => {
     try {
       const saved = localStorage.getItem('mockup_app_custom_presets');
@@ -283,10 +292,12 @@ function App() {
     try { localStorage.setItem('mockup_app_screenshots', JSON.stringify(screenshots)); } catch { /* quota exceeded */ }
   }, [screenshots]);
 
-  // Draw and render the FabricJS canvas when state changes
+  // Draw and render the FabricJS canvas when state changes (debounced)
+  const drawTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     if (fabricCanvas) {
-      const draw = async () => {
+      clearTimeout(drawTimerRef.current);
+      drawTimerRef.current = setTimeout(async () => {
         // Load fonts dynamically
         if (document.fonts && document.fonts.load) {
           try {
@@ -318,10 +329,9 @@ function App() {
           },
           activePageIndex
         );
-      };
-
-      draw();
+      }, 150);
     }
+    return () => clearTimeout(drawTimerRef.current);
   }, [
     fabricCanvas,
     activePageIndex,
@@ -424,7 +434,7 @@ function App() {
   const runZipExport = async () => {
     const selectedPresets = EXPORT_PRESETS.filter(p => exportSizes[p.id]);
     if (selectedPresets.length === 0) {
-      alert('请至少勾选一个导出尺寸规格！');
+      showToast('请至少勾选一个导出尺寸规格！');
       return;
     }
 
@@ -490,7 +500,7 @@ function App() {
       exportCanvas.dispose();
     } catch (error) {
       console.error('Error generating mockup ZIP export:', error);
-      alert('导出失败，请查看控制台错误日志。');
+      showToast('导出失败，请查看控制台错误日志。');
     } finally {
       setIsExporting(false);
       setExportProgress('');
@@ -614,15 +624,21 @@ function App() {
 
       {/* 导出多尺寸配置模态弹窗 */}
       {showExportModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9998,
-        }}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="export-modal-title"
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowExportModal(false); }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+        >
           <div className="ds-panel" style={{
             width: '440px',
             backgroundColor: 'var(--bg-secondary)',
@@ -631,9 +647,9 @@ function App() {
             display: 'flex',
             flexDirection: 'column',
             gap: '20px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            boxShadow: 'var(--shadow-lg)',
           }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0, color: 'var(--ink-primary)' }}>
+            <h3 id="export-modal-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0, color: 'var(--ink-primary)' }}>
               一键多尺寸商店图打包
             </h3>
             
@@ -690,14 +706,14 @@ function App() {
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.85)',
-          color: '#fff',
+          backgroundColor: 'var(--overlay-bg-heavy)',
+          color: 'var(--overlay-text)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '20px',
-          zIndex: 9999,
+          zIndex: 'var(--z-toast)',
         }}>
           <div style={{
             width: '40px',
@@ -714,6 +730,28 @@ function App() {
             }
           `}</style>
           <span style={{ fontSize: '14px', letterSpacing: '0.05em' }}>{exportProgress}</span>
+        </div>
+      )}
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--ink-primary)',
+            border: '1px solid var(--border-primary)',
+            padding: '12px 24px',
+            fontSize: '13px',
+            zIndex: 'var(--z-toast)',
+            boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          {toastMessage}
         </div>
       )}
     </div>

@@ -30,9 +30,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <div className="app-logo">
         <button
           className="ds-btn ds-btn-icon-only"
-          style={{ width: '28px', height: '28px', border: 'none' }}
+          style={{ border: 'none' }}
           onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
           title={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
+          aria-label={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
         >
           {leftSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
         </button>
@@ -66,6 +67,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           className="ds-btn ds-btn-icon-only"
           onClick={toggleTheme}
           title={theme === 'dark' ? '切换为亮色模式' : '切换为暗色模式'}
+          aria-label={theme === 'dark' ? '切换为亮色模式' : '切换为暗色模式'}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
@@ -80,9 +82,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
         <button
           className="ds-btn ds-btn-icon-only"
-          style={{ width: '28px', height: '28px', border: 'none' }}
+          style={{ border: 'none' }}
           onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
           title={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
+          aria-label={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
         >
           {rightSidebarCollapsed ? <PanelRight size={16} /> : <PanelRightClose size={16} />}
         </button>

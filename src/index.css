@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Geist:wght@100..900&family=Inter:wght@100..900&family=Lora:ital,wght@0,400..700;1,400..700&family=Outfit:wght@100..900&family=Playfair+Display:ital,wght@0,400..700;1,400..700&display=swap');
+/* Google Fonts loaded via <link> in index.html for non-blocking render */
 
 /* ==========================================================================
    1. Design System & Variables (The Editorial Curator)
@@ -25,6 +25,19 @@
   --transition-speed: 0.15s;
   --transition-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* Overlay & backdrop */
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --overlay-bg-heavy: rgba(0, 0, 0, 0.85);
+  --overlay-text: #ffffff;
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.3);
+
+  /* Z-index scale */
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-overlay: 100;
+  --z-modal: 1000;
+  --z-toast: 2000;
+
   /* Layout scale */
   --header-height: 56px;
   --sidebar-width: 320px;
@@ -44,6 +57,9 @@
   --border-focus: #000000;
   --shadow-color: rgba(0, 0, 0, 0.05);
   --shadow-active: rgba(0, 0, 0, 0.15);
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --overlay-bg-heavy: rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 /* ==========================================================================
@@ -330,7 +346,7 @@ p, span, label, input, button, textarea, select {
   border: 1px solid var(--border-primary);
   padding: 6px 12px;
   box-shadow: 0 4px 12px var(--shadow-color);
-  z-index: 10;
+  z-index: var(--z-sticky);
 }
 
 .viewport-zoom-value {
@@ -413,5 +429,125 @@ p, span, label, input, button, textarea, select {
 
 .custom-preset-card button:hover {
   color: var(--ink-primary) !important;
+}
+
+/* ==========================================================================
+   7. Accessibility
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.ds-btn:focus-visible,
+.ds-input:focus-visible,
+.ds-select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   8. Responsive: Mobile (<768px)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 280px;
+    --dock-height: 100px;
+    --header-height: 48px;
+  }
+
+  .app-header {
+    padding: 0 12px;
+  }
+
+  .app-logo h1 {
+    display: none;
+  }
+
+  .app-nav {
+    gap: 2px;
+  }
+
+  .app-nav .ds-btn {
+    font-size: 0.6875rem;
+    padding: 6px 10px;
+  }
+
+  .app-actions {
+    gap: 6px;
+  }
+
+  .app-main {
+    grid-template-columns: 0px 1fr 0px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: var(--header-height);
+    bottom: 0;
+    width: var(--sidebar-width);
+    z-index: 100;
+    box-shadow: 8px 0 24px var(--shadow-color);
+    transition: transform var(--transition-speed) var(--transition-ease),
+                opacity var(--transition-speed) var(--transition-ease);
+  }
+
+  .sidebar:first-of-type {
+    left: 0;
+    transform: translateX(0);
+  }
+
+  .sidebar:last-of-type {
+    right: 0;
+    transform: translateX(0);
+  }
+
+  .sidebar.collapsed {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sidebar.collapsed:first-of-type {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.collapsed:last-of-type {
+    transform: translateX(100%);
+  }
+
+  .sidebar-content {
+    padding: 16px;
+  }
+
+  .viewport-canvas-wrapper {
+    padding: 16px 16px 80px 16px;
+  }
+
+  .viewport-zoom-bar {
+    bottom: 12px;
+    padding: 4px 8px;
+    gap: 8px;
+  }
+
+  .asset-dock-scroll {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  /* Touch targets: minimum 44x44 */
+  .ds-btn-icon-only {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .asset-item-card {
+    width: 52px;
+    height: 52px;
+  }
 }
 

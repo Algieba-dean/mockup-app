@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface MockupPage {
@@ -22,13 +22,15 @@ export const AssetDock: React.FC<AssetDockProps> = ({
   onAddPage,
   onDeletePage,
 }) => {
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
+
   return (
     <div className="asset-dock">
       <div className="asset-dock-header">
         <span>故事画幅序列 (Mockup Pages)</span>
         <button
           className="ds-btn"
-          style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
+          style={{ padding: '4px 10px', fontSize: '11px' }}
           onClick={onAddPage}
         >
           <Plus size={12} />
@@ -76,8 +78,8 @@ export const AssetDock: React.FC<AssetDockProps> = ({
                 position: 'absolute',
                 bottom: '2px',
                 left: '4px',
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                color: '#fff',
+                backgroundColor: 'var(--overlay-bg)',
+                color: 'var(--overlay-text)',
                 padding: '1px 4px',
                 borderRadius: '2px',
                 fontSize: '8px'
@@ -91,9 +93,7 @@ export const AssetDock: React.FC<AssetDockProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`确定要删除画幅 P${index + 1} 吗？此操作无法恢复。`)) {
-                    onDeletePage(index);
-                  }
+                  setConfirmDeleteIndex(index);
                 }}
                 style={{
                   position: 'absolute',
@@ -103,8 +103,9 @@ export const AssetDock: React.FC<AssetDockProps> = ({
                   color: 'var(--bg-primary)',
                   border: '1px solid var(--border-primary)',
                   borderRadius: '50%',
-                  width: '16px',
-                  height: '16px',
+                  width: '22px',
+                  height: '22px',
+                  padding: 0,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -129,6 +130,55 @@ export const AssetDock: React.FC<AssetDockProps> = ({
           <Plus size={20} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />
         </div>
       </div>
+
+      {/* Custom delete confirmation */}
+      {confirmDeleteIndex !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmDeleteIndex(null); }}
+        >
+          <div className="ds-panel" style={{
+            width: '320px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: 'var(--shadow-lg)',
+          }}>
+            <span style={{ fontSize: '14px', color: 'var(--ink-primary)' }}>
+              确定要删除画幅 P{confirmDeleteIndex + 1} 吗？此操作无法恢复。
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="ds-btn"
+                style={{ flex: 1 }}
+                onClick={() => setConfirmDeleteIndex(null)}
+              >
+                取消
+              </button>
+              <button
+                className="ds-btn ds-btn-active"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  onDeletePage(confirmDeleteIndex);
+                  setConfirmDeleteIndex(null);
+                }}
+              >
+                确定删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

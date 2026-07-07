@@ -4,17 +4,22 @@ import marbleBg from '../assets/white_marble_bg.jpg';
 import grainBg from '../assets/minimal_grain_bg.jpg';
 import type { DeviceInstance } from '../utils/canvasManager';
 
+let accordionIdCounter = 0;
+
 const SectionAccordion: React.FC<{
   title: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }> = ({ title, defaultOpen = false, children }) => {
   const [open, setOpen] = useState(defaultOpen);
+  const [panelId] = useState(() => `accordion-panel-${++accordionIdCounter}`);
   return (
     <div>
       <button
         onClick={() => setOpen(!open)}
         className="sidebar-title"
+        aria-expanded={open}
+        aria-controls={panelId}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -37,6 +42,8 @@ const SectionAccordion: React.FC<{
         />
       </button>
       <div
+        id={panelId}
+        role="region"
         style={{
           display: 'grid',
           gridTemplateRows: open ? '1fr' : '0fr',
@@ -403,8 +410,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {(bgType === 'image' || bgType === 'panoramic') && (
               <div className="ds-input-group">
-                <label className="ds-label">背景高斯模糊 ({bgBlur}px)</label>
+                <label className="ds-label" htmlFor="bg-blur">背景高斯模糊 ({bgBlur}px)</label>
                 <input
+                  id="bg-blur"
                   type="range"
                   min="0"
                   max="30"
@@ -473,8 +481,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             {activeDevice && (
               <>
                 <div className="ds-input-group">
-                  <label className="ds-label">设备机型</label>
+                  <label className="ds-label" htmlFor="device-model">设备机型</label>
                   <select
+                    id="device-model"
                     className="ds-select"
                     value={activeDevice.deviceModel}
                     onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
@@ -511,7 +520,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                           flexShrink: 0,
                         }}
                       >
-                        <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={src} alt={`截图 ${sIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </button>
                     ))}
                   </div>
@@ -519,8 +528,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
                 {/* 2.5D Sliders */}
                 <div className="ds-input-group">
-                  <label className="ds-label">旋转角度 ({activeDevice.angle || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-angle">旋转角度 ({activeDevice.angle || 0}°)</label>
                   <input
+                    id="dev-angle"
                     type="range"
                     min="-45"
                     max="45"
@@ -531,8 +541,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label">三维错切 ({activeDevice.skewX || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-skew">三维错切 ({activeDevice.skewX || 0}°)</label>
                   <input
+                    id="dev-skew"
                     type="range"
                     min="-20"
                     max="20"
@@ -543,8 +554,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-scale">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
                   <input
+                    id="dev-scale"
                     type="range"
                     min="40"
                     max="150"
@@ -555,8 +567,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label">水平偏移 ({activeDevice.offsetX || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-x">水平偏移 ({activeDevice.offsetX || 0}px)</label>
                   <input
+                    id="dev-offset-x"
                     type="range"
                     min="-500"
                     max="500"
@@ -567,8 +580,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-y">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
                   <input
+                    id="dev-offset-y"
                     type="range"
                     min="-200"
                     max="600"
@@ -579,8 +593,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-ss-scale">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
                   <input
+                    id="dev-ss-scale"
                     type="range"
                     min="80"
                     max="150"
@@ -591,8 +606,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-ss-offset-y">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
                   <input
+                    id="dev-ss-offset-y"
                     type="range"
                     min="-100"
                     max="100"
@@ -620,8 +636,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           <SectionAccordion title="文案与排版">
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
-              <label className="ds-label">标题字体</label>
+              <label className="ds-label" htmlFor="title-font">标题字体</label>
               <select
+                id="title-font"
                 className="ds-select"
                 value={titleFontFamily}
                 onChange={(e) => setTitleFontFamily(e.target.value)}
@@ -636,8 +653,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label">副标题字体</label>
+              <label className="ds-label" htmlFor="subtitle-font">副标题字体</label>
               <select
+                id="subtitle-font"
                 className="ds-select"
                 value={subtitleFontFamily}
                 onChange={(e) => setSubtitleFontFamily(e.target.value)}
@@ -650,8 +668,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label">主标题内容</label>
+              <label className="ds-label" htmlFor="title-text">主标题内容</label>
               <input
+                id="title-text"
                 type="text"
                 className="ds-input"
                 value={titleText}
@@ -661,8 +680,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label">主标题字号 ({titleFontSize}px)</label>
+              <label className="ds-label" htmlFor="title-size">主标题字号 ({titleFontSize}px)</label>
               <input
+                id="title-size"
                 type="range"
                 min="24"
                 max="96"
@@ -673,8 +693,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label">副标题内容</label>
+              <label className="ds-label" htmlFor="subtitle-text">副标题内容</label>
               <input
+                id="subtitle-text"
                 type="text"
                 className="ds-input"
                 value={subtitleText}
@@ -684,8 +705,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label">副标题字号 ({subtitleFontSize}px)</label>
+              <label className="ds-label" htmlFor="subtitle-size">副标题字号 ({subtitleFontSize}px)</label>
               <input
+                id="subtitle-size"
                 type="range"
                 min="14"
                 max="48"

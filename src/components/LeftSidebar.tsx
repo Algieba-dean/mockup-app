@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, Image as ImageIcon, Trash2, Bookmark } from 'lucide-react';
 
 export interface CustomPreset {
@@ -54,6 +54,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       onUploadScreenshot(e.target.files[0]);
     }
   };
+
+  const [confirmDeletePresetId, setConfirmDeletePresetId] = useState<string | null>(null);
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
@@ -190,9 +192,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`确认删除预设「${preset.name}」吗？`)) {
-                          onDeletePreset(preset.id);
-                        }
+                        setConfirmDeletePresetId(preset.id);
                       }}
                       title="删除预设"
                     >
@@ -207,6 +207,39 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
       ) : (
         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-secondary)', fontSize: '13px' }}>
           功能开发中...
+        </div>
+      )}
+      {/* Custom preset delete confirmation */}
+      {confirmDeletePresetId !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setConfirmDeletePresetId(null); }}
+        >
+          <div className="ds-panel" style={{
+            width: '300px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: 'var(--shadow-lg)',
+          }}>
+            <span style={{ fontSize: '14px', color: 'var(--ink-primary)' }}>
+              确认删除预设「{customPresets.find(p => p.id === confirmDeletePresetId)?.name}」吗？
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="ds-btn" style={{ flex: 1 }} onClick={() => setConfirmDeletePresetId(null)}>取消</button>
+              <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={() => { onDeletePreset(confirmDeletePresetId); setConfirmDeletePresetId(null); }}>确定删除</button>
+            </div>
+          </div>
         </div>
       )}
     </aside>
