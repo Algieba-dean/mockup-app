@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useId, isValidElement, cloneElement } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
 import {
   DATA_TYPE_CATALOG,
@@ -66,6 +66,7 @@ function StepShell({ labels, currentStep, onJump, children }: StepShellProps) {
                 onClick={() => isDone && onJump(step)}
                 disabled={!isDone && !isCurrent}
                 aria-current={isCurrent ? 'step' : undefined}
+                aria-label={`第 ${step} 步：${label}`}
               >
                 {isDone ? <Check size={12} aria-hidden="true" /> : step}
               </button>
@@ -79,11 +80,26 @@ function StepShell({ labels, currentStep, onJump, children }: StepShellProps) {
   );
 }
 
-function FieldGroup({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+function FieldGroup({ label, children, required, error }: { label: string; children: React.ReactNode; required?: boolean; error?: string }) {
+  const generatedId = useId();
+  const errorId = `${generatedId}-error`;
+  const isField = isValidElement(children);
+  const fieldId = isField ? ((children as React.ReactElement<{ id?: string }>).props.id ?? generatedId) : undefined;
+  const field = isField
+    ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+        id: fieldId,
+        'aria-invalid': error ? true : undefined,
+        'aria-describedby': error ? errorId : undefined,
+      })
+    : children;
+
   return (
     <div className="ds-input-group">
-      <label className="ds-label">{label}{required ? ' *' : ''}</label>
-      {children}
+      <label className="ds-label" htmlFor={fieldId}>{label}{required ? ' *' : ''}</label>
+      {field}
+      {error && (
+        <p className="legal-field-error" id={errorId} role="alert">{error}</p>
+      )}
     </div>
   );
 }
@@ -138,12 +154,27 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
   const [privacyResumeDismissed, setPrivacyResumeDismissed] = useState(false);
   const [termsResumeDismissed, setTermsResumeDismissed] = useState(false);
 
+  const [privacyTouched, setPrivacyTouched] = useState<Record<string, boolean>>({});
+  const [termsTouched, setTermsTouched] = useState<Record<string, boolean>>({});
+  const touchPrivacyField = (field: string) => setPrivacyTouched((t) => ({ ...t, [field]: true }));
+  const touchTermsField = (field: string) => setTermsTouched((t) => ({ ...t, [field]: true }));
+
+  const privacySaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    try { localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(privacyState)); } catch { /* quota exceeded */ }
+    clearTimeout(privacySaveTimerRef.current);
+    privacySaveTimerRef.current = setTimeout(() => {
+      try { localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(privacyState)); } catch { /* quota exceeded */ }
+    }, 300);
+    return () => clearTimeout(privacySaveTimerRef.current);
   }, [privacyState]);
 
+  const termsSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    try { localStorage.setItem(TERMS_STORAGE_KEY, JSON.stringify(termsState)); } catch { /* quota exceeded */ }
+    clearTimeout(termsSaveTimerRef.current);
+    termsSaveTimerRef.current = setTimeout(() => {
+      try { localStorage.setItem(TERMS_STORAGE_KEY, JSON.stringify(termsState)); } catch { /* quota exceeded */ }
+    }, 300);
+    return () => clearTimeout(termsSaveTimerRef.current);
   }, [termsState]);
 
   const showPrivacyResume = !privacyResumeDismissed && privacyState.step > 1 && !privacyState.done && isNonEmpty(privacyState.draft as unknown as Record<string, unknown>);
@@ -161,11 +192,23 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
   const termsStep1Valid = termsState.draft.appName.trim().length > 0 && isValidEmail(termsState.draft.contactEmail);
   const termsStep2Valid = termsState.draft.serviceDescription.trim().length > 0;
 
+  const privacyAppNameError = privacyTouched.appName && !privacyState.draft.appName.trim() ? 'App 名称为必填项' : undefined;
+  const privacyEmailError = privacyTouched.contactEmail
+    ? (!privacyState.draft.contactEmail.trim() ? '联系邮箱为必填项' : !isValidEmail(privacyState.draft.contactEmail) ? '请输入有效的邮箱地址' : undefined)
+    : undefined;
+  const termsAppNameError = termsTouched.appName && !termsState.draft.appName.trim() ? 'App 名称为必填项' : undefined;
+  const termsEmailError = termsTouched.contactEmail
+    ? (!termsState.draft.contactEmail.trim() ? '联系邮箱为必填项' : !isValidEmail(termsState.draft.contactEmail) ? '请输入有效的邮箱地址' : undefined)
+    : undefined;
+  const termsServiceDescriptionError = termsTouched.serviceDescription && !termsState.draft.serviceDescription.trim() ? '请填写服务说明' : undefined;
+
   return (
     <div className="legal-workspace">
       <div className="legal-mode-switch" role="tablist" aria-label="选择生成器类型">
         <button
           role="tab"
+          id="privacy-tab"
+          aria-controls="privacy-panel"
           aria-selected={mode === 'privacy'}
           className={`ds-btn ${mode === 'privacy' ? 'ds-btn-active' : ''}`}
           onClick={() => setMode('privacy')}
@@ -174,6 +217,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
         </button>
         <button
           role="tab"
+          id="terms-tab"
+          aria-controls="terms-panel"
           aria-selected={mode === 'terms'}
           className={`ds-btn ${mode === 'terms' ? 'ds-btn-active' : ''}`}
           onClick={() => setMode('terms')}
@@ -183,7 +228,7 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
       </div>
 
       {mode === 'privacy' ? (
-        <>
+        <div role="tabpanel" id="privacy-panel" aria-labelledby="privacy-tab">
           {showPrivacyResume && (
             <ResumeBanner
               onResume={() => setPrivacyResumeDismissed(true)}
@@ -207,8 +252,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
             <StepShell labels={PRIVACY_STEP_LABELS} currentStep={privacyState.step} onJump={(step) => setPrivacyState((s) => ({ ...s, step }))}>
               {privacyState.step === 1 && (
                 <>
-                  <FieldGroup label="App 名称" required>
-                    <input className="ds-input" value={privacyState.draft.appName} onChange={(e) => updatePrivacyDraft({ appName: e.target.value })} placeholder="例如 MockupApp" />
+                  <FieldGroup label="App 名称" required error={privacyAppNameError}>
+                    <input className="ds-input" value={privacyState.draft.appName} onChange={(e) => updatePrivacyDraft({ appName: e.target.value })} onBlur={() => touchPrivacyField('appName')} placeholder="例如 MockupApp" />
                   </FieldGroup>
                   <FieldGroup label="公司名称（可选，默认使用 App 名称）">
                     <input className="ds-input" value={privacyState.draft.companyName} onChange={(e) => updatePrivacyDraft({ companyName: e.target.value })} />
@@ -216,8 +261,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <FieldGroup label="官网 URL（可选）">
                     <input className="ds-input" value={privacyState.draft.websiteUrl} onChange={(e) => updatePrivacyDraft({ websiteUrl: e.target.value })} placeholder="https://" />
                   </FieldGroup>
-                  <FieldGroup label="联系邮箱" required>
-                    <input className="ds-input" value={privacyState.draft.contactEmail} onChange={(e) => updatePrivacyDraft({ contactEmail: e.target.value })} placeholder="support@example.com" />
+                  <FieldGroup label="联系邮箱" required error={privacyEmailError}>
+                    <input type="email" className="ds-input" value={privacyState.draft.contactEmail} onChange={(e) => updatePrivacyDraft({ contactEmail: e.target.value })} onBlur={() => touchPrivacyField('contactEmail')} placeholder="support@example.com" />
                   </FieldGroup>
                   <FieldGroup label="生效日期">
                     <input type="date" className="ds-input" value={privacyState.draft.effectiveDate} onChange={(e) => updatePrivacyDraft({ effectiveDate: e.target.value })} />
@@ -307,9 +352,9 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
               )}
             </StepShell>
           )}
-        </>
+        </div>
       ) : (
-        <>
+        <div role="tabpanel" id="terms-panel" aria-labelledby="terms-tab">
           {showTermsResume && (
             <ResumeBanner
               onResume={() => setTermsResumeDismissed(true)}
@@ -333,8 +378,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
             <StepShell labels={TERMS_STEP_LABELS} currentStep={termsState.step} onJump={(step) => setTermsState((s) => ({ ...s, step }))}>
               {termsState.step === 1 && (
                 <>
-                  <FieldGroup label="App 名称" required>
-                    <input className="ds-input" value={termsState.draft.appName} onChange={(e) => updateTermsDraft({ appName: e.target.value })} placeholder="例如 MockupApp" />
+                  <FieldGroup label="App 名称" required error={termsAppNameError}>
+                    <input className="ds-input" value={termsState.draft.appName} onChange={(e) => updateTermsDraft({ appName: e.target.value })} onBlur={() => touchTermsField('appName')} placeholder="例如 MockupApp" />
                   </FieldGroup>
                   <FieldGroup label="公司名称（可选，默认使用 App 名称）">
                     <input className="ds-input" value={termsState.draft.companyName} onChange={(e) => updateTermsDraft({ companyName: e.target.value })} />
@@ -342,8 +387,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <FieldGroup label="官网 URL（可选）">
                     <input className="ds-input" value={termsState.draft.websiteUrl} onChange={(e) => updateTermsDraft({ websiteUrl: e.target.value })} placeholder="https://" />
                   </FieldGroup>
-                  <FieldGroup label="联系邮箱" required>
-                    <input className="ds-input" value={termsState.draft.contactEmail} onChange={(e) => updateTermsDraft({ contactEmail: e.target.value })} placeholder="support@example.com" />
+                  <FieldGroup label="联系邮箱" required error={termsEmailError}>
+                    <input type="email" className="ds-input" value={termsState.draft.contactEmail} onChange={(e) => updateTermsDraft({ contactEmail: e.target.value })} onBlur={() => touchTermsField('contactEmail')} placeholder="support@example.com" />
                   </FieldGroup>
                   <FieldGroup label="生效日期">
                     <input type="date" className="ds-input" value={termsState.draft.effectiveDate} onChange={(e) => updateTermsDraft({ effectiveDate: e.target.value })} />
@@ -354,8 +399,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
 
               {termsState.step === 2 && (
                 <>
-                  <FieldGroup label="用一段话描述你的 App 做什么" required>
-                    <textarea className="ds-input" rows={4} value={termsState.draft.serviceDescription} onChange={(e) => updateTermsDraft({ serviceDescription: e.target.value })} placeholder="例如：MockupApp 帮助开发者在浏览器中一站式生成应用商店截图、图标与合规文档。" />
+                  <FieldGroup label="用一段话描述你的 App 做什么" required error={termsServiceDescriptionError}>
+                    <textarea className="ds-input" rows={4} value={termsState.draft.serviceDescription} onChange={(e) => updateTermsDraft({ serviceDescription: e.target.value })} onBlur={() => touchTermsField('serviceDescription')} placeholder="例如：MockupApp 帮助开发者在浏览器中一站式生成应用商店截图、图标与合规文档。" />
                   </FieldGroup>
                   <StepNav nextDisabled={!termsStep2Valid} onBack={() => setTermsState((s) => ({ ...s, step: 1 }))} onNext={() => setTermsState((s) => ({ ...s, step: 3 }))} />
                 </>
@@ -387,7 +432,7 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
               )}
             </StepShell>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -403,7 +448,7 @@ function CustomServiceEditor({ services, onChange }: { services: CustomService[]
     <div style={{ marginTop: '12px' }}>
       <span className="ds-label" style={{ display: 'block', marginBottom: '6px' }}>自定义第三方服务</span>
       {services.map((s, i) => (
-        <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+        <div key={i} className="legal-custom-service-row">
           <input className="ds-input" placeholder="服务名称" value={s.name} onChange={(e) => updateRow(i, { name: e.target.value })} />
           <input className="ds-input" placeholder="隐私政策链接（可选）" value={s.url} onChange={(e) => updateRow(i, { url: e.target.value })} />
           <button className="ds-btn ds-btn-icon-only" onClick={() => removeRow(i)} aria-label="删除">×</button>

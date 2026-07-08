@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Copy, Download, FileText, Pencil } from 'lucide-react';
 import type { DocSection } from '../utils/legalDocManager';
 import { renderSectionsToHtml, renderSectionsToPlainText, renderSectionsToMarkdown } from '../utils/legalDocManager';
@@ -12,7 +13,7 @@ interface LegalResultViewProps {
 }
 
 export function LegalResultView({ docTitle, effectiveDate, sections, fileBaseName, onEdit, onToast }: LegalResultViewProps) {
-  const plainText = renderSectionsToPlainText(docTitle, effectiveDate, sections);
+  const plainText = useMemo(() => renderSectionsToPlainText(docTitle, effectiveDate, sections), [docTitle, effectiveDate, sections]);
 
   const handleCopy = async () => {
     try {
