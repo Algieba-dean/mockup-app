@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('MockupApp E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
-    // Open the home page
+    // Open the home page and clear localStorage to ensure test isolation
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
     await page.goto('/');
   });
 
@@ -160,6 +162,17 @@ test.describe('MockupApp E2E Tests', () => {
     // 1. Switch to the Icons tool
     await page.locator('button:has-text("图标生成")').click();
 
+    // Debug inputs
+    const inputs = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('input')).map(el => ({
+        type: el.type,
+        id: el.id,
+        className: el.className,
+        outerHTML: el.outerHTML
+      }));
+    });
+    console.log('INPUTS FOUND:', inputs);
+
     // 2. Upload an icon source image via the left sidebar
     const fileInput = page.locator('aside.sidebar input[type="file"]').first();
     await fileInput.setInputFiles('example/09_multi_languages.png');
@@ -186,6 +199,81 @@ test.describe('MockupApp E2E Tests', () => {
       page.locator('button:has-text("生成并下载")').click(),
     ]);
     expect(download.suggestedFilename()).toBe('mockup_app_icons.zip');
+
+    // 7. Verify integration guidance is shown on export completion and can be dismissed
+    await expect(page.locator('h3:has-text("图标包导出成功")')).toBeVisible();
+    await page.locator('button:has-text("关闭指引")').click();
+    await expect(page.locator('h3:has-text("图标包导出成功")')).not.toBeVisible();
+  });
+
+  test('should support drag-and-zoom positioning, gradient backgrounds, history CRUD, and SVG export in Icon Generator', async ({ page }) => {
+    // 1. Switch to Icons tool and upload
+    await page.locator('button:has-text("图标生成")').click();
+    const fileInput = page.locator('aside.sidebar input[type="file"]').first();
+    await fileInput.setInputFiles('example/09_multi_languages.png');
+
+    // 2. Test Canvas Drag interaction
+    const canvas = page.locator('canvas').nth(1);
+    const box = await canvas.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 + 20);
+      await page.mouse.up();
+    }
+
+    // Test Canvas Zoom (wheel)
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, -100);
+    }
+
+    // Reset positioning
+    await page.locator('button[aria-label="重置图像位置与缩放"]').click();
+
+    // 3. Test background gradient mode
+    await page.locator('button:has-text("135°渐变")').click();
+    await expect(page.locator('text=渐变颜色设定')).toBeVisible();
+
+    // 4. Test History saving and drawer list
+    await page.locator('button:has-text("保存当前方案到历史")').click();
+    
+    // Toggle history drawer from header
+    const historyBtn = page.locator('button[aria-label="查看历史方案"]');
+    await expect(historyBtn).toBeVisible();
+    await historyBtn.click();
+
+    const drawerTitle = page.locator('h2:has-text("历史方案")');
+    await expect(drawerTitle).toBeVisible();
+
+    // Verify "当前" label exists
+    await expect(page.locator('span:has-text("当前")')).toBeVisible();
+
+    // Rename history scheme
+    await page.locator('button[title="重命名"]').first().click();
+    const renameInput = page.locator('input[value^="方案"]');
+    await renameInput.fill('E2E Icon Plan');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('span:has-text("E2E Icon Plan")')).toBeVisible();
+
+    // Close drawer via Escape
+    await page.keyboard.press('Escape');
+    await expect(drawerTitle).not.toBeVisible();
+
+    // 5. Test SVG optional export
+    await page.locator('button:has-text("导出 ZIP")').click();
+    const svgCheckbox = page.locator('label:has-text("附带 SVG 容器版") input[type="checkbox"]');
+    await expect(svgCheckbox).toBeVisible();
+    await svgCheckbox.check();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('button:has-text("生成并下载")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('mockup_app_icons.zip');
+    
+    // Close integration guides
+    await page.locator('button:has-text("关闭指引")').click();
   });
 
   test('should walk through the Privacy Policy wizard and generate a document', async ({ page }) => {
@@ -198,6 +286,7 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(nextBtn).toBeDisabled();
 
     await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
+    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
     await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
     await expect(nextBtn).toBeEnabled();
     await nextBtn.click();

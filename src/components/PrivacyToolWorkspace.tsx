@@ -188,18 +188,38 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
   const privacySections = useMemo(() => buildPrivacyPolicySections(privacyState.draft), [privacyState.draft]);
   const termsSections = useMemo(() => buildTermsOfUseSections(termsState.draft), [termsState.draft]);
 
-  const privacyStep1Valid = privacyState.draft.appName.trim().length > 0 && isValidEmail(privacyState.draft.contactEmail);
-  const termsStep1Valid = termsState.draft.appName.trim().length > 0 && isValidEmail(termsState.draft.contactEmail);
+  const privacyStep1Valid =
+    privacyState.draft.appName.trim().length > 0 &&
+    isValidEmail(privacyState.draft.contactEmail) &&
+    (privacyState.draft.ownerType === 'individual'
+      ? privacyState.draft.developerName.trim().length > 0
+      : privacyState.draft.companyName.trim().length > 0);
+
+  const termsStep1Valid =
+    termsState.draft.appName.trim().length > 0 &&
+    isValidEmail(termsState.draft.contactEmail) &&
+    (termsState.draft.ownerType === 'individual'
+      ? termsState.draft.developerName.trim().length > 0
+      : termsState.draft.companyName.trim().length > 0);
+
   const termsStep2Valid = termsState.draft.serviceDescription.trim().length > 0;
 
   const privacyAppNameError = privacyTouched.appName && !privacyState.draft.appName.trim() ? 'App 名称为必填项' : undefined;
   const privacyEmailError = privacyTouched.contactEmail
     ? (!privacyState.draft.contactEmail.trim() ? '联系邮箱为必填项' : !isValidEmail(privacyState.draft.contactEmail) ? '请输入有效的邮箱地址' : undefined)
     : undefined;
+  const privacyOwnerNameError = privacyState.draft.ownerType === 'individual'
+    ? (privacyTouched.developerName && !privacyState.draft.developerName.trim() ? '开发者名称为必填项' : undefined)
+    : (privacyTouched.companyName && !privacyState.draft.companyName.trim() ? '公司名称为必填项' : undefined);
+
   const termsAppNameError = termsTouched.appName && !termsState.draft.appName.trim() ? 'App 名称为必填项' : undefined;
   const termsEmailError = termsTouched.contactEmail
     ? (!termsState.draft.contactEmail.trim() ? '联系邮箱为必填项' : !isValidEmail(termsState.draft.contactEmail) ? '请输入有效的邮箱地址' : undefined)
     : undefined;
+  const termsOwnerNameError = termsState.draft.ownerType === 'individual'
+    ? (termsTouched.developerName && !termsState.draft.developerName.trim() ? '开发者名称为必填项' : undefined)
+    : (termsTouched.companyName && !termsState.draft.companyName.trim() ? '公司名称为必填项' : undefined);
+
   const termsServiceDescriptionError = termsTouched.serviceDescription && !termsState.draft.serviceDescription.trim() ? '请填写服务说明' : undefined;
 
   return (
@@ -255,9 +275,26 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <FieldGroup label="App 名称" required error={privacyAppNameError}>
                     <input className="ds-input" value={privacyState.draft.appName} onChange={(e) => updatePrivacyDraft({ appName: e.target.value })} onBlur={() => touchPrivacyField('appName')} placeholder="例如 MockupApp" />
                   </FieldGroup>
-                  <FieldGroup label="公司名称（可选，默认使用 App 名称）">
-                    <input className="ds-input" value={privacyState.draft.companyName} onChange={(e) => updatePrivacyDraft({ companyName: e.target.value })} />
+                  <FieldGroup label="所有者类型">
+                    <select className="ds-select" value={privacyState.draft.ownerType} onChange={(e) => updatePrivacyDraft({ ownerType: e.target.value as any })}>
+                      <option value="individual">个人开发者 (Individual)</option>
+                      <option value="company">公司 / 企业 (Company)</option>
+                    </select>
                   </FieldGroup>
+                  {privacyState.draft.ownerType === 'individual' ? (
+                    <FieldGroup label="开发者姓名" required error={privacyOwnerNameError}>
+                      <input className="ds-input" value={privacyState.draft.developerName} onChange={(e) => updatePrivacyDraft({ developerName: e.target.value })} onBlur={() => touchPrivacyField('developerName')} placeholder="例如 John Doe" />
+                    </FieldGroup>
+                  ) : (
+                    <>
+                      <FieldGroup label="公司名称" required error={privacyOwnerNameError}>
+                        <input className="ds-input" value={privacyState.draft.companyName} onChange={(e) => updatePrivacyDraft({ companyName: e.target.value })} onBlur={() => touchPrivacyField('companyName')} placeholder="例如 Acme Corp" />
+                      </FieldGroup>
+                      <FieldGroup label="营业地址（企业合规必填）">
+                        <input className="ds-input" value={privacyState.draft.businessAddress} onChange={(e) => updatePrivacyDraft({ businessAddress: e.target.value })} placeholder="例如 123 Main St, New York, NY" />
+                      </FieldGroup>
+                    </>
+                  )}
                   <FieldGroup label="官网 URL（可选）">
                     <input className="ds-input" value={privacyState.draft.websiteUrl} onChange={(e) => updatePrivacyDraft({ websiteUrl: e.target.value })} placeholder="https://" />
                   </FieldGroup>
@@ -342,6 +379,12 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <CheckboxRow label="面向 13 岁以下儿童 / 需遵守 COPPA" checked={privacyState.draft.coppa} onChange={(v) => updatePrivacyDraft({ coppa: v })} />
                   <CheckboxRow label="集成人工智能技术 (AI)" checked={privacyState.draft.isAIUsed} onChange={(v) => updatePrivacyDraft({ isAIUsed: v })} />
                   <CheckboxRow label="收集并使用地理位置 (Location)" checked={privacyState.draft.isLocationTracked} onChange={(v) => updatePrivacyDraft({ isLocationTracked: v })} />
+                  <CheckboxRow label="适用欧盟数字服务法案 (DSA合规)" checked={privacyState.draft.isDsa} onChange={(v) => updatePrivacyDraft({ isDsa: v })} />
+                  {(privacyState.draft.gdpr || privacyState.draft.isDsa) && (
+                    <FieldGroup label="欧盟授权代表姓名/联系方式 (EU Legal Representative)">
+                      <input className="ds-input" value={privacyState.draft.euRepresentative} onChange={(e) => updatePrivacyDraft({ euRepresentative: e.target.value })} placeholder="例如 Acme Representative Ltd, representative@example.com" />
+                    </FieldGroup>
+                  )}
                   <CheckboxRow label="App 内支持用户账号注册" checked={privacyState.draft.hasUserAccounts} onChange={(v) => updatePrivacyDraft({ hasUserAccounts: v })} />
                   {privacyState.draft.hasUserAccounts && (
                     <FieldGroup label="账号 / 数据删除说明（可选，留空使用通用表述）">
@@ -392,9 +435,26 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <FieldGroup label="App 名称" required error={termsAppNameError}>
                     <input className="ds-input" value={termsState.draft.appName} onChange={(e) => updateTermsDraft({ appName: e.target.value })} onBlur={() => touchTermsField('appName')} placeholder="例如 MockupApp" />
                   </FieldGroup>
-                  <FieldGroup label="公司名称（可选，默认使用 App 名称）">
-                    <input className="ds-input" value={termsState.draft.companyName} onChange={(e) => updateTermsDraft({ companyName: e.target.value })} />
+                  <FieldGroup label="所有者类型">
+                    <select className="ds-select" value={termsState.draft.ownerType} onChange={(e) => updateTermsDraft({ ownerType: e.target.value as any })}>
+                      <option value="individual">个人开发者 (Individual)</option>
+                      <option value="company">公司 / 企业 (Company)</option>
+                    </select>
                   </FieldGroup>
+                  {termsState.draft.ownerType === 'individual' ? (
+                    <FieldGroup label="开发者姓名" required error={termsOwnerNameError}>
+                      <input className="ds-input" value={termsState.draft.developerName} onChange={(e) => updateTermsDraft({ developerName: e.target.value })} onBlur={() => touchTermsField('developerName')} placeholder="例如 John Doe" />
+                    </FieldGroup>
+                  ) : (
+                    <>
+                      <FieldGroup label="公司名称" required error={termsOwnerNameError}>
+                        <input className="ds-input" value={termsState.draft.companyName} onChange={(e) => updateTermsDraft({ companyName: e.target.value })} onBlur={() => touchTermsField('companyName')} placeholder="例如 Acme Corp" />
+                      </FieldGroup>
+                      <FieldGroup label="营业地址（企业合规必填）">
+                        <input className="ds-input" value={termsState.draft.businessAddress} onChange={(e) => updateTermsDraft({ businessAddress: e.target.value })} placeholder="例如 123 Main St, New York, NY" />
+                      </FieldGroup>
+                    </>
+                  )}
                   <FieldGroup label="官网 URL（可选）">
                     <input className="ds-input" value={termsState.draft.websiteUrl} onChange={(e) => updateTermsDraft({ websiteUrl: e.target.value })} placeholder="https://" />
                   </FieldGroup>
@@ -438,6 +498,12 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
 
               {termsState.step === 4 && (
                 <>
+                  <CheckboxRow label="适用欧盟数字服务法案 (DSA合规)" checked={termsState.draft.isDsa} onChange={(v) => updateTermsDraft({ isDsa: v })} />
+                  {termsState.draft.isDsa && (
+                    <FieldGroup label="欧盟授权代表姓名/联系方式 (EU Legal Representative)">
+                      <input className="ds-input" value={termsState.draft.euRepresentative} onChange={(e) => updateTermsDraft({ euRepresentative: e.target.value })} placeholder="例如 Acme Representative Ltd, representative@example.com" />
+                    </FieldGroup>
+                  )}
                   <FieldGroup label="适用法律 / 争议解决地区（可选，留空使用通用表述）">
                     <input className="ds-input" value={termsState.draft.governingLaw} onChange={(e) => updateTermsDraft({ governingLaw: e.target.value })} placeholder="例如 the State of Delaware, United States" />
                   </FieldGroup>

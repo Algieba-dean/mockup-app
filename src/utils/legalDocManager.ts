@@ -158,6 +158,11 @@ export interface PrivacyDraft {
   appType: 'free' | 'open_source' | 'freemium' | 'ad_supported' | 'commercial';
   isAIUsed: boolean;
   isLocationTracked: boolean;
+  ownerType: 'individual' | 'company';
+  developerName: string;
+  businessAddress: string;
+  euRepresentative: string;
+  isDsa: boolean;
 }
 
 export interface TermsDraft {
@@ -174,6 +179,11 @@ export interface TermsDraft {
   minimumAge: string;
   appType: 'free' | 'open_source' | 'freemium' | 'ad_supported' | 'commercial';
   isAIUsed: boolean;
+  ownerType: 'individual' | 'company';
+  developerName: string;
+  businessAddress: string;
+  euRepresentative: string;
+  isDsa: boolean;
 }
 
 export const DEFAULT_PRIVACY_DRAFT: PrivacyDraft = {
@@ -197,6 +207,11 @@ export const DEFAULT_PRIVACY_DRAFT: PrivacyDraft = {
   appType: 'free',
   isAIUsed: false,
   isLocationTracked: false,
+  ownerType: 'individual',
+  developerName: '',
+  businessAddress: '',
+  euRepresentative: '',
+  isDsa: false,
 };
 
 export const DEFAULT_TERMS_DRAFT: TermsDraft = {
@@ -213,6 +228,11 @@ export const DEFAULT_TERMS_DRAFT: TermsDraft = {
   minimumAge: '13',
   appType: 'free',
   isAIUsed: false,
+  ownerType: 'individual',
+  developerName: '',
+  businessAddress: '',
+  euRepresentative: '',
+  isDsa: false,
 };
 
 export const PLATFORM_LABELS: Record<PrivacyDraft['platform'], string> = {
@@ -235,8 +255,11 @@ function findService(id: string): ServiceOption | undefined {
   return undefined;
 }
 
-function companyOf(draft: { appName: string; companyName: string }): string {
-  return draft.companyName.trim() || draft.appName.trim() || 'the App';
+function companyOf(draft: { ownerType?: 'individual' | 'company'; appName: string; companyName: string; developerName?: string }): string {
+  if (draft.ownerType === 'individual') {
+    return draft.developerName?.trim() || draft.appName.trim() || 'the Developer';
+  }
+  return draft.companyName.trim() || draft.appName.trim() || 'the Company';
 }
 
 export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
@@ -443,6 +466,9 @@ export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
 
   const contactParts = [`If you have any questions about this Privacy Policy, you can contact us by email: ${draft.contactEmail.trim() || 'N/A'}`];
   if (draft.websiteUrl.trim()) contactParts.push(`or by visiting our website: ${draft.websiteUrl.trim()}`);
+  if (draft.ownerType === 'company' && draft.businessAddress.trim()) {
+    contactParts.push(`or by post to our registered office: ${draft.businessAddress.trim()}`);
+  }
   sections.push({ heading: 'Contact Us', paragraphs: [contactParts.join(', ') + '.'] });
 
   return sections;
@@ -557,6 +583,17 @@ export function buildTermsOfUseSections(draft: TermsDraft): DocSection[] {
     ],
   });
 
+  // Mobile Device Hardware / Connection Disclaimers (Gap 1 & Gap 2)
+  sections.push({
+    heading: 'Device Security and Connectivity',
+    paragraphs: [
+      `Certain functions of the Service will require an active internet connection. The connection can be Wi-Fi or provided by your mobile network provider, but we cannot take responsibility for the Service not working at full functionality if you do not have access to Wi-Fi, or if you have used up your data allowance.`,
+      `If you are using the Application outside of an area with Wi-Fi, you should remember that the terms of agreement with your mobile network provider will still apply. As a result, you may be charged by your mobile provider for the cost of data for the duration of the connection while accessing the Service, or other third-party charges. By using the Application, you accept responsibility for any such charges, including roaming data charges if you use the Application outside of your home territory without turning off data roaming.`,
+      `Along the same lines, you must not jailbreak or root your device, which is the process of removing software restrictions and limitations imposed by the official operating system of your device. It could make your device vulnerable to malware, viruses, and malicious programs, compromise its security features, and cause the Application to not work properly or at all.`,
+      `Furthermore, you acknowledge that the Application may consume your device's battery resources. ${company} accepts no liability for any battery depletion, hardware degradation, or charging malfunctions resulting from the use of the Application.`,
+    ],
+  });
+
   sections.push({
     heading: 'Termination',
     paragraphs: [
@@ -593,6 +630,23 @@ export function buildTermsOfUseSections(draft: TermsDraft): DocSection[] {
         : `These Terms shall be governed and construed in accordance with the laws applicable in the jurisdiction in which ${company} is established, without regard to its conflict of law provisions.`,
     ],
   });
+
+  if (draft.isDsa) {
+    const euRepText = draft.euRepresentative.trim()
+      ? `Where the Service Provider is established outside the European Union, we have designated our EU Legal Representative: ${draft.euRepresentative.trim()} in accordance with Article 13 of the DSA.`
+      : `The Service Provider maintains a single point of contact for direct communication with EU authorities and recipients of the service, reachable at ${draft.contactEmail || 'our support email'}.`;
+
+    sections.push({
+      heading: 'DSA Compliance (EU Digital Services Act)',
+      paragraphs: [
+        `If the Application is an intermediary service as defined under the Digital Services Act (Regulation (EU) 2022/2065, "DSA"), the following provisions apply in addition to these Terms.`,
+        `Point of Contact and Representative: ${euRepText}`,
+        `Content Moderation and Account Restrictions: When we restrict access to user-submitted content, or suspend or terminate an account due to policy violations, we will provide the affected user with a clear and specific statement of reasons in accordance with Article 17 of the DSA. This will outline the nature of the restriction, the factual or legal basis, and available redress options.`,
+        `Notice and Action: If you believe any content within the Service violates applicable law or these Terms, you may submit a detailed notice via ${draft.contactEmail || 'our support email'}. We will review and process all reports promptly, diligently, and with human oversight where appropriate, notifying you of our decision without undue delay (Article 16 of the DSA).`,
+        `Out-of-Court Dispute Settlement: Any content moderation disputes may be submitted to a certified out-of-court dispute settlement body in the EU under Article 21 of the DSA, without prejudice to your right to seek judicial remedy in a court of competent jurisdiction.`,
+      ],
+    });
+  }
 
   sections.push({
     heading: 'Severability',
