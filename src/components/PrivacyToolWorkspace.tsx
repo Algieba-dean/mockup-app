@@ -267,6 +267,15 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <FieldGroup label="生效日期">
                     <input type="date" className="ds-input" value={privacyState.draft.effectiveDate} onChange={(e) => updatePrivacyDraft({ effectiveDate: e.target.value })} />
                   </FieldGroup>
+                  <FieldGroup label="应用类型">
+                    <select className="ds-select" value={privacyState.draft.appType} onChange={(e) => updatePrivacyDraft({ appType: e.target.value as any })}>
+                      <option value="free">免费 (Free)</option>
+                      <option value="open_source">开源 (Open Source)</option>
+                      <option value="freemium">免费+内购 (Freemium)</option>
+                      <option value="ad_supported">广告支持 (Ad Supported)</option>
+                      <option value="commercial">商业/付费 (Commercial)</option>
+                    </select>
+                  </FieldGroup>
                   <FieldGroup label="平台">
                     <select className="ds-select" value={privacyState.draft.platform} onChange={(e) => updatePrivacyDraft({ platform: e.target.value as PrivacyDraft['platform'] })}>
                       {Object.entries(PLATFORM_LABELS).map(([id, label]) => (
@@ -331,6 +340,8 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <CheckboxRow label="适用 GDPR（欧盟 / 英国用户）" checked={privacyState.draft.gdpr} onChange={(v) => updatePrivacyDraft({ gdpr: v })} />
                   <CheckboxRow label="适用 CCPA（加州用户）" checked={privacyState.draft.ccpa} onChange={(v) => updatePrivacyDraft({ ccpa: v })} />
                   <CheckboxRow label="面向 13 岁以下儿童 / 需遵守 COPPA" checked={privacyState.draft.coppa} onChange={(v) => updatePrivacyDraft({ coppa: v })} />
+                  <CheckboxRow label="集成人工智能技术 (AI)" checked={privacyState.draft.isAIUsed} onChange={(v) => updatePrivacyDraft({ isAIUsed: v })} />
+                  <CheckboxRow label="收集并使用地理位置 (Location)" checked={privacyState.draft.isLocationTracked} onChange={(v) => updatePrivacyDraft({ isLocationTracked: v })} />
                   <CheckboxRow label="App 内支持用户账号注册" checked={privacyState.draft.hasUserAccounts} onChange={(v) => updatePrivacyDraft({ hasUserAccounts: v })} />
                   {privacyState.draft.hasUserAccounts && (
                     <FieldGroup label="账号 / 数据删除说明（可选，留空使用通用表述）">
@@ -393,6 +404,15 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <FieldGroup label="生效日期">
                     <input type="date" className="ds-input" value={termsState.draft.effectiveDate} onChange={(e) => updateTermsDraft({ effectiveDate: e.target.value })} />
                   </FieldGroup>
+                  <FieldGroup label="应用类型">
+                    <select className="ds-select" value={termsState.draft.appType} onChange={(e) => updateTermsDraft({ appType: e.target.value as any })}>
+                      <option value="free">免费 (Free)</option>
+                      <option value="open_source">开源 (Open Source)</option>
+                      <option value="freemium">免费+内购 (Freemium)</option>
+                      <option value="ad_supported">广告支持 (Ad Supported)</option>
+                      <option value="commercial">商业/付费 (Commercial)</option>
+                    </select>
+                  </FieldGroup>
                   <StepNav nextDisabled={!termsStep1Valid} onNext={() => setTermsState((s) => ({ ...s, step: 2 }))} />
                 </>
               )}
@@ -411,6 +431,7 @@ export function PrivacyToolWorkspace({ onToast }: { onToast: (msg: string) => vo
                   <CheckboxRow label="需要用户注册账号" checked={termsState.draft.requiresAccount} onChange={(v) => updateTermsDraft({ requiresAccount: v })} />
                   <CheckboxRow label="包含用户生成内容 (UGC)" checked={termsState.draft.hasUGC} onChange={(v) => updateTermsDraft({ hasUGC: v })} />
                   <CheckboxRow label="包含订阅 / App 内购买" checked={termsState.draft.hasSubscriptions} onChange={(v) => updateTermsDraft({ hasSubscriptions: v })} />
+                  <CheckboxRow label="集成人工智能技术 (AI)" checked={termsState.draft.isAIUsed} onChange={(v) => updateTermsDraft({ isAIUsed: v })} />
                   <StepNav onBack={() => setTermsState((s) => ({ ...s, step: 2 }))} onNext={() => setTermsState((s) => ({ ...s, step: 4 }))} />
                 </>
               )}

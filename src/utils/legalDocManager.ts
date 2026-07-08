@@ -49,6 +49,7 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
     services: [
       { id: 'crashlytics', label: 'Firebase Crashlytics', policyUrl: 'https://firebase.google.com/support/privacy' },
       { id: 'sentry', label: 'Sentry', policyUrl: 'https://sentry.io/privacy/' },
+      { id: 'instabug', label: 'Instabug', policyUrl: 'https://www.instabug.com/privacy' },
       { id: 'bugsnag', label: 'Bugsnag', policyUrl: 'https://www.bugsnag.com/legal/privacy-policy/' },
       { id: 'bugly', label: '腾讯 Bugly', policyUrl: 'https://bugly.qq.com/v2/agreement/privacy' },
     ],
@@ -58,6 +59,9 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
     services: [
       { id: 'admob', label: 'AdMob', policyUrl: 'https://policies.google.com/privacy' },
       { id: 'meta_audience', label: 'Meta Audience Network', policyUrl: 'https://www.facebook.com/privacy/policy/' },
+      { id: 'applovin', label: 'AppLovin', policyUrl: 'https://www.applovin.com/privacy/' },
+      { id: 'vungle', label: 'Vungle', policyUrl: 'https://vungle.com/privacy/' },
+      { id: 'startapp', label: 'StartApp', policyUrl: 'https://www.startapp.com/privacy/' },
       { id: 'appsflyer', label: 'AppsFlyer', policyUrl: 'https://www.appsflyer.com/legal/privacy-policy/' },
       { id: 'adjust', label: 'Adjust', policyUrl: 'https://www.adjust.com/terms/privacy-policy/' },
       { id: 'pangle', label: '穿山甲 (Pangle)', policyUrl: 'https://www.pangleglobal.com/privacy' },
@@ -78,6 +82,7 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
       { id: 'firebase', label: 'Firebase', policyUrl: 'https://firebase.google.com/support/privacy' },
       { id: 'supabase', label: 'Supabase', policyUrl: 'https://supabase.com/privacy' },
       { id: 'auth0', label: 'Auth0', policyUrl: 'https://auth0.com/privacy' },
+      { id: 'clerk', label: 'Clerk', policyUrl: 'https://clerk.com/privacy' },
       { id: 'aws_amplify', label: 'AWS Amplify', policyUrl: 'https://aws.amazon.com/privacy/' },
     ],
   },
@@ -95,6 +100,7 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
     services: [
       { id: 'stripe', label: 'Stripe', policyUrl: 'https://stripe.com/privacy' },
       { id: 'revenuecat', label: 'RevenueCat', policyUrl: 'https://www.revenuecat.com/privacy' },
+      { id: 'adapty', label: 'Adapty', policyUrl: 'https://adapty.io/privacy' },
       { id: 'iap', label: 'App 内购买 (StoreKit / Google Play Billing)' },
       { id: 'paypal', label: 'PayPal', policyUrl: 'https://www.paypal.com/us/webapps/mpp/ua/privacy-full' },
       { id: 'alipay', label: '支付宝 (Alipay)', policyUrl: 'https://www.alipay.com' },
@@ -114,6 +120,14 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
     services: [
       { id: 'aws_s3', label: 'AWS S3', policyUrl: 'https://aws.amazon.com/privacy/' },
       { id: 'cloudinary', label: 'Cloudinary', policyUrl: 'https://cloudinary.com/privacy' },
+    ],
+  },
+  {
+    category: '开发框架 / 游戏引擎',
+    services: [
+      { id: 'godot', label: 'Godot Engine', policyUrl: 'https://godotengine.org/privacy-policy' },
+      { id: 'unity', label: 'Unity', policyUrl: 'https://unity3d.com/legal/privacy-policy' },
+      { id: 'expo', label: 'Expo', policyUrl: 'https://expo.io/privacy' },
     ],
   },
 ];
@@ -141,6 +155,9 @@ export interface PrivacyDraft {
   hasUserAccounts: boolean;
   deletionInstructions: string;
   governingLaw: string;
+  appType: 'free' | 'open_source' | 'freemium' | 'ad_supported' | 'commercial';
+  isAIUsed: boolean;
+  isLocationTracked: boolean;
 }
 
 export interface TermsDraft {
@@ -155,6 +172,8 @@ export interface TermsDraft {
   hasSubscriptions: boolean;
   governingLaw: string;
   minimumAge: string;
+  appType: 'free' | 'open_source' | 'freemium' | 'ad_supported' | 'commercial';
+  isAIUsed: boolean;
 }
 
 export const DEFAULT_PRIVACY_DRAFT: PrivacyDraft = {
@@ -175,6 +194,9 @@ export const DEFAULT_PRIVACY_DRAFT: PrivacyDraft = {
   hasUserAccounts: false,
   deletionInstructions: '',
   governingLaw: '',
+  appType: 'free',
+  isAIUsed: false,
+  isLocationTracked: false,
 };
 
 export const DEFAULT_TERMS_DRAFT: TermsDraft = {
@@ -189,6 +211,8 @@ export const DEFAULT_TERMS_DRAFT: TermsDraft = {
   hasSubscriptions: false,
   governingLaw: '',
   minimumAge: '13',
+  appType: 'free',
+  isAIUsed: false,
 };
 
 export const PLATFORM_LABELS: Record<PrivacyDraft['platform'], string> = {
@@ -221,11 +245,22 @@ export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
   const sections: DocSection[] = [];
 
   const platformNoun = PLATFORM_LABELS[draft.platform || 'both'];
+  const appTypeNoun = 
+    draft.appType === 'open_source' ? 'an Open Source App' :
+    draft.appType === 'freemium' ? 'a Freemium App (with optional in-app purchases)' :
+    draft.appType === 'ad_supported' ? 'an Ad Supported App' :
+    draft.appType === 'commercial' ? 'a Commercial App' :
+    'a Free App';
+
+  const costNoun = 
+    draft.appType === 'commercial' ? `provided by ${company} and is intended for use as is.` :
+    `provided by ${company} at no cost and is intended for use as is.`;
+
   sections.push({
     heading: 'Introduction',
     paragraphs: [
       `This Privacy Policy describes ${company}'s policies and procedures on the collection, use, and disclosure of your information when you use ${appName} (the "${platformNoun}", referred to as the "Service"), and tells you about your privacy rights and how the law protects you.`,
-      `We use your personal data to provide and improve the Service. By using the Service, you agree to the collection and use of information in accordance with this Privacy Policy.`,
+      `We built the ${appName} app as ${appTypeNoun}. This Service is ${costNoun} We use your personal data to provide and improve the Service. By using the Service, you agree to the collection and use of information in accordance with this Privacy Policy.`,
     ],
   });
 
@@ -263,6 +298,26 @@ export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
       heading: 'Cookies and Tracking Technologies',
       paragraphs: [
         `We use cookies and similar tracking technologies to track activity on our Service and store certain information. Cookies are files with a small amount of data that may include an anonymous unique identifier. You can instruct your device to refuse all cookies or to indicate when a cookie is being sent, however if you do not accept cookies, you may not be able to use some portions of our Service.`,
+      ],
+    });
+  }
+
+  if (draft.isLocationTracked) {
+    sections.push({
+      heading: 'Location Information',
+      paragraphs: [
+        `This Service may collect and use your device's precise or approximate location data to provide location-based features, improve the Application's performance, and support related geolocation services.`,
+        `By enabling location services on your device, you consent to our collection and use of this data. You can enable or disable location access at any time through your device settings.`,
+      ],
+    });
+  }
+
+  if (draft.isAIUsed) {
+    sections.push({
+      heading: 'Artificial Intelligence (AI) Technologies',
+      paragraphs: [
+        `The Application incorporates Artificial Intelligence (AI) technologies to enhance your user experience and power specific features. The AI components may process user data to deliver personalized content, intelligent recommendations, or automated features within the Service.`,
+        `All AI-powered processing is performed securely and in compliance with this privacy policy and applicable data protection regulations. We do not use your personal data to train external models without your explicit consent.`,
       ],
     });
   }
@@ -462,6 +517,31 @@ export function buildTermsOfUseSections(draft: TermsDraft): DocSection[] {
       `The Service and its original content (excluding Content provided by users), features, and functionality are and will remain the exclusive property of ${company} and its licensors. The Service is protected by copyright, trademark, and other laws. Our trademarks may not be used in connection with any product or service without our prior written consent.`,
     ],
   });
+
+  if (draft.appType === 'open_source') {
+    sections.push({
+      heading: 'License to use the Application',
+      paragraphs: [
+        `This Application is distributed as open source software under the applicable open source license. Your use, reproduction, and distribution of the Application are governed by the terms of that license.`,
+      ],
+    });
+  } else {
+    sections.push({
+      heading: 'License to use the Application',
+      paragraphs: [
+        `Subject to your compliance with these Terms, ${company} grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Application for personal or internal business purposes. You may not reproduce, distribute, modify, create derivative works from, reverse engineer, decompile, or disassemble the Application, except as and only to the extent that such activity is expressly permitted by applicable law.`,
+      ],
+    });
+  }
+
+  if (draft.isAIUsed) {
+    sections.push({
+      heading: 'Artificial Intelligence (AI) Technologies',
+      paragraphs: [
+        `The Application incorporates Artificial Intelligence (AI) technologies to provide certain features or services. By using the Application, you acknowledge and agree that AI may be used to process data and deliver functionalities. The Service Provider ensures that all AI usage complies with applicable laws and is designed to benefit the user experience.`,
+      ],
+    });
+  }
 
   sections.push({
     heading: 'Feedback',
