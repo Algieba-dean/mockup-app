@@ -12,7 +12,10 @@ import { FocusTrap } from './components/FocusTrap';
 import { updateCanvas } from './utils/canvasManager';
 import type { DeviceInstance } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
-import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE } from './utils/iconManager';
+import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE, ICON_SIZE_PREVIEW_SPECS } from './utils/iconManager';
+import type { IconBgMode } from './utils/iconManager';
+import { IconHistoryDrawer } from './components/IconHistoryDrawer';
+import type { IconHistoryEntry } from './components/IconHistoryDrawer';
 import { PrivacyToolWorkspace } from './components/PrivacyToolWorkspace';
 
 interface MockupPage {
@@ -23,6 +26,7 @@ interface MockupPage {
   bgColor: string;
   bgGradient?: string[];
   bgImageSrc?: string;
+  bgImageScale?: number;
   bgBlur: number;
   showFrostedGlass: boolean;
   devices: DeviceInstance[];
@@ -30,6 +34,10 @@ interface MockupPage {
   subtitleFontFamily: string;
   titleFontSize: number;
   subtitleFontSize: number;
+  layout?: 'text-top' | 'text-bottom' | 'full-device';
+  showGlassReflection?: boolean;
+  showStatusBar?: boolean;
+  shadowPreset?: 'none' | 'soft' | 'premium';
 }
 
 const EXPORT_PRESETS = [
@@ -49,7 +57,7 @@ const DEFAULT_PAGES: MockupPage[] = [
     bgColor: '#f5f5f4',
     bgGradient: ['#f5f5f4', '#e5e5e4'],
     bgImageSrc: '',
-    bgBlur: 10,
+    bgBlur: 0,
     showFrostedGlass: false,
     devices: [
       { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
@@ -58,6 +66,10 @@ const DEFAULT_PAGES: MockupPage[] = [
     subtitleFontFamily: 'Geist',
     titleFontSize: 54,
     subtitleFontSize: 24,
+    layout: 'text-top',
+    showGlassReflection: true,
+    showStatusBar: true,
+    shadowPreset: 'premium',
   },
   {
     id: 'page-2',
@@ -67,7 +79,7 @@ const DEFAULT_PAGES: MockupPage[] = [
     bgColor: '#e5e5e4',
     bgGradient: ['#ffffff', '#d4d4d8'],
     bgImageSrc: '',
-    bgBlur: 10,
+    bgBlur: 0,
     showFrostedGlass: false,
     devices: [
       { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
@@ -76,6 +88,10 @@ const DEFAULT_PAGES: MockupPage[] = [
     subtitleFontFamily: 'Geist',
     titleFontSize: 54,
     subtitleFontSize: 24,
+    layout: 'text-top',
+    showGlassReflection: true,
+    showStatusBar: true,
+    shadowPreset: 'premium',
   },
 ];
 
@@ -146,22 +162,172 @@ function App() {
     originalWidth: null as number | null,
     originalHeight: null as number | null,
     padding: 0.12,
+    paddingY: 0.12,
     bgColor: '#f5f5f4',
     hasAlpha: false,
     foregroundScale: 0.8,
+    offsetX: 0,
+    offsetY: 0,
+    contentScale: 1,
+    bgMode: 'solid' as IconBgMode,
+    bgGradient: ['#f5f5f4', '#e5e5e4'] as [string, string],
+
+    // Dual-platform overrides
+    paddingIos: null as number | null,
+    paddingYIos: null as number | null,
+    offsetXIos: null as number | null,
+    offsetYIos: null as number | null,
+    contentScaleIos: null as number | null,
+    paddingAndroid: null as number | null,
+    paddingYAndroid: null as number | null,
+    offsetXAndroid: null as number | null,
+    offsetYAndroid: null as number | null,
+    contentScaleAndroid: null as number | null,
   });
   const [iconSourceDataUrl, setIconSourceDataUrl] = useState<string | null>(iconInitialState.sourceDataUrl);
   const [iconOriginalWidth, setIconOriginalWidth] = useState<number | null>(iconInitialState.originalWidth);
   const [iconOriginalHeight, setIconOriginalHeight] = useState<number | null>(iconInitialState.originalHeight);
-  const [iconPadding, setIconPadding] = useState<number>(iconInitialState.padding);
+
+  // iOS-specific states
+  const [iconPaddingIos, setIconPaddingIos] = useState<number>(iconInitialState.paddingIos ?? iconInitialState.padding ?? 0.12);
+  const [iconPaddingYIos, setIconPaddingYIos] = useState<number>(iconInitialState.paddingYIos ?? iconInitialState.paddingY ?? iconInitialState.padding ?? 0.12);
+  const [iconOffsetXIos, setIconOffsetXIos] = useState<number>(iconInitialState.offsetXIos ?? iconInitialState.offsetX ?? 0);
+  const [iconOffsetYIos, setIconOffsetYIos] = useState<number>(iconInitialState.offsetYIos ?? iconInitialState.offsetY ?? 0);
+  const [iconContentScaleIos, setIconContentScaleIos] = useState<number>(iconInitialState.contentScaleIos ?? iconInitialState.contentScale ?? 1);
+
+  // Android-specific states
+  const [iconPaddingAndroid, setIconPaddingAndroid] = useState<number>(iconInitialState.paddingAndroid ?? iconInitialState.padding ?? 0.12);
+  const [iconPaddingYAndroid, setIconPaddingYAndroid] = useState<number>(iconInitialState.paddingYAndroid ?? iconInitialState.paddingY ?? iconInitialState.padding ?? 0.12);
+  const [iconOffsetXAndroid, setIconOffsetXAndroid] = useState<number>(iconInitialState.offsetXAndroid ?? iconInitialState.offsetX ?? 0);
+  const [iconOffsetYAndroid, setIconOffsetYAndroid] = useState<number>(iconInitialState.offsetYAndroid ?? iconInitialState.offsetY ?? 0);
+  const [iconContentScaleAndroid, setIconContentScaleAndroid] = useState<number>(iconInitialState.contentScaleAndroid ?? iconInitialState.contentScale ?? 1);
+
   const [iconBgColor, setIconBgColor] = useState<string>(iconInitialState.bgColor);
   const [iconHasAlpha, setIconHasAlpha] = useState<boolean>(iconInitialState.hasAlpha);
   const [iconForegroundScale, setIconForegroundScale] = useState<number>(iconInitialState.foregroundScale);
+
+  const [iconBgMode, setIconBgMode] = useState<IconBgMode>(iconInitialState.bgMode ?? 'solid');
+  const [iconBgGradient, setIconBgGradient] = useState<[string, string]>(iconInitialState.bgGradient ?? ['#f5f5f4', '#e5e5e4']);
   const [iconPlatformPreview, setIconPlatformPreview] = useState<'ios' | 'android'>('ios');
-  const [iconPreviewDataUrl, setIconPreviewDataUrl] = useState<string | null>(null);
+
+  // Derive active platform values dynamically
+  const iconPadding = iconPlatformPreview === 'ios' ? iconPaddingIos : iconPaddingAndroid;
+  const setIconPadding = iconPlatformPreview === 'ios' ? setIconPaddingIos : setIconPaddingAndroid;
+
+  const iconPaddingY = iconPlatformPreview === 'ios' ? iconPaddingYIos : iconPaddingYAndroid;
+  const setIconPaddingY = iconPlatformPreview === 'ios' ? setIconPaddingYIos : setIconPaddingYAndroid;
+
+  const iconOffsetX = iconPlatformPreview === 'ios' ? iconOffsetXIos : iconOffsetXAndroid;
+  const setIconOffsetX = iconPlatformPreview === 'ios' ? setIconOffsetXIos : setIconOffsetXAndroid;
+
+  const iconOffsetY = iconPlatformPreview === 'ios' ? iconOffsetYIos : iconOffsetYAndroid;
+  const setIconOffsetY = iconPlatformPreview === 'ios' ? setIconOffsetYIos : setIconOffsetYAndroid;
+
+  const iconContentScale = iconPlatformPreview === 'ios' ? iconContentScaleIos : iconContentScaleAndroid;
+  const setIconContentScale = iconPlatformPreview === 'ios' ? setIconContentScaleIos : setIconContentScaleAndroid;
+  const [iconSizePreviews, setIconSizePreviews] = useState<Array<{ size: number; dataUrl: string }>>([]);
   const iconCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showIconExportModal, setShowIconExportModal] = useState<boolean>(false);
   const [iconExportPlatforms, setIconExportPlatforms] = useState<{ ios: boolean; android: boolean }>({ ios: true, android: true });
+  const [includeSvgContainer, setIncludeSvgContainer] = useState<boolean>(false);
+  const [iconExportDone, setIconExportDone] = useState<boolean>(false);
+
+  // Icon history (named snapshots), independent of the current working state
+  const [iconHistory, setIconHistory] = useState<IconHistoryEntry[]>(
+    () => loadSavedState<IconHistoryEntry[]>('mockup_app_icon_history', [])
+  );
+  const [showIconHistoryDrawer, setShowIconHistoryDrawer] = useState<boolean>(false);
+
+  useEffect(() => {
+    try { localStorage.setItem('mockup_app_icon_history', JSON.stringify(iconHistory)); } catch { /* quota exceeded */ }
+  }, [iconHistory]);
+
+  const handleSaveIconHistory = useCallback((name: string) => {
+    if (!iconSourceDataUrl) return;
+    const thumbnail = iconCanvasRef.current?.toDataURL('image/png') || iconSourceDataUrl;
+    const entry: IconHistoryEntry = {
+      id: `icon-history-${Date.now()}`,
+      name: name.trim() || `方案 ${iconHistory.length + 1}`,
+      createdAt: new Date().toLocaleString(),
+      thumbnail,
+      snapshot: {
+        sourceDataUrl: iconSourceDataUrl,
+        originalWidth: iconOriginalWidth,
+        originalHeight: iconOriginalHeight,
+        padding: iconPadding,
+        paddingY: iconPaddingY,
+        bgColor: iconBgColor,
+        hasAlpha: iconHasAlpha,
+        foregroundScale: iconForegroundScale,
+        offsetX: iconOffsetX,
+        offsetY: iconOffsetY,
+        contentScale: iconContentScale,
+        bgMode: iconBgMode,
+        bgGradient: iconBgGradient,
+
+        // Dual-platform overrides
+        paddingIos: iconPaddingIos,
+        paddingYIos: iconPaddingYIos,
+        offsetXIos: iconOffsetXIos,
+        offsetYIos: iconOffsetYIos,
+        contentScaleIos: iconContentScaleIos,
+        paddingAndroid: iconPaddingAndroid,
+        paddingYAndroid: iconPaddingYAndroid,
+        offsetXAndroid: iconOffsetXAndroid,
+        offsetYAndroid: iconOffsetYAndroid,
+        contentScaleAndroid: iconContentScaleAndroid,
+      },
+    };
+    setIconHistory((prev) => [entry, ...prev]);
+    showToast('已保存到历史');
+  }, [
+    iconSourceDataUrl, iconOriginalWidth, iconOriginalHeight, iconPadding, iconPaddingY, iconBgColor, iconHasAlpha,
+    iconForegroundScale, iconOffsetX, iconOffsetY, iconContentScale, iconBgMode, iconBgGradient,
+    iconPaddingIos, iconPaddingYIos, iconOffsetXIos, iconOffsetYIos, iconContentScaleIos,
+    iconPaddingAndroid, iconPaddingYAndroid, iconOffsetXAndroid, iconOffsetYAndroid, iconContentScaleAndroid,
+    iconHistory.length
+  ]);
+
+  const handleRestoreIconHistory = useCallback((id: string) => {
+    setIconHistory((current) => {
+      const entry = current.find((h) => h.id === id);
+      if (entry) {
+        const s = entry.snapshot;
+        setIconSourceDataUrl(s.sourceDataUrl);
+        setIconOriginalWidth(s.originalWidth);
+        setIconOriginalHeight(s.originalHeight);
+
+        // Restore dual platform states with fallback to legacy single values
+        setIconPaddingIos(s.paddingIos ?? s.padding ?? 0.12);
+        setIconPaddingYIos(s.paddingYIos ?? s.paddingY ?? s.padding ?? 0.12);
+        setIconOffsetXIos(s.offsetXIos ?? s.offsetX ?? 0);
+        setIconOffsetYIos(s.offsetYIos ?? s.offsetY ?? 0);
+        setIconContentScaleIos(s.contentScaleIos ?? s.contentScale ?? 1);
+
+        setIconPaddingAndroid(s.paddingAndroid ?? s.padding ?? 0.12);
+        setIconPaddingYAndroid(s.paddingYAndroid ?? s.paddingY ?? s.padding ?? 0.12);
+        setIconOffsetXAndroid(s.offsetXAndroid ?? s.offsetX ?? 0);
+        setIconOffsetYAndroid(s.offsetYAndroid ?? s.offsetY ?? 0);
+        setIconContentScaleAndroid(s.contentScaleAndroid ?? s.contentScale ?? 1);
+
+        setIconBgColor(s.bgColor);
+        setIconHasAlpha(s.hasAlpha);
+        setIconForegroundScale(s.foregroundScale);
+        setIconBgMode(s.bgMode);
+        setIconBgGradient(s.bgGradient);
+      }
+      return current;
+    });
+    setShowIconHistoryDrawer(false);
+  }, []);
+
+  const handleRenameIconHistory = useCallback((id: string, name: string) => {
+    setIconHistory((prev) => prev.map((h) => (h.id === id ? { ...h, name } : h)));
+  }, []);
+
+  const handleDeleteIconHistory = useCallback((id: string) => {
+    setIconHistory((prev) => prev.filter((h) => h.id !== id));
+  }, []);
 
   const iconWarning = useMemo(() => (
     iconSourceDataUrl && iconOriginalWidth && iconOriginalHeight &&
@@ -198,19 +364,35 @@ function App() {
         sourceDataUrl: iconSourceDataUrl,
         originalWidth: iconOriginalWidth,
         originalHeight: iconOriginalHeight,
-        padding: iconPadding,
+        paddingIos: iconPaddingIos,
+        paddingYIos: iconPaddingYIos,
+        offsetXIos: iconOffsetXIos,
+        offsetYIos: iconOffsetYIos,
+        contentScaleIos: iconContentScaleIos,
+        paddingAndroid: iconPaddingAndroid,
+        paddingYAndroid: iconPaddingYAndroid,
+        offsetXAndroid: iconOffsetXAndroid,
+        offsetYAndroid: iconOffsetYAndroid,
+        contentScaleAndroid: iconContentScaleAndroid,
         bgColor: iconBgColor,
         hasAlpha: iconHasAlpha,
         foregroundScale: iconForegroundScale,
+        bgMode: iconBgMode,
+        bgGradient: iconBgGradient,
       }));
     } catch { /* quota exceeded */ }
-  }, [iconSourceDataUrl, iconOriginalWidth, iconOriginalHeight, iconPadding, iconBgColor, iconHasAlpha, iconForegroundScale]);
+  }, [
+    iconSourceDataUrl, iconOriginalWidth, iconOriginalHeight,
+    iconPaddingIos, iconPaddingYIos, iconOffsetXIos, iconOffsetYIos, iconContentScaleIos,
+    iconPaddingAndroid, iconPaddingYAndroid, iconOffsetXAndroid, iconOffsetYAndroid, iconContentScaleAndroid,
+    iconBgColor, iconHasAlpha, iconForegroundScale, iconBgMode, iconBgGradient
+  ]);
 
   // Debounced icon canvas render
   const iconDrawTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     if (!iconSourceDataUrl) {
-      setIconPreviewDataUrl(null);
+      setIconSizePreviews([]);
       return;
     }
     clearTimeout(iconDrawTimerRef.current);
@@ -221,16 +403,56 @@ function App() {
       if (!ctx) return;
       const img = new window.Image();
       img.onload = () => {
-        const effectivePadding = (iconPlatformPreview === 'android' && iconHasAlpha)
-          ? iconPadding + (1 - iconForegroundScale) * 0.5
-          : iconPadding;
-        renderIconFrame(ctx, { image: img, size: ICON_MASTER_SIZE, padding: effectivePadding, bgColor: iconBgColor });
-        setIconPreviewDataUrl(canvas.toDataURL('image/png'));
+        const isAndroidAdaptive = iconPlatformPreview === 'android' && iconHasAlpha;
+        const adaptiveExtraInset = isAndroidAdaptive ? (1 - iconForegroundScale) * 0.5 : 0;
+        renderIconFrame(ctx, {
+          image: img,
+          size: ICON_MASTER_SIZE,
+          padding: iconPadding + adaptiveExtraInset,
+          paddingY: iconPaddingY + adaptiveExtraInset,
+          bgColor: iconBgColor,
+          offsetX: iconOffsetX,
+          offsetY: iconOffsetY,
+          contentScale: iconContentScale,
+          bgMode: iconBgMode,
+          bgGradient: iconBgGradient,
+        });
+
+        // Real per-size, per-platform renders for the "导出尺寸预览" sidebar
+        // grid — each size is actually rendered at its target pixel
+        // dimensions using that platform's own padding/offset/scale, instead
+        // of reusing a single master image scaled by CSS (which made every
+        // thumbnail look identical regardless of the labeled size).
+        const sizePreviews = ICON_SIZE_PREVIEW_SPECS.map(({ size, platform }) => {
+          const previewCanvas = document.createElement('canvas');
+          previewCanvas.width = size;
+          previewCanvas.height = size;
+          const previewCtx = previewCanvas.getContext('2d')!;
+          renderIconFrame(previewCtx, {
+            image: img,
+            size,
+            padding: platform === 'ios' ? iconPaddingIos : iconPaddingAndroid,
+            paddingY: platform === 'ios' ? iconPaddingYIos : iconPaddingYAndroid,
+            bgColor: iconBgColor,
+            offsetX: platform === 'ios' ? iconOffsetXIos : iconOffsetXAndroid,
+            offsetY: platform === 'ios' ? iconOffsetYIos : iconOffsetYAndroid,
+            contentScale: platform === 'ios' ? iconContentScaleIos : iconContentScaleAndroid,
+            bgMode: iconBgMode,
+            bgGradient: iconBgGradient,
+          });
+          return { size, dataUrl: previewCanvas.toDataURL('image/png') };
+        });
+        setIconSizePreviews(sizePreviews);
       };
       img.src = iconSourceDataUrl;
     }, 150);
     return () => clearTimeout(iconDrawTimerRef.current);
-  }, [iconSourceDataUrl, iconPadding, iconBgColor, iconHasAlpha, iconPlatformPreview, iconForegroundScale]);
+  }, [
+    iconSourceDataUrl, iconPadding, iconPaddingY, iconBgColor, iconHasAlpha, iconPlatformPreview,
+    iconForegroundScale, iconOffsetX, iconOffsetY, iconContentScale, iconBgMode, iconBgGradient,
+    iconPaddingIos, iconPaddingYIos, iconOffsetXIos, iconOffsetYIos, iconContentScaleIos,
+    iconPaddingAndroid, iconPaddingYAndroid, iconOffsetXAndroid, iconOffsetYAndroid, iconContentScaleAndroid,
+  ]);
 
   const runIconZipExport = async () => {
     if (!iconExportPlatforms.ios && !iconExportPlatforms.android) {
@@ -242,6 +464,7 @@ function App() {
     setShowIconExportModal(false);
     setIsExporting(true);
     setExportProgress('准备图标画布环境...');
+    setIconExportDone(false);
 
     try {
       const img = new window.Image();
@@ -259,10 +482,31 @@ function App() {
       await buildIconZip(zip, {
         sourceCanvas,
         padding: iconPadding,
+        paddingY: iconPaddingY,
         bgColor: iconBgColor,
         hasAlpha: iconHasAlpha,
         foregroundScale: iconForegroundScale,
         platforms: iconExportPlatforms,
+        offsetX: iconOffsetX,
+        offsetY: iconOffsetY,
+        contentScale: iconContentScale,
+        bgMode: iconBgMode,
+        bgGradient: iconBgGradient,
+        includeSvgContainer,
+
+        // Per-platform overrides: without these, the exported ZIP would use
+        // whichever platform tab happened to be active for BOTH iOS and
+        // Android assets, silently discarding the other platform's tuning.
+        paddingIos: iconPaddingIos,
+        paddingYIos: iconPaddingYIos,
+        offsetXIos: iconOffsetXIos,
+        offsetYIos: iconOffsetYIos,
+        contentScaleIos: iconContentScaleIos,
+        paddingAndroid: iconPaddingAndroid,
+        paddingYAndroid: iconPaddingYAndroid,
+        offsetXAndroid: iconOffsetXAndroid,
+        offsetYAndroid: iconOffsetYAndroid,
+        contentScaleAndroid: iconContentScaleAndroid,
       }, (msg) => setExportProgress(msg));
 
       setExportProgress('正在生成压缩包，请稍候...');
@@ -276,10 +520,10 @@ function App() {
       downloadLink.click();
       document.body.removeChild(downloadLink);
       URL.revokeObjectURL(downloadUrl);
+      setIconExportDone(true);
     } catch (error) {
       console.error('Error generating icon ZIP export:', error);
       showToast('导出失败，请查看控制台错误日志。');
-    } finally {
       setIsExporting(false);
       setExportProgress('');
     }
@@ -363,6 +607,7 @@ function App() {
   const bgColor = activePage.bgColor;
   const bgGradient = activePage.bgGradient || ['#f5f5f4', '#e5e5e4'];
   const bgImageSrc = activePage.bgImageSrc || '';
+  const bgImageScale = activePage.bgImageScale ?? 1;
   const bgBlur = activePage.bgBlur;
   const showFrostedGlass = activePage.showFrostedGlass;
   const devices = activePage.devices;
@@ -372,14 +617,36 @@ function App() {
   const subtitleFontSize = activePage.subtitleFontSize;
   const titleFontFamily = activePage.titleFontFamily;
   const subtitleFontFamily = activePage.subtitleFontFamily;
+  const layout = activePage.layout || 'text-top';
+  const showGlassReflection = activePage.showGlassReflection !== false;
+  const showStatusBar = activePage.showStatusBar !== false;
+  const shadowPreset = activePage.shadowPreset || 'premium';
+
+  // "连图" (panoramic) 模式下，一张超宽图会按页面索引横向切片铺满所有故事帧，
+  // 因此其类型/图源/模糊/缩放必须同步广播到全部页面，而不能只写入当前激活页，
+  // 否则切换页面后连图背景就会消失或与其他帧脱节。
+  const updateBgAcrossPages = (fields: Partial<MockupPage>) => {
+    setPages(prev => prev.map(p => ({ ...p, ...fields })));
+  };
+  const isPanoramicContext = (nextType?: 'solid' | 'gradient' | 'image' | 'panoramic') =>
+    activePage.bgType === 'panoramic' || nextType === 'panoramic';
 
   // Setter functions that update the active page directly
-  const setBgType = (v: 'solid' | 'gradient' | 'image' | 'panoramic') => updateActivePage({ bgType: v });
+  const setBgType = (v: 'solid' | 'gradient' | 'image' | 'panoramic') =>
+    isPanoramicContext(v) ? updateBgAcrossPages({ bgType: v }) : updateActivePage({ bgType: v });
   const setBgColor = (v: string) => updateActivePage({ bgColor: v });
   const setBgGradient = (v: string[]) => updateActivePage({ bgGradient: v });
-  const setBgImageSrc = (v: string) => updateActivePage({ bgImageSrc: v });
-  const setBgBlur = (v: number) => updateActivePage({ bgBlur: v });
+  const setBgImageSrc = (v: string) =>
+    isPanoramicContext() ? updateBgAcrossPages({ bgImageSrc: v }) : updateActivePage({ bgImageSrc: v });
+  const setBgImageScale = (v: number) =>
+    isPanoramicContext() ? updateBgAcrossPages({ bgImageScale: v }) : updateActivePage({ bgImageScale: v });
+  const setBgBlur = (v: number) =>
+    isPanoramicContext() ? updateBgAcrossPages({ bgBlur: v }) : updateActivePage({ bgBlur: v });
   const setShowFrostedGlass = (v: boolean) => updateActivePage({ showFrostedGlass: v });
+  const setLayout = (v: 'text-top' | 'text-bottom' | 'full-device') => updateActivePage({ layout: v });
+  const setShowGlassReflection = (v: boolean) => updateActivePage({ showGlassReflection: v });
+  const setShowStatusBar = (v: boolean) => updateActivePage({ showStatusBar: v });
+  const setShadowPreset = (v: 'none' | 'soft' | 'premium') => updateActivePage({ shadowPreset: v });
   const setDevices = (v: DeviceInstance[] | ((prev: DeviceInstance[]) => DeviceInstance[])) => {
     if (typeof v === 'function') {
       setPages(prev => prev.map((p, i) => i === activePageIndex ? { ...p, devices: v(p.devices) } : p));
@@ -465,6 +732,7 @@ function App() {
             bgColor,
             bgGradient,
             bgImageSrc,
+            bgImageScale,
             bgBlur,
             showFrostedGlass,
             devices,
@@ -474,6 +742,10 @@ function App() {
             subtitleFontSize,
             titleFontFamily,
             subtitleFontFamily,
+            layout,
+            showGlassReflection,
+            showStatusBar,
+            shadowPreset,
           },
           activePageIndex
         );
@@ -487,6 +759,7 @@ function App() {
     bgColor,
     bgGradient,
     bgImageSrc,
+    bgImageScale,
     bgBlur,
     showFrostedGlass,
     devices,
@@ -496,6 +769,10 @@ function App() {
     subtitleFontSize,
     titleFontFamily,
     subtitleFontFamily,
+    layout,
+    showGlassReflection,
+    showStatusBar,
+    shadowPreset,
   ]);
 
   // Handle uploading screenshots
@@ -542,6 +819,7 @@ function App() {
       bgColor: bgColor,
       bgGradient: bgGradient,
       bgImageSrc: bgImageSrc,
+      bgImageScale: bgImageScale,
       bgBlur: bgBlur,
       showFrostedGlass: showFrostedGlass,
       devices: devices.map(d => ({ ...d, id: `dev-${d.id}-${Date.now()}` })),
@@ -549,6 +827,10 @@ function App() {
       subtitleFontFamily: subtitleFontFamily,
       titleFontSize: titleFontSize,
       subtitleFontSize: subtitleFontSize,
+      layout: layout,
+      showGlassReflection: showGlassReflection,
+      showStatusBar: showStatusBar,
+      shadowPreset: shadowPreset,
     };
     setPages((prev) => [...prev, newPage]);
     setActivePageIndex(pages.length);
@@ -622,7 +904,8 @@ function App() {
               bgColor: page.bgColor,
               bgGradient: page.bgGradient,
               bgImageSrc: page.bgImageSrc,
-              bgBlur: page.bgBlur !== undefined ? page.bgBlur : 10,
+              bgImageScale: page.bgImageScale ?? 1,
+              bgBlur: page.bgBlur !== undefined ? page.bgBlur : 0,
               showFrostedGlass: !!page.showFrostedGlass,
               devices: page.devices || [],
               titleText: page.title,
@@ -631,6 +914,10 @@ function App() {
               subtitleFontSize: page.subtitleFontSize || 24,
               titleFontFamily: page.titleFontFamily || 'Playfair Display',
               subtitleFontFamily: page.subtitleFontFamily || 'Geist',
+              layout: page.layout || 'text-top',
+              showGlassReflection: page.showGlassReflection !== false,
+              showStatusBar: page.showStatusBar !== false,
+              shadowPreset: page.shadowPreset || 'premium',
             },
             i
           );
@@ -682,6 +969,7 @@ function App() {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        onToggleHistory={() => setShowIconHistoryDrawer(!showIconHistoryDrawer)}
       />
 
       {/* 主工作区 */}
@@ -705,7 +993,7 @@ function App() {
           onApplyPreset={handleApplyPreset}
           collapsed={leftSidebarCollapsed}
           hasIconImage={!!iconSourceDataUrl}
-          iconPreviewDataUrl={iconPreviewDataUrl}
+          iconSizePreviews={iconSizePreviews}
           onUploadIcon={handleUploadIcon}
         />
 
@@ -718,10 +1006,7 @@ function App() {
                 setZoom={setZoom}
                 canvasRef={canvasRef}
                 onFileDrop={handleUploadScreenshot}
-                bgColor={bgColor}
-                bgType={bgType}
-                bgGradient={bgGradient}
-                hasScreenshots={screenshots.length > 0}
+                hasScreenshots={devices.some(d => d.screenshotSrc)}
               />
 
               {/* 底部故事画幅 Dock */}
@@ -748,6 +1033,14 @@ function App() {
               iconWarning={iconWarning}
               iconPadding={iconPadding}
               setIconPadding={setIconPadding}
+              iconPaddingY={iconPaddingY}
+              setIconPaddingY={setIconPaddingY}
+              iconOffsetX={iconOffsetX}
+              setIconOffsetX={setIconOffsetX}
+              iconOffsetY={iconOffsetY}
+              setIconOffsetY={setIconOffsetY}
+              iconContentScale={iconContentScale}
+              setIconContentScale={setIconContentScale}
             />
           ) : (
             <div style={{
@@ -786,6 +1079,8 @@ function App() {
           setBgGradient={setBgGradient}
           bgImageSrc={bgImageSrc}
           setBgImageSrc={setBgImageSrc}
+          bgImageScale={bgImageScale}
+          setBgImageScale={setBgImageScale}
           bgBlur={bgBlur}
           setBgBlur={setBgBlur}
           showFrostedGlass={showFrostedGlass}
@@ -805,15 +1100,36 @@ function App() {
           setTitleFontFamily={setTitleFontFamily}
           subtitleFontFamily={subtitleFontFamily}
           setSubtitleFontFamily={setSubtitleFontFamily}
+          layout={layout}
+          setLayout={setLayout}
+          showGlassReflection={showGlassReflection}
+          setShowGlassReflection={setShowGlassReflection}
+          showStatusBar={showStatusBar}
+          setShowStatusBar={setShowStatusBar}
+          shadowPreset={shadowPreset}
+          setShadowPreset={setShadowPreset}
+          showToast={showToast}
           collapsed={rightSidebarCollapsed}
           hasIconImage={!!iconSourceDataUrl}
           iconPadding={iconPadding}
           setIconPadding={setIconPadding}
+          iconPaddingY={iconPaddingY}
+          setIconPaddingY={setIconPaddingY}
           iconBgColor={iconBgColor}
           setIconBgColor={setIconBgColor}
           iconHasAlpha={iconHasAlpha}
           iconForegroundScale={iconForegroundScale}
           setIconForegroundScale={setIconForegroundScale}
+          iconBgMode={iconBgMode}
+          setIconBgMode={setIconBgMode}
+          iconBgGradient={iconBgGradient}
+          setIconBgGradient={setIconBgGradient}
+          onSaveIconHistory={() => {
+            const name = prompt('请输入方案名称：', `方案 ${iconHistory.length + 1}`);
+            if (name !== null) {
+              handleSaveIconHistory(name);
+            }
+          }}
         />
         </>
         )}
@@ -891,6 +1207,29 @@ function App() {
                   style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--ink-primary)' }}
                 />
               </label>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-primary)',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}>
+                <span style={{ color: 'var(--ink-primary)' }}>附带 SVG 容器版（1024×1024，内嵌位图）</span>
+                <input
+                  type="checkbox"
+                  checked={includeSvgContainer}
+                  onChange={(e) => setIncludeSvgContainer(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--ink-primary)' }}
+                />
+              </label>
+            </div>
+
+            <div style={{ fontSize: '11px', color: 'var(--ink-secondary)', opacity: 0.8, textAlign: 'center', borderTop: '1px solid var(--border-primary)', paddingTop: '8px' }}>
+              全部处理在本地浏览器完成，图片不会上传到任何服务器
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -995,7 +1334,7 @@ function App() {
         </div>
       )}
 
-      {/* 导出打包的加载指示器 */}
+      {/* 导出打包的加载指示器 & 落地指引 */}
       {isExporting && (
         <div style={{
           position: 'fixed',
@@ -1009,23 +1348,106 @@ function App() {
           gap: '20px',
           zIndex: 'var(--z-toast)',
         }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '2px solid var(--border-primary)',
-            borderTopColor: 'var(--ink-primary)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }} />
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-          <span style={{ fontSize: '14px', letterSpacing: '0.05em' }}>{exportProgress}</span>
+          {iconExportDone ? (
+            <div
+              className="ds-panel"
+              style={{
+                width: '400px',
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-primary)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                color: 'var(--ink-primary)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0 }}>
+                🎉 图标包导出成功！
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', textAlign: 'left', lineHeight: 1.5 }}>
+                <div style={{ borderBottom: '1px solid var(--border-primary)', paddingBottom: '8px' }}>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>iOS Xcode 集成指引:</strong>
+                  <span style={{ color: 'var(--ink-secondary)' }}>
+                    解压 ZIP，在项目导航栏找到 <code>Assets.xcassets</code>，将解压得到的 <code>ios/AppIcon.appiconset</code> 拖拽拖入其中替换原有 AppIcon。
+                  </span>
+                </div>
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>Android Studio 集成指引:</strong>
+                  <span style={{ color: 'var(--ink-secondary)' }}>
+                    解压 ZIP，将 <code>android/mipmap-*</code> 文件夹及 <code>play_store_512.png</code> 复制并直接合并替换您 Android 项目的 <code>res</code> 目录。
+                  </span>
+                </div>
+              </div>
+
+              <button
+                className="ds-btn ds-btn-active"
+                style={{ width: '100%', height: '36px', marginTop: '8px' }}
+                onClick={() => {
+                  setIsExporting(false);
+                  setExportProgress('');
+                  setIconExportDone(false);
+                }}
+              >
+                关闭指引
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                border: '2px solid var(--border-primary)',
+                borderTopColor: 'var(--ink-primary)',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+              <span style={{ fontSize: '14px', letterSpacing: '0.05em' }}>{exportProgress}</span>
+            </>
+          )}
         </div>
       )}
+
+      {/* 历史方案抽屉 */}
+      <IconHistoryDrawer
+        isOpen={showIconHistoryDrawer}
+        onClose={() => setShowIconHistoryDrawer(false)}
+        history={iconHistory}
+        onRestore={handleRestoreIconHistory}
+        onRename={handleRenameIconHistory}
+        onDelete={handleDeleteIconHistory}
+        currentState={{
+          sourceDataUrl: iconSourceDataUrl,
+          padding: iconPadding,
+          bgColor: iconBgColor,
+          offsetX: iconOffsetX,
+          offsetY: iconOffsetY,
+          contentScale: iconContentScale,
+          bgMode: iconBgMode,
+          bgGradient: iconBgGradient,
+
+          // Dual-platform parameters
+          paddingIos: iconPaddingIos,
+          paddingYIos: iconPaddingYIos,
+          offsetXIos: iconOffsetXIos,
+          offsetYIos: iconOffsetYIos,
+          contentScaleIos: iconContentScaleIos,
+          paddingAndroid: iconPaddingAndroid,
+          paddingYAndroid: iconPaddingYAndroid,
+          offsetXAndroid: iconOffsetXAndroid,
+          offsetYAndroid: iconOffsetYAndroid,
+          contentScaleAndroid: iconContentScaleAndroid,
+        }}
+      />
 
       {/* Toast notification */}
       {toastMessage && (

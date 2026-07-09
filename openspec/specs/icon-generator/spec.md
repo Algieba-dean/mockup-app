@@ -24,7 +24,11 @@ The system SHALL let the user toggle between iOS and Android preview modes, over
 
 #### Scenario: Switch to Android preview
 - **WHEN** the user selects "Android" in the platform segmented control
-- **THEN** the canvas overlays a circular safe-zone guide covering the center 66% of the icon, without modifying the underlying artwork.
+- **THEN** the canvas overlays a circular safe-zone guide covering the center 66% of the icon (Android's official Adaptive Icon safe zone), without modifying the underlying artwork.
+
+#### Scenario: Preview alternate Android OEM mask shapes
+- **WHEN** the user is in the Android preview and selects a different shape chip (圆形/圆润方形/水滴形/方形), referencing the shape catalog researched by NotWoods/maskable (the industry-standard maskable-icon preview tool)
+- **THEN** the overlay dims the region that would be cropped under that shape while leaving the shape's interior clear, without modifying the underlying artwork or exported pixels; the default "圆形（官方安全区）" shape remains selected on entry.
 
 #### Scenario: Switch to iOS preview
 - **WHEN** the user selects "iOS" in the platform segmented control
@@ -36,6 +40,10 @@ The system SHALL provide padding, background fill, and (when applicable) adaptiv
 #### Scenario: Adjust padding via the properties panel
 - **WHEN** the user drags the padding slider in the Right Properties Panel
 - **THEN** the canvas redraws the icon artwork scaled within the padded safe area, debounced by ~150ms.
+
+#### Scenario: Independent horizontal/vertical padding
+- **WHEN** the user drags the "水平内边距" (horizontal) and "垂直内边距" (vertical) sliders to different values
+- **THEN** the safe area becomes a non-square padded box, but the artwork itself is always uniformly scaled to fit the smaller box dimension (never stretched/distorted), matching the CSS `object-fit: contain` safe-area model.
 
 #### Scenario: Adjust image size via the canvas zoom control
 - **WHEN** the user drags the zoom slider or clicks +/- beneath the icon canvas

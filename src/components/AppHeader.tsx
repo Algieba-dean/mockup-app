@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Undo2, Redo2 } from 'lucide-react';
+import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Undo2, Redo2, History } from 'lucide-react';
 
 interface AppHeaderProps {
   activeTool: string;
@@ -17,6 +17,7 @@ interface AppHeaderProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  onToggleHistory?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
@@ -33,6 +34,7 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
   onRedo,
   canUndo,
   canRedo,
+  onToggleHistory,
 }) => {
   return (
     <header className="app-header">
@@ -111,6 +113,16 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+        {activeTool === 'icons' && onToggleHistory && (
+          <button
+            className="ds-btn ds-btn-icon-only"
+            onClick={onToggleHistory}
+            title="查看历史方案"
+            aria-label="查看历史方案"
+          >
+            <History size={16} />
+          </button>
+        )}
         {activeTool !== 'privacy' && (
           <button
             className="ds-btn"

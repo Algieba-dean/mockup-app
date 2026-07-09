@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('MockupApp E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
+    page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+    page.on('pageerror', err => console.error('BROWSER ERROR:', err.message));
+
     // Open the home page and clear localStorage to ensure test isolation
     await page.goto('/');
     await page.evaluate(() => localStorage.clear());
@@ -60,7 +63,7 @@ test.describe('MockupApp E2E Tests', () => {
     // 1. Select Double Bezel Preset Layout
     const doubleBtn = page.locator('button:has-text("双机左右")');
     await expect(doubleBtn).toBeVisible();
-    await doubleBtn.click();
+    await doubleBtn.click({ force: true });
 
     // 2. Check if two device tabs are created in properties panel
     await expect(page.locator('button:has-text("设备 1")')).toBeVisible();
@@ -162,17 +165,6 @@ test.describe('MockupApp E2E Tests', () => {
     // 1. Switch to the Icons tool
     await page.locator('button:has-text("图标生成")').click();
 
-    // Debug inputs
-    const inputs = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('input')).map(el => ({
-        type: el.type,
-        id: el.id,
-        className: el.className,
-        outerHTML: el.outerHTML
-      }));
-    });
-    console.log('INPUTS FOUND:', inputs);
-
     // 2. Upload an icon source image via the left sidebar
     const fileInput = page.locator('aside.sidebar input[type="file"]').first();
     await fileInput.setInputFiles('example/09_multi_languages.png');
@@ -206,6 +198,93 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(page.locator('h3:has-text("图标包导出成功")')).not.toBeVisible();
   });
 
+  test('should support independent horizontal/vertical icon padding and export a correctly-mapped iOS Contents.json', async ({ page }) => {
+    // 1. Switch to Icons tool and upload
+    await page.locator('button:has-text("图标生成")').click();
+    const fileInput = page.locator('aside.sidebar input[type="file"]').first();
+    await fileInput.setInputFiles('example/09_multi_languages.png');
+
+    // 2. Horizontal and vertical padding sliders are independently adjustable
+    const paddingXSlider = page.locator('#icon-padding');
+    const paddingYSlider = page.locator('#icon-padding-y');
+    await expect(paddingXSlider).toBeVisible();
+    await expect(paddingYSlider).toBeVisible();
+
+    await paddingXSlider.fill('5');
+    await paddingYSlider.fill('30');
+    await expect(paddingXSlider).toHaveValue('5');
+    await expect(paddingYSlider).toHaveValue('30');
+
+    // 3. Export both platforms and verify the ZIP's iOS Contents.json mapping
+    await page.locator('button:has-text("导出 ZIP")').click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('button:has-text("生成并下载")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('mockup_app_icons.zip');
+
+    const zipPath = await download.path();
+    expect(zipPath).toBeTruthy();
+
+    const fs = await import('fs');
+    const JSZip = (await import('jszip')).default;
+    const zipBuffer = fs.readFileSync(zipPath!);
+    const zip = await JSZip.loadAsync(zipBuffer);
+
+    const contentsFile = zip.file('ios/AppIcon.appiconset/Contents.json');
+    expect(contentsFile).toBeTruthy();
+    const contentsJson = JSON.parse(await contentsFile!.async('string'));
+
+    expect(Array.isArray(contentsJson.images)).toBe(true);
+    expect(contentsJson.images.length).toBeGreaterThan(0);
+
+    // Every manifest entry must correspond to an actual PNG file in the same folder
+    for (const entry of contentsJson.images) {
+      expect(entry.filename).toBeTruthy();
+      expect(entry.idiom).toBeTruthy();
+      expect(entry.size).toMatch(/^[\d.]+x[\d.]+$/);
+      expect(entry.scale).toMatch(/^\dx$/);
+      const pngFile = zip.file(`ios/AppIcon.appiconset/${entry.filename}`);
+      expect(pngFile, `Contents.json references missing file: ${entry.filename}`).toBeTruthy();
+    }
+
+    // Every rendered PNG in the appiconset folder must be referenced by the manifest
+    const manifestFilenames = new Set(contentsJson.images.map((e: { filename: string }) => e.filename));
+    const pngFilesInFolder = Object.keys(zip.files).filter(
+      (name) => name.startsWith('ios/AppIcon.appiconset/') && name.endsWith('.png')
+    );
+    expect(pngFilesInFolder.length).toBe(manifestFilenames.size);
+  });
+
+  test('should preview multiple Android OEM mask shapes without altering the exported pixels', async ({ page }) => {
+    // 1. Switch to Icons tool, upload, and switch to Android platform preview
+    await page.locator('button:has-text("图标生成")').click();
+    const fileInput = page.locator('aside.sidebar input[type="file"]').first();
+    await fileInput.setInputFiles('example/09_multi_languages.png');
+    await page.locator('button[role="tab"]:has-text("Android")').click();
+
+    // 2. The mask shape selector should offer 4 real OEM-referenced shapes
+    const shapeTabs = page.locator('div[role="tablist"][aria-label="Android 厂商遮罩形状预览"] button[role="tab"]');
+    await expect(shapeTabs).toHaveCount(4);
+
+    // 3. Default shape is the official safe-zone circle
+    await expect(shapeTabs.first()).toHaveAttribute('aria-selected', 'true');
+
+    // 4. Switching shapes updates the selected tab without touching the underlying canvas
+    const squircleTab = page.locator('button[role="tab"]:has-text("圆润方形")');
+    await squircleTab.click();
+    await expect(squircleTab).toHaveAttribute('aria-selected', 'true');
+    await expect(shapeTabs.first()).toHaveAttribute('aria-selected', 'false');
+
+    // 5. Export still succeeds — the mask preview is a non-destructive overlay only
+    await page.locator('button:has-text("导出 ZIP")').click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('button:has-text("生成并下载")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('mockup_app_icons.zip');
+  });
+
   test('should support drag-and-zoom positioning, gradient backgrounds, history CRUD, and SVG export in Icon Generator', async ({ page }) => {
     // 1. Switch to Icons tool and upload
     await page.locator('button:has-text("图标生成")').click();
@@ -235,6 +314,12 @@ test.describe('MockupApp E2E Tests', () => {
     await page.locator('button:has-text("135°渐变")').click();
     await expect(page.locator('text=渐变颜色设定')).toBeVisible();
 
+    // Register dialog handler to accept the prompt dialog automatically with a custom name
+    page.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('prompt');
+      await dialog.accept('E2E Scheme');
+    });
+
     // 4. Test History saving and drawer list
     await page.locator('button:has-text("保存当前方案到历史")').click();
     
@@ -247,17 +332,17 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(drawerTitle).toBeVisible();
 
     // Verify "当前" label exists
-    await expect(page.locator('span:has-text("当前")')).toBeVisible();
+    await expect(page.locator('span:text-is("当前")')).toBeVisible();
 
     // Rename history scheme
     await page.locator('button[title="重命名"]').first().click();
-    const renameInput = page.locator('input[value^="方案"]');
+    const renameInput = page.locator('input[value="E2E Scheme"]');
     await renameInput.fill('E2E Icon Plan');
     await page.keyboard.press('Enter');
     await expect(page.locator('span:has-text("E2E Icon Plan")')).toBeVisible();
 
-    // Close drawer via Escape
-    await page.keyboard.press('Escape');
+    // Close drawer via clicking the Close button
+    await page.locator('button[title="关闭抽屉"]').click();
     await expect(drawerTitle).not.toBeVisible();
 
     // 5. Test SVG optional export

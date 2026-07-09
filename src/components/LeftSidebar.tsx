@@ -2,8 +2,6 @@ import React, { useRef, useState } from 'react';
 import { Plus, Image as ImageIcon, Trash2, Bookmark, RefreshCw } from 'lucide-react';
 import { FocusTrap } from './FocusTrap';
 
-const ICON_PREVIEW_SIZES = [1024, 180, 120, 76, 192, 144, 96, 48];
-
 export interface CustomPreset {
   id: string;
   name: string;
@@ -39,7 +37,7 @@ interface LeftSidebarProps {
 
   // Icon workspace
   hasIconImage?: boolean;
-  iconPreviewDataUrl?: string | null;
+  iconSizePreviews?: Array<{ size: number; dataUrl: string }>;
   onUploadIcon?: (file: File) => void;
 }
 
@@ -55,7 +53,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onApplyPreset,
   collapsed = false,
   hasIconImage = false,
-  iconPreviewDataUrl,
+  iconSizePreviews = [],
   onUploadIcon,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -259,8 +257,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             )}
           </div>
 
-          {/* 尺寸预览网格 */}
-          {hasIconImage && iconPreviewDataUrl && (
+          {/* 尺寸预览网格：每个尺寸均按其平台的实际内边距/偏移/缩放独立渲染，
+              方框大小也按真实像素尺寸成比例缩放，以直观呈现尺寸差异 */}
+          {hasIconImage && iconSizePreviews.length > 0 && (
             <>
               <div className="sidebar-title">导出尺寸预览</div>
               <div className="sidebar-content">
@@ -269,27 +268,39 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   gridTemplateColumns: 'repeat(4, 1fr)',
                   gap: '10px',
                 }}>
-                  {ICON_PREVIEW_SIZES.map((size) => (
-                    <div key={size} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                      <div style={{
-                        width: '100%',
-                        aspectRatio: '1',
-                        border: '1px solid var(--border-primary)',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                      }}>
-                        <img
-                          src={iconPreviewDataUrl}
-                          alt={`${size}×${size} 预览`}
-                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                        />
+                  {iconSizePreviews.map(({ size, dataUrl }) => {
+                    const maxSize = Math.max(...iconSizePreviews.map((p) => p.size));
+                    const boxPercent = 35 + (size / maxSize) * 65;
+                    return (
+                      <div key={size} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <div style={{
+                          width: '100%',
+                          aspectRatio: '1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          <div style={{
+                            width: `${boxPercent}%`,
+                            aspectRatio: '1',
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: 'var(--bg-tertiary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                          }}>
+                            <img
+                              src={dataUrl}
+                              alt={`${size}×${size} 预览`}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            />
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--ink-secondary)' }}>{size}px</span>
                       </div>
-                      <span style={{ fontSize: '10px', color: 'var(--ink-secondary)' }}>{size}px</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </>

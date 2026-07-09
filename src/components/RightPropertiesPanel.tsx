@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Palette } from 'lucide-react';
 import marbleBg from '../assets/white_marble_bg.jpg';
 import grainBg from '../assets/minimal_grain_bg.jpg';
 import type { DeviceInstance } from '../utils/canvasManager';
+import { extractPaletteFromImage } from '../utils/canvasManager';
 
 let accordionIdCounter = 0;
 
@@ -68,6 +69,8 @@ interface RightPropertiesPanelProps {
   setBgGradient: (grad: string[]) => void;
   bgImageSrc?: string;
   setBgImageSrc: (src: string) => void;
+  bgImageScale?: number;
+  setBgImageScale?: (scale: number) => void;
   bgBlur: number;
   setBgBlur: (blur: number) => void;
   showFrostedGlass: boolean;
@@ -98,11 +101,29 @@ interface RightPropertiesPanelProps {
   hasIconImage?: boolean;
   iconPadding?: number;
   setIconPadding?: (v: number) => void;
+  iconPaddingY?: number;
+  setIconPaddingY?: (v: number) => void;
   iconBgColor?: string;
   setIconBgColor?: (v: string) => void;
   iconHasAlpha?: boolean;
   iconForegroundScale?: number;
   setIconForegroundScale?: (v: number) => void;
+  iconBgMode?: 'solid' | 'gradient';
+  setIconBgMode?: (v: 'solid' | 'gradient') => void;
+  iconBgGradient?: [string, string];
+  setIconBgGradient?: (v: [string, string]) => void;
+  onSaveIconHistory?: () => void;
+
+  // New mockup generator customization properties
+  layout?: 'text-top' | 'text-bottom' | 'full-device';
+  setLayout?: (layout: 'text-top' | 'text-bottom' | 'full-device') => void;
+  showGlassReflection?: boolean;
+  setShowGlassReflection?: (show: boolean) => void;
+  showStatusBar?: boolean;
+  setShowStatusBar?: (show: boolean) => void;
+  shadowPreset?: 'none' | 'soft' | 'premium';
+  setShadowPreset?: (preset: 'none' | 'soft' | 'premium') => void;
+  showToast?: (msg: string) => void;
 }
 
 export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
@@ -114,6 +135,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   setBgGradient,
   bgImageSrc,
   setBgImageSrc,
+  bgImageScale = 1,
+  setBgImageScale,
   bgBlur,
   setBgBlur,
   showFrostedGlass,
@@ -137,11 +160,29 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   hasIconImage = false,
   iconPadding = 0.12,
   setIconPadding,
+  iconPaddingY = 0.12,
+  setIconPaddingY,
   iconBgColor = '#f5f5f4',
   setIconBgColor,
   iconHasAlpha = false,
   iconForegroundScale = 0.8,
   setIconForegroundScale,
+  iconBgMode = 'solid',
+  setIconBgMode,
+  iconBgGradient = ['#f5f5f4', '#e5e5e4'],
+  setIconBgGradient,
+  onSaveIconHistory,
+  
+  // New properties
+  layout = 'text-top',
+  setLayout,
+  showGlassReflection = true,
+  setShowGlassReflection,
+  showStatusBar = true,
+  setShowStatusBar,
+  shadowPreset = 'premium',
+  setShadowPreset,
+  showToast,
 }) => {
   const bgPresets = ['#ffffff', '#f5f5f4', '#e5e5e4', '#dcdcdc', '#8a8a8a', '#4a4a4a', '#1e1e1e', '#0a0a0a'];
   
@@ -220,6 +261,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
       reader.onload = (event) => {
         if (event.target?.result && typeof event.target.result === 'string') {
           setBgImageSrc(event.target.result);
+          // 新图上传后重置缩放，避免沿用上一张图的比例导致意外裁切
+          setBgImageScale?.(1);
         }
       };
       reader.readAsDataURL(e.target.files[0]);
@@ -259,6 +302,23 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
     const newDevices = devices.filter((_, i) => i !== index);
     setDevices(newDevices);
     setActiveDeviceIndex(Math.max(0, index - 1));
+  };
+
+  const handleSmartColorExtract = async () => {
+    const activeScreenshot = devices.find(d => d.screenshotSrc)?.screenshotSrc || screenshots[0];
+    if (!activeScreenshot) {
+      showToast?.('请先在左侧上传或绑定内屏截图');
+      return;
+    }
+    try {
+      const [c1, c2] = await extractPaletteFromImage(activeScreenshot);
+      setBgType('gradient');
+      setBgGradient([c1, c2]);
+      showToast?.('✨ 配色提取成功！已自动设置契合内屏的智能渐变色背景');
+    } catch (e) {
+      console.error('Palette extraction failed', e);
+      showToast?.('色彩提取失败，请重试');
+    }
   };
 
   return (
@@ -308,6 +368,31 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* 智能提取配色按钮 */}
+            {(screenshots.length > 0 || devices.some(d => d.screenshotSrc)) && (
+              <button
+                className="ds-btn"
+                onClick={handleSmartColorExtract}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  borderColor: 'var(--border-focus)',
+                  borderStyle: 'solid',
+                  fontSize: '11px',
+                  padding: '8px 0',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  marginTop: '-4px',
+                  marginBottom: '4px',
+                }}
+              >
+                <Palette size={13} strokeWidth={2} style={{ color: 'var(--ink-secondary)' }} />
+                <span>智能提取内屏色彩一键配色</span>
+              </button>
+            )}
 
             {bgType === 'solid' && (
               <div className="ds-input-group">
@@ -418,6 +503,22 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     {bgType === 'panoramic' ? '上传超宽连图背景' : '上传自定义背景图'}
                   </button>
                 </div>
+
+                <div className="ds-input-group">
+                  <label className="ds-label" htmlFor="bg-image-scale">
+                    背景图缩放 ({Math.round(bgImageScale * 100)}%)
+                  </label>
+                  <input
+                    id="bg-image-scale"
+                    type="range"
+                    min="100"
+                    max="300"
+                    step="5"
+                    value={Math.round(bgImageScale * 100)}
+                    onChange={(e) => setBgImageScale?.(parseInt(e.target.value) / 100)}
+                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -458,6 +559,69 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 }}
               />
             </div>
+
+            <div className="ds-input-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <label className="ds-label" style={{ marginBottom: 0, cursor: 'pointer' }} htmlFor="glass-reflection-toggle">
+                仿真屏幕玻璃反射
+              </label>
+              <input
+                id="glass-reflection-toggle"
+                type="checkbox"
+                checked={showGlassReflection}
+                onChange={(e) => setShowGlassReflection?.(e.target.checked)}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer',
+                  accentColor: 'var(--ink-primary)',
+                }}
+              />
+            </div>
+
+            <div className="ds-input-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <label className="ds-label" style={{ marginBottom: 0, cursor: 'pointer' }} htmlFor="status-bar-toggle">
+                显示极简智能状态栏
+              </label>
+              <input
+                id="status-bar-toggle"
+                type="checkbox"
+                checked={showStatusBar}
+                onChange={(e) => setShowStatusBar?.(e.target.checked)}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer',
+                  accentColor: 'var(--ink-primary)',
+                }}
+              />
+            </div>
+
+            <div className="ds-input-group">
+              <label className="ds-label">设备投影效果</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <button
+                  className={`ds-btn ${shadowPreset === 'none' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setShadowPreset?.('none')}
+                >
+                  无阴影
+                </button>
+                <button
+                  className={`ds-btn ${shadowPreset === 'soft' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setShadowPreset?.('soft')}
+                >
+                  柔和平面
+                </button>
+                <button
+                  className={`ds-btn ${shadowPreset === 'premium' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setShadowPreset?.('premium')}
+                >
+                  3D 悬浮
+                </button>
+              </div>
+            </div>
           </div>
           </SectionAccordion>
 
@@ -470,6 +634,33 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('single')}>单机居中</button>
                 <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('double')}>双机左右</button>
                 <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('skew')}>倾斜悬浮</button>
+              </div>
+            </div>
+
+            <div className="ds-input-group">
+              <label className="ds-label">版式模板 (文字与设备布局)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <button
+                  className={`ds-btn ${layout === 'text-top' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setLayout?.('text-top')}
+                >
+                  顶部文本
+                </button>
+                <button
+                  className={`ds-btn ${layout === 'text-bottom' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setLayout?.('text-bottom')}
+                >
+                  底部文本
+                </button>
+                <button
+                  className={`ds-btn ${layout === 'full-device' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setLayout?.('full-device')}
+                >
+                  纯机无文
+                </button>
               </div>
             </div>
             {/* 设备选择页签 */}
@@ -506,10 +697,14 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     value={activeDevice.deviceModel}
                     onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
                   >
-                    <option value="iphone_16_pro">iPhone 16 Pro (深色)</option>
+                    <option value="iphone_16_pro">iPhone 16 Pro (深空黑)</option>
                     <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
-                    <option value="ipad_pro">iPad Pro (平板)</option>
-                    <option value="google_pixel">Google Pixel (安卓)</option>
+                    <option value="iphone_16_pro_gold">iPhone 16 Pro (金色)</option>
+                    <option value="iphone_16_pro_rose_gold">iPhone 16 Pro (玫瑰金)</option>
+                    <option value="ipad_pro">iPad Pro (银色)</option>
+                    <option value="ipad_pro_dark">iPad Pro (深空黑)</option>
+                    <option value="google_pixel">Google Pixel (深色)</option>
+                    <option value="google_pixel_light">Google Pixel (银色)</option>
                   </select>
                 </div>
 
@@ -547,93 +742,205 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 {/* 2.5D Sliders */}
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-angle">旋转角度 ({activeDevice.angle || 0}°)</label>
-                  <input
-                    id="dev-angle"
-                    type="range"
-                    min="-45"
-                    max="45"
-                    value={activeDevice.angle || 0}
-                    onChange={(e) => updateActiveDevice({ angle: parseInt(e.target.value) })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-angle"
+                      type="range"
+                      min="-45"
+                      max="45"
+                      value={activeDevice.angle || 0}
+                      onChange={(e) => updateActiveDevice({ angle: parseInt(e.target.value) })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="-45"
+                      max="45"
+                      value={activeDevice.angle || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ angle: Math.max(-45, Math.min(45, val)) });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-skew">三维错切 ({activeDevice.skewX || 0}°)</label>
-                  <input
-                    id="dev-skew"
-                    type="range"
-                    min="-20"
-                    max="20"
-                    value={activeDevice.skewX || 0}
-                    onChange={(e) => updateActiveDevice({ skewX: parseInt(e.target.value) })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-skew"
+                      type="range"
+                      min="-20"
+                      max="20"
+                      value={activeDevice.skewX || 0}
+                      onChange={(e) => updateActiveDevice({ skewX: parseInt(e.target.value) })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="-20"
+                      max="20"
+                      value={activeDevice.skewX || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ skewX: Math.max(-20, Math.min(20, val)) });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-scale">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
-                  <input
-                    id="dev-scale"
-                    type="range"
-                    min="40"
-                    max="150"
-                    value={Math.round((activeDevice.scale || 1) * 100)}
-                    onChange={(e) => updateActiveDevice({ scale: parseInt(e.target.value) / 100 })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-scale"
+                      type="range"
+                      min="40"
+                      max="150"
+                      value={Math.round((activeDevice.scale || 1) * 100)}
+                      onChange={(e) => updateActiveDevice({ scale: parseInt(e.target.value) / 100 })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="40"
+                      max="150"
+                      value={Math.round((activeDevice.scale || 1) * 100)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ scale: Math.max(40, Math.min(150, val)) / 100 });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-offset-x">水平偏移 ({activeDevice.offsetX || 0}px)</label>
-                  <input
-                    id="dev-offset-x"
-                    type="range"
-                    min="-500"
-                    max="500"
-                    value={activeDevice.offsetX || 0}
-                    onChange={(e) => updateActiveDevice({ offsetX: parseInt(e.target.value) })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-offset-x"
+                      type="range"
+                      min="-500"
+                      max="500"
+                      value={activeDevice.offsetX || 0}
+                      onChange={(e) => updateActiveDevice({ offsetX: parseInt(e.target.value) })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="-500"
+                      max="500"
+                      value={activeDevice.offsetX || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ offsetX: Math.max(-500, Math.min(500, val)) });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-offset-y">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
-                  <input
-                    id="dev-offset-y"
-                    type="range"
-                    min="-200"
-                    max="600"
-                    value={activeDevice.offsetY || 0}
-                    onChange={(e) => updateActiveDevice({ offsetY: parseInt(e.target.value) })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-offset-y"
+                      type="range"
+                      min="-200"
+                      max="600"
+                      value={activeDevice.offsetY || 0}
+                      onChange={(e) => updateActiveDevice({ offsetY: parseInt(e.target.value) })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="-200"
+                      max="600"
+                      value={activeDevice.offsetY || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ offsetY: Math.max(-200, Math.min(600, val)) });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-ss-scale">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
-                  <input
-                    id="dev-ss-scale"
-                    type="range"
-                    min="80"
-                    max="150"
-                    value={Math.round((activeDevice.screenshotScale || 1.0) * 100)}
-                    onChange={(e) => updateActiveDevice({ screenshotScale: parseInt(e.target.value) / 100 })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-ss-scale"
+                      type="range"
+                      min="80"
+                      max="150"
+                      value={Math.round((activeDevice.screenshotScale || 1.0) * 100)}
+                      onChange={(e) => updateActiveDevice({ screenshotScale: parseInt(e.target.value) / 100 })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="80"
+                      max="150"
+                      value={Math.round((activeDevice.screenshotScale || 1.0) * 100)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ screenshotScale: Math.max(80, Math.min(150, val)) / 100 });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="dev-ss-offset-y">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
-                  <input
-                    id="dev-ss-offset-y"
-                    type="range"
-                    min="-100"
-                    max="100"
-                    value={activeDevice.screenshotOffsetY || 0}
-                    onChange={(e) => updateActiveDevice({ screenshotOffsetY: parseInt(e.target.value) })}
-                    style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      id="dev-ss-offset-y"
+                      type="range"
+                      min="-100"
+                      max="100"
+                      value={activeDevice.screenshotOffsetY || 0}
+                      onChange={(e) => updateActiveDevice({ screenshotOffsetY: parseInt(e.target.value) })}
+                      style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
+                    />
+                    <input
+                      type="number"
+                      min="-100"
+                      max="100"
+                      value={activeDevice.screenshotOffsetY || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          updateActiveDevice({ screenshotOffsetY: Math.max(-100, Math.min(100, val)) });
+                        }
+                      }}
+                      className="ds-input"
+                      style={{ width: '56px', padding: '4px 6px', fontSize: '11px', textAlign: 'center', height: '24px' }}
+                    />
+                  </div>
                 </div>
 
                 {devices.length > 1 && (
@@ -741,8 +1048,27 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
         hasIconImage ? (
           <SectionAccordion title="图标定制" defaultOpen={true}>
             <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* 保存方案到历史 */}
+              {onSaveIconHistory && (
+                <button
+                  className="ds-btn"
+                  onClick={onSaveIconHistory}
+                  style={{
+                    width: '100%',
+                    height: '36px',
+                    fontSize: '12px',
+                    marginBottom: '6px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-primary)',
+                  }}
+                >
+                  保存当前方案到历史
+                </button>
+              )}
+
               <div className="ds-input-group">
-                <label className="ds-label" htmlFor="icon-padding">内边距 ({Math.round(iconPadding * 100)}%)</label>
+                <label className="ds-label" htmlFor="icon-padding">水平内边距 ({Math.round(iconPadding * 100)}%)</label>
                 <input
                   id="icon-padding"
                   type="range"
@@ -755,53 +1081,149 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               </div>
 
               <div className="ds-input-group">
-                <label className="ds-label">背景填充色</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' }}>
-                  {bgPresets.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setIconBgColor?.(color)}
-                      style={{
-                        height: '24px',
-                        backgroundColor: color,
-                        border: '1px solid',
-                        borderColor: iconBgColor.toLowerCase() === color.toLowerCase() ? 'var(--border-focus)' : 'var(--border-primary)',
-                        cursor: 'pointer',
-                      }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="color"
-                    value={iconBgColor.startsWith('#') && iconBgColor.length === 7 ? iconBgColor : '#000000'}
-                    onChange={(e) => setIconBgColor?.(e.target.value)}
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      padding: 0,
-                      border: '1px solid var(--border-primary)',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <input
-                    type="text"
-                    className="ds-input"
-                    style={{ fontSize: '0.8125rem', height: '32px' }}
-                    value={iconBgColor}
-                    onChange={(e) => setIconBgColor?.(e.target.value)}
-                    placeholder="#f5f5f4"
-                  />
-                </div>
-                {iconHasAlpha && (
-                  <span style={{ fontSize: '11px', color: 'var(--ink-secondary)' }}>
-                    检测到透明背景，已自动提取边缘色作为建议填充色，可手动覆盖。
-                  </span>
-                )}
+                <label className="ds-label" htmlFor="icon-padding-y">垂直内边距 ({Math.round(iconPaddingY * 100)}%)</label>
+                <input
+                  id="icon-padding-y"
+                  type="range"
+                  min="0"
+                  max="40"
+                  value={Math.round(iconPaddingY * 100)}
+                  onChange={(e) => setIconPaddingY?.(parseInt(e.target.value) / 100)}
+                  style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
+                />
               </div>
+
+              {/* 背景模式选择 */}
+              <div className="ds-input-group">
+                <label className="ds-label">背景填充模式</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px' }}>
+                  <button
+                    className={`ds-btn ${iconBgMode === 'solid' ? 'ds-btn-active' : ''}`}
+                    style={{ fontSize: '11px', padding: '6px 0' }}
+                    onClick={() => setIconBgMode?.('solid')}
+                  >
+                    纯色
+                  </button>
+                  <button
+                    className={`ds-btn ${iconBgMode === 'gradient' ? 'ds-btn-active' : ''}`}
+                    style={{ fontSize: '11px', padding: '6px 0' }}
+                    onClick={() => setIconBgMode?.('gradient')}
+                  >
+                    135°渐变
+                  </button>
+                </div>
+              </div>
+
+              {iconBgMode === 'solid' ? (
+                <div className="ds-input-group">
+                  <label className="ds-label">背景填充色</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' }}>
+                    {bgPresets.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setIconBgColor?.(color)}
+                        style={{
+                          height: '24px',
+                          backgroundColor: color,
+                          border: '1px solid',
+                          borderColor: iconBgColor.toLowerCase() === color.toLowerCase() ? 'var(--border-focus)' : 'var(--border-primary)',
+                          cursor: 'pointer',
+                        }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="color"
+                      value={iconBgColor.startsWith('#') && iconBgColor.length === 7 ? iconBgColor : '#000000'}
+                      onChange={(e) => setIconBgColor?.(e.target.value)}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        padding: 0,
+                        border: '1px solid var(--border-primary)',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <input
+                      type="text"
+                      className="ds-input"
+                      style={{ fontSize: '0.8125rem', height: '32px' }}
+                      value={iconBgColor}
+                      onChange={(e) => setIconBgColor?.(e.target.value)}
+                      placeholder="#f5f5f4"
+                    />
+                  </div>
+                  {iconHasAlpha && (
+                    <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', marginTop: '4px' }}>
+                      检测到透明背景，已自动提取边缘色作为建议填充色，可手动覆盖。
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="ds-input-group" style={{ gap: '10px' }}>
+                  <label className="ds-label">渐变颜色设定</label>
+                  
+                  {/* Start color picker */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--ink-secondary)' }}>起始颜色</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="color"
+                        value={iconBgGradient[0]}
+                        onChange={(e) => setIconBgGradient?.([e.target.value, iconBgGradient[1]])}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          padding: 0,
+                          border: '1px solid var(--border-primary)',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <input
+                        type="text"
+                        className="ds-input"
+                        style={{ fontSize: '0.8125rem', height: '32px' }}
+                        value={iconBgGradient[0]}
+                        onChange={(e) => setIconBgGradient?.([e.target.value, iconBgGradient[1]])}
+                      />
+                    </div>
+                  </div>
+
+                  {/* End color picker */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--ink-secondary)' }}>结束颜色</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="color"
+                        value={iconBgGradient[1]}
+                        onChange={(e) => setIconBgGradient?.([iconBgGradient[0], e.target.value])}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          padding: 0,
+                          border: '1px solid var(--border-primary)',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <input
+                        type="text"
+                        className="ds-input"
+                        style={{ fontSize: '0.8125rem', height: '32px' }}
+                        value={iconBgGradient[1]}
+                        onChange={(e) => setIconBgGradient?.([iconBgGradient[0], e.target.value])}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {iconHasAlpha && (
                 <div className="ds-input-group">

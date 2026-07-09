@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize, Upload, Image, AlertTriangle } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Upload, AlertTriangle } from 'lucide-react';
 
 export interface IconSizeWarning {
   width: number;
@@ -12,9 +12,6 @@ interface CanvasViewportProps {
   setZoom: (z: number) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onFileDrop: (file: File) => void;
-  bgColor?: string;
-  bgType?: 'solid' | 'gradient' | 'image' | 'panoramic';
-  bgGradient?: string[];
   hasScreenshots?: boolean;
 
   // Icon workspace mode
@@ -26,11 +23,70 @@ interface CanvasViewportProps {
   iconWarning?: IconSizeWarning | null;
   iconPadding?: number;
   setIconPadding?: (p: number) => void;
+  iconPaddingY?: number;
+  setIconPaddingY?: (p: number) => void;
+  iconOffsetX?: number;
+  setIconOffsetX?: (v: number) => void;
+  iconOffsetY?: number;
+  setIconOffsetY?: (v: number) => void;
+  iconContentScale?: number;
+  setIconContentScale?: (v: number | ((prev: number) => number)) => void;
 }
 
 const ICON_PADDING_MIN = 0;
 const ICON_PADDING_MAX = 0.4;
 const ICON_DISPLAY_SIZE = 300;
+
+/**
+ * Curated Android adaptive-icon mask shapes, referencing the shape catalog
+ * researched by NotWoods/maskable (the industry-standard maskable-icon
+ * preview tool). Real OEM launchers (Pixel/AOSP, Samsung One UI, and other
+ * skins) each apply a different mask to the same adaptive icon layers, so
+ * previewing more than a single circle is necessary to catch content that
+ * would be cropped on some devices but not others.
+ *
+ * `circle` matches Android's official Adaptive Icon safe zone (a 66dp
+ * circle centered on the 108dp canvas, i.e. 66/108 ≈ 61% diameter / 17%
+ * inset) — the one shape every icon is guaranteed to satisfy. The other
+ * shapes are looser (larger visible area) illustrative references for how
+ * more lenient OEM masks reveal extra content; they are not a replacement
+ * for keeping key content inside the circle.
+ */
+type AndroidMaskShapeId = 'circle' | 'squircle' | 'drop' | 'square';
+
+interface AndroidMaskShape {
+  id: AndroidMaskShapeId;
+  label: string;
+  /** SVG path `d` in a 0-100 viewBox, used as the transparent cutout inside the dimming scrim. */
+  path: string;
+}
+
+const ANDROID_MASK_SHAPES: AndroidMaskShape[] = [
+  {
+    id: 'circle',
+    label: '圆形（官方安全区）',
+    // r = 33, centered at (50,50) -> 17% inset, matches Android's 66dp/108dp safe zone
+    path: 'M50,17 A33,33 0 1 0 50,83 A33,33 0 1 0 50,17 Z',
+  },
+  {
+    id: 'squircle',
+    label: '圆润方形',
+    // Inset 12%, corner radius 22 (rounded-square, e.g. Samsung One UI style)
+    path: 'M34,12 H66 A22,22 0 0 1 88,34 V66 A22,22 0 0 1 66,88 H34 A22,22 0 0 1 12,66 V34 A22,22 0 0 1 34,12 Z',
+  },
+  {
+    id: 'drop',
+    label: '水滴形',
+    // Same bounds as squircle, but one sharp corner (bottom-right) — some OEM skins
+    path: 'M34,12 H66 A22,22 0 0 1 88,34 V88 H34 A22,22 0 0 1 12,66 V34 A22,22 0 0 1 34,12 Z',
+  },
+  {
+    id: 'square',
+    label: '方形（宽松遮罩）',
+    // Inset 8%, minimal corner rounding — the most lenient common OEM mask
+    path: 'M14,8 H86 A6,6 0 0 1 92,14 V86 A6,6 0 0 1 86,92 H14 A6,6 0 0 1 8,86 V14 A6,6 0 0 1 14,8 Z',
+  },
+];
 
 export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   activeTool = 'screenshots',
@@ -38,9 +94,6 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   setZoom,
   canvasRef,
   onFileDrop,
-  bgColor = '#f5f5f4',
-  bgType = 'solid',
-  bgGradient = [],
   hasScreenshots = false,
   iconCanvasRef,
   hasIconImage = false,
@@ -50,10 +103,27 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   iconWarning = null,
   iconPadding = 0.12,
   setIconPadding,
+  setIconPaddingY,
+  iconOffsetX = 0,
+  setIconOffsetX,
+  iconOffsetY = 0,
+  setIconOffsetY,
+  iconContentScale = 1,
+  setIconContentScale,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [androidMaskShapeId, setAndroidMaskShapeId] = useState<AndroidMaskShapeId>('circle');
   const emptyStateFileRef = useRef<HTMLInputElement>(null);
   const iconFileRef = useRef<HTMLInputElement>(null);
+  const iconFileEmptyRef = useRef<HTMLInputElement>(null);
+
+  // Drag and zoom interaction tracking
+  const [isPointerDown, setIsPointerDown] = useState(false);
+  const pointerStartRef = useRef({ x: 0, y: 0 });
+  const offsetStartRef = useRef({ x: 0, y: 0 });
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const initialDistanceRef = useRef<number | null>(null);
+  const initialScaleRef = useRef<number>(1);
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200));
   const handleZoomOut = () => setZoom(Math.max(zoom - 10, 10));
@@ -79,28 +149,267 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
     }
   };
 
-  if (activeTool === 'icons') {
-    const handleIconDrop = (e: React.DragEvent) => {
+  // Icon handlers defined globally in the component
+  const handleIconDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      onIconFileDrop?.(file);
+    }
+  };
+
+  const clampPadding = (p: number) => Math.min(ICON_PADDING_MAX, Math.max(ICON_PADDING_MIN, p));
+  const handleIconZoomIn = () => setIconPadding?.(clampPadding(iconPadding - 0.02));
+  const handleIconZoomOut = () => setIconPadding?.(clampPadding(iconPadding + 0.02));
+  const handleIconZoomReset = () => {
+    setIconPadding?.(0.12);
+    setIconPaddingY?.(0.12);
+    setIconOffsetX?.(0);
+    setIconOffsetY?.(0);
+    setIconContentScale?.(1);
+  };
+  const zoomPercent = Math.round((1 - iconPadding / ICON_PADDING_MAX) * 100);
+  const activeAndroidMaskShape = ANDROID_MASK_SHAPES.find((s) => s.id === androidMaskShapeId) ?? ANDROID_MASK_SHAPES[0];
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointersRef.current.size === 1) {
+      setIsPointerDown(true);
+      pointerStartRef.current = { x: e.clientX, y: e.clientY };
+      offsetStartRef.current = { x: iconOffsetX, y: iconOffsetY };
+    } else if (activePointersRef.current.size === 2) {
+      const pointers = Array.from(activePointersRef.current.values());
+      const dx = pointers[0].x - pointers[1].x;
+      const dy = pointers[0].y - pointers[1].y;
+      initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+      initialScaleRef.current = iconContentScale;
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (activePointersRef.current.size === 1 && isPointerDown) {
+      const dx = e.clientX - pointerStartRef.current.x;
+      const dy = e.clientY - pointerStartRef.current.y;
+      const scaleFactor = 512 / ICON_DISPLAY_SIZE;
+      setIconOffsetX?.(offsetStartRef.current.x + (dx * scaleFactor) / 512);
+      setIconOffsetY?.(offsetStartRef.current.y + (dy * scaleFactor) / 512);
+    } else if (activePointersRef.current.size === 2 && initialDistanceRef.current !== null) {
+      const pointers = Array.from(activePointersRef.current.values());
+      const dx = pointers[0].x - pointers[1].x;
+      const dy = pointers[0].y - pointers[1].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ratio = dist / initialDistanceRef.current;
+      const nextScale = Math.min(2.0, Math.max(0.5, initialScaleRef.current * ratio));
+      setIconContentScale?.(nextScale);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size === 0) {
+      setIsPointerDown(false);
+      initialDistanceRef.current = null;
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const zoomStep = 0.05;
+    const dir = e.deltaY < 0 ? 1 : -1;
+    setIconContentScale?.((prev) => Math.min(2.0, Math.max(0.5, prev + dir * zoomStep)));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const nudgeAmount = 0.01;
+    if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file && file.type.startsWith('image/')) {
-        onIconFileDrop?.(file);
-      }
-    };
+      setIconOffsetX?.(iconOffsetX - nudgeAmount);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setIconOffsetX?.(iconOffsetX + nudgeAmount);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setIconOffsetY?.(iconOffsetY - nudgeAmount);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setIconOffsetY?.(iconOffsetY + nudgeAmount);
+    }
+  };
 
-    // Zooming in shrinks padding (image fills more of the fixed frame);
-    // zooming out grows padding (image shrinks, more background shows).
-    const clampPadding = (p: number) => Math.min(ICON_PADDING_MAX, Math.max(ICON_PADDING_MIN, p));
-    const handleIconZoomIn = () => setIconPadding?.(clampPadding(iconPadding - 0.02));
-    const handleIconZoomOut = () => setIconPadding?.(clampPadding(iconPadding + 0.02));
-    const handleIconZoomReset = () => setIconPadding?.(0.12);
-    const zoomPercent = Math.round((1 - iconPadding / ICON_PADDING_MAX) * 100);
-
-    return (
+  return (
+    <div
+      className={`viewport ${isDragging ? 'drag-active' : ''}`}
+      onDragOver={activeTool === 'icons' ? undefined : handleDragOver}
+      onDragLeave={activeTool === 'icons' ? undefined : handleDragLeave}
+      onDrop={activeTool === 'icons' ? undefined : handleDrop}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        flex: 1,
+        position: 'relative',
+      }}
+    >
+      {/* 1. SCREENSHOTS WORKSPACE PANEL */}
       <div
         className="viewport-canvas-wrapper"
         style={{
+          display: activeTool === 'screenshots' ? 'flex' : 'none',
+          flex: 1,
+          position: 'relative',
+          // 注意：此处始终使用固定的中性工作区背景色 (与画布本身的填充解耦)，
+          // 不再镶嵌 bgColor/bgGradient。此前该容器会把画布填充样式复制到整个视口面板，
+          // 导致视觉上分不清"画布边界"在哪，看起来像是纯色/渐变溢出/超出了画布范围。
+          // 真正的画布内容填充完全由 canvasManager.ts 在 <canvas> 内部绘制，
+          // 视口容器只负责提供一个稳定的中性画布衬底，便于用户分辨画布边缘。
+          backgroundColor: isDragging ? 'var(--bg-tertiary)' : 'var(--bg-secondary)',
+          transition: 'background-color 0.3s ease',
+          overflow: 'hidden',
+          height: '100%',
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          overflow: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 40px 100px 40px',
+        }}>
+          <div style={{
+            width: `${1242 * (zoom / 100)}px`,
+            height: `${2208 * (zoom / 100)}px`,
+            position: 'relative',
+            flexShrink: 0,
+          }}>
+            <div style={{
+              width: '1242px',
+              height: '2208px',
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: `translate(-50%, -50%) scale(${zoom / 100})`,
+              transformOrigin: 'center center',
+              boxShadow: '0 8px 32px var(--shadow-color)',
+              transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}>
+              <canvas ref={canvasRef} aria-label="应用商店截图实时预览，呈现您配置的设备外壳及主副标题排版" role="img" />
+            </div>
+          </div>
+        </div>
+
+        {!hasScreenshots && !isDragging && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-sticky)',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '24px 32px',
+              border: '1px solid var(--border-primary)',
+              borderRadius: '4px',
+              backgroundColor: 'var(--bg-secondary)',
+              boxShadow: '0 4px 16px var(--shadow-color)',
+              pointerEvents: 'auto',
+              width: '280px',
+              textAlign: 'center',
+              transition: 'border-color var(--transition-speed) ease',
+            }}>
+              <Upload size={22} strokeWidth={1.2} style={{ color: 'var(--ink-secondary)', marginBottom: '4px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                  导入应用截图
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--ink-secondary)' }}>
+                  拖拽图片到画布，或点击下方按钮
+                </span>
+              </div>
+              <input
+                ref={emptyStateFileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) onFileDrop(e.target.files[0]);
+                }}
+              />
+              <button
+                className="ds-btn"
+                style={{
+                  marginTop: '6px',
+                  fontSize: '11px',
+                  width: '100%',
+                  padding: '6px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+                onClick={() => emptyStateFileRef.current?.click()}
+              >
+                <span>选择图片文件</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isDragging && (
+          <div style={{
+            position: 'absolute',
+            inset: '20px',
+            border: '2px dashed var(--border-focus)',
+            backgroundColor: 'var(--overlay-bg-heavy)',
+            color: 'var(--overlay-text)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            zIndex: 'var(--z-overlay)',
+            pointerEvents: 'none',
+          }}>
+            <Upload size={32} />
+            <span style={{ fontSize: '14px', fontWeight: 500 }}>释放鼠标以导入应用截图</span>
+          </div>
+        )}
+
+        <div className="viewport-zoom-bar">
+          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomOut} title="缩小" aria-label="缩小">
+            <ZoomOut size={14} />
+          </button>
+          <span className="viewport-zoom-value">{zoom}%</span>
+          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomIn} title="放大" aria-label="放大">
+            <ZoomIn size={14} />
+          </button>
+          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomReset} title="重置 100%" aria-label="重置缩放比例">
+            <Maximize size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* 2. ICON WORKSPACE PANEL */}
+      <div
+        className="viewport-canvas-wrapper"
+        style={{
+          display: activeTool === 'icons' ? 'flex' : 'none',
           flex: 1,
           position: 'relative',
           backgroundColor: isDragging ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
@@ -119,163 +428,202 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          // Top-aligned (not centered): with `overflow: auto` + `justifyContent:
+          // 'center'`, content taller than the container overflows above the
+          // scrollable origin and becomes unreachable (can't scroll negative),
+          // clipping/hiding the platform toggle tabs at the top. Top-aligning
+          // keeps the tabs always visible right below the top padding.
+          justifyContent: hasIconImage ? 'flex-start' : 'center',
           gap: '20px',
           padding: hasIconImage ? '40px 40px 100px 40px' : '40px',
         }}>
-        {hasIconImage ? (
-          <>
-            {/* 平台切换分段控件 */}
-            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} role="tablist" aria-label="平台预览切换">
-              <button
-                role="tab"
-                aria-selected={iconPlatformPreview === 'ios'}
-                className={`ds-btn platform-tab-btn ${iconPlatformPreview === 'ios' ? 'ds-btn-active' : ''}`}
-                style={{ padding: '6px 20px', fontSize: '12px' }}
-                onClick={() => setIconPlatformPreview?.('ios')}
-              >
-                iOS
-              </button>
-              <button
-                role="tab"
-                aria-selected={iconPlatformPreview === 'android'}
-                className={`ds-btn platform-tab-btn ${iconPlatformPreview === 'android' ? 'ds-btn-active' : ''}`}
-                style={{ padding: '6px 20px', fontSize: '12px' }}
-                onClick={() => setIconPlatformPreview?.('android')}
-              >
-                Android
-              </button>
-            </div>
-
-            {/* 尺寸/比例警告条 */}
-            {iconWarning && (
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 16px',
-                border: '1px solid var(--border-primary)',
-                backgroundColor: 'var(--bg-secondary)',
-                fontSize: '12px',
-                color: 'var(--ink-secondary)',
-                width: 'min(420px, 100%)',
-                flexShrink: 0,
-              }}>
-                <AlertTriangle size={16} strokeWidth={1.5} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--ink-primary)' }} />
-                <span style={{ flex: 1 }}>
-                  建议原图 ≥1024×1024 正方形，当前 {iconWarning.width}×{iconWarning.height}（已自动居中裁剪为正方形预览）。
-                </span>
-                <input
-                  ref={iconFileRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => { if (e.target.files?.[0]) onIconFileDrop?.(e.target.files[0]); }}
-                />
+          {hasIconImage ? (
+            <>
+              {/* 平台切换分段控件 */}
+              <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} role="tablist" aria-label="平台预览切换">
                 <button
-                  className="ds-btn"
-                  style={{ fontSize: '11px', padding: '4px 10px', flexShrink: 0 }}
-                  onClick={() => iconFileRef.current?.click()}
+                  role="tab"
+                  aria-selected={iconPlatformPreview === 'ios'}
+                  className={`ds-btn platform-tab-btn ${iconPlatformPreview === 'ios' ? 'ds-btn-active' : ''}`}
+                  style={{ padding: '6px 20px', fontSize: '12px' }}
+                  onClick={() => setIconPlatformPreview?.('ios')}
                 >
-                  重新上传
+                  iOS
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={iconPlatformPreview === 'android'}
+                  className={`ds-btn platform-tab-btn ${iconPlatformPreview === 'android' ? 'ds-btn-active' : ''}`}
+                  style={{ padding: '6px 20px', fontSize: '12px' }}
+                  onClick={() => setIconPlatformPreview?.('android')}
+                >
+                  Android
                 </button>
               </div>
-            )}
 
-            {/* 图标画布 + 遮罩预览层：外框固定不变，滑块调整图像内容大小（页边距） */}
-            <div
-              style={{
-                width: `${ICON_DISPLAY_SIZE}px`,
-                height: `${ICON_DISPLAY_SIZE}px`,
-                position: 'relative',
-                flexShrink: 0,
-                boxShadow: '0 8px 32px var(--shadow-color)',
-              }}
-            >
-              <canvas ref={iconCanvasRef} width={512} height={512} style={{ width: '100%', height: '100%', display: 'block' }} />
-              {iconPlatformPreview === 'ios' ? (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    borderRadius: '22%',
-                    border: '2px dashed var(--border-focus)',
-                    boxSizing: 'border-box',
-                    pointerEvents: 'none',
-                  }}
-                />
-              ) : (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '66%',
-                    height: '66%',
-                    transform: 'translate(-50%, -50%)',
-                    borderRadius: '50%',
-                    border: '2px dashed var(--border-focus)',
-                    boxSizing: 'border-box',
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
-            </div>
-            <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', flexShrink: 0 }}>
-              {iconPlatformPreview === 'ios' ? '虚线为系统圆角遮罩参考区域，不影响导出像素' : '虚线圆圈为自适应图标安全区，内容应避免超出此区域'}
-            </span>
-          </>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '40px 48px',
-            border: '1px dashed var(--border-secondary)',
-            backgroundColor: 'var(--bg-secondary)',
-          }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }} aria-hidden="true">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} style={{
-                  width: i % 4 === 0 ? '32px' : '22px',
-                  height: i % 4 === 0 ? '32px' : '22px',
+              {/* 尺寸/比例警告条 */}
+              {iconWarning && (
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 16px',
                   border: '1px solid var(--border-primary)',
-                  borderRadius: i % 2 === 0 ? '22%' : '50%',
-                  alignSelf: 'center',
-                  opacity: 0.5,
-                }} />
-              ))}
+                  backgroundColor: 'var(--bg-secondary)',
+                  fontSize: '12px',
+                  color: 'var(--ink-secondary)',
+                  width: 'min(420px, 100%)',
+                  flexShrink: 0,
+                }}>
+                  <AlertTriangle size={16} strokeWidth={1.5} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--ink-primary)' }} />
+                  <span style={{ flex: 1 }}>
+                    建议原图 ≥1024×1024 正方形，当前 {iconWarning.width}×{iconWarning.height}（已自动居中裁剪为正方形预览）。
+                  </span>
+                  <input
+                    ref={iconFileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => { if (e.target.files?.[0]) onIconFileDrop?.(e.target.files[0]); }}
+                  />
+                  <button
+                    className="ds-btn"
+                    style={{ fontSize: '11px', padding: '4px 10px', flexShrink: 0 }}
+                    onClick={() => iconFileRef.current?.click()}
+                  >
+                    重新上传
+                  </button>
+                </div>
+              )}
+
+              {/* 图标画布 + 遮罩预览层 */}
+              <div
+                tabIndex={0}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                onWheel={handleWheel}
+                onKeyDown={handleKeyDown}
+                aria-label="图标编辑器预览画布。支持拖拽平移、滚轮缩放、方向键微调"
+                style={{
+                  width: `${ICON_DISPLAY_SIZE}px`,
+                  height: `${ICON_DISPLAY_SIZE}px`,
+                  position: 'relative',
+                  flexShrink: 0,
+                  boxShadow: '0 8px 32px var(--shadow-color)',
+                  cursor: isPointerDown ? 'grabbing' : 'grab',
+                  outline: 'none',
+                }}
+              >
+                <canvas ref={iconCanvasRef} width={512} height={512} style={{ width: '100%', height: '100%', display: 'block' }} />
+                {iconPlatformPreview === 'ios' ? (
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '22%',
+                      border: '2px dashed var(--border-focus)',
+                      boxSizing: 'border-box',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                ) : (
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+                  >
+                    <defs>
+                      <mask id="android-mask-cutout">
+                        <rect width="100" height="100" fill="white" />
+                        <path d={activeAndroidMaskShape.path} fill="black" />
+                      </mask>
+                    </defs>
+                    {/* Dims everything outside the selected mask shape, so content
+                        at risk of being cropped by that shape is clearly visible. */}
+                    <rect width="100" height="100" fill="rgba(0,0,0,0.5)" mask="url(#android-mask-cutout)" />
+                    <path d={activeAndroidMaskShape.path} fill="none" stroke="var(--border-focus)" strokeWidth="1" strokeDasharray="2,1.5" vectorEffect="non-scaling-stroke" />
+                  </svg>
+                )}
+              </div>
+
+              {iconPlatformPreview === 'android' && (
+                <div role="tablist" aria-label="Android 厂商遮罩形状预览" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', flexShrink: 0 }}>
+                  {ANDROID_MASK_SHAPES.map((shape) => (
+                    <button
+                      key={shape.id}
+                      role="tab"
+                      aria-selected={androidMaskShapeId === shape.id}
+                      className={`ds-btn ${androidMaskShapeId === shape.id ? 'ds-btn-active' : ''}`}
+                      style={{ fontSize: '11px', padding: '4px 10px' }}
+                      onClick={() => setAndroidMaskShapeId(shape.id)}
+                    >
+                      {shape.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', flexShrink: 0, maxWidth: '420px', textAlign: 'center' }}>
+                {iconPlatformPreview === 'ios'
+                  ? '按住画布拖动/滚轮缩放，虚线为系统圆角遮罩区域，不影响导出像素'
+                  : '按住画布拖动/滚轮缩放；不同安卓厂商启动器会应用不同形状的遮罩，阴影覆盖区域为该形状下可能被裁切的部分，圆形为官方保证的最小安全区'}
+              </span>
+            </>
+          ) : (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '40px 48px',
+              border: '1px dashed var(--border-secondary)',
+              backgroundColor: 'var(--bg-secondary)',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }} aria-hidden="true">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} style={{
+                    width: i % 4 === 0 ? '32px' : '22px',
+                    height: i % 4 === 0 ? '32px' : '22px',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: i % 2 === 0 ? '22%' : '50%',
+                    alignSelf: 'center',
+                    opacity: 0.5,
+                  }} />
+                ))}
+              </div>
+              <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--ink-primary)' }}>
+                拖拽或点击上传应用图标原图
+              </span>
+              <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', textAlign: 'center' }}>
+                建议 ≥1024×1024 正方形 PNG，将自动生成 iOS / Android 全尺寸图标
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', opacity: 0.8, borderTop: '1px solid var(--border-primary)', paddingTop: '8px', width: '100%', textAlign: 'center' }}>
+                全部处理在本地浏览器完成，图片不会上传到任何服务器
+              </span>
+              <input
+                ref={iconFileEmptyRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => { if (e.target.files?.[0]) onIconFileDrop?.(e.target.files[0]); }}
+              />
+              <button
+                className="ds-btn"
+                style={{ marginTop: '4px', fontSize: '12px' }}
+                onClick={() => iconFileEmptyRef.current?.click()}
+              >
+                <Upload size={14} />
+                <span>选择文件上传</span>
+              </button>
             </div>
-            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--ink-primary)' }}>
-              拖拽或点击上传应用图标原图
-            </span>
-            <span style={{ fontSize: '12px', color: 'var(--ink-secondary)' }}>
-              建议 ≥1024×1024 正方形 PNG，将自动生成 iOS / Android 全尺寸图标
-            </span>
-            <input
-              ref={iconFileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={(e) => { if (e.target.files?.[0]) onIconFileDrop?.(e.target.files[0]); }}
-            />
-            <button
-              className="ds-btn"
-              style={{ marginTop: '4px', fontSize: '12px' }}
-              onClick={() => iconFileRef.current?.click()}
-            >
-              <Upload size={14} />
-              <span>选择文件上传</span>
-            </button>
-          </div>
-        )}
+          )}
         </div>
 
-        {/* 缩放悬浮控制栏：外框不变，调整图像在框内的大小（等同页边距） */}
         {hasIconImage && (
           <div className="viewport-zoom-bar">
             <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomOut} title="缩小图像" aria-label="缩小图像">
@@ -294,157 +642,11 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
             <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomIn} title="放大图像" aria-label="放大图像">
               <ZoomIn size={14} />
             </button>
-            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomReset} title="重置" aria-label="重置图像缩放">
+            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomReset} title="重置" aria-label="重置图像位置与缩放">
               <Maximize size={14} />
             </button>
           </div>
         )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="viewport-canvas-wrapper"
-      style={{
-        flex: 1,
-        position: 'relative',
-        backgroundColor: isDragging
-          ? 'var(--bg-tertiary)'
-          : bgType === 'gradient' && bgGradient.length >= 2
-            ? undefined
-            : bgColor,
-        background: isDragging
-          ? undefined
-          : bgType === 'gradient' && bgGradient.length >= 2
-            ? `linear-gradient(180deg, ${bgGradient[0]}, ${bgGradient[1]})`
-            : undefined,
-        transition: 'background-color 0.3s ease, background 0.3s ease',
-        overflow: 'hidden',
-        height: '100%',
-      }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* 内层独立滚动容器，确保 Canvas 滚动时悬浮栏位置保持静止 */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '40px 40px 100px 40px', // 底部预留 padding 防止缩放栏遮挡 Canvas
-      }}>
-        {/* Outer container representing the actual scaled layout size in DOM */}
-        <div style={{
-          width: `${1242 * (zoom / 100)}px`,
-          height: `${2208 * (zoom / 100)}px`,
-          position: 'relative',
-          flexShrink: 0,
-        }}>
-          {/* Inner container scaled using transform */}
-          <div style={{
-            width: '1242px',
-            height: '2208px',
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: `translate(-50%, -50%) scale(${zoom / 100})`,
-            transformOrigin: 'center center',
-            boxShadow: '0 8px 32px var(--shadow-color)',
-            transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}>
-            <canvas ref={canvasRef} />
-          </div>
-        </div>
-      </div>
-
-      {/* 空状态引导 */}
-      {!hasScreenshots && !isDragging && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '16px',
-          zIndex: 'var(--z-sticky)',
-          pointerEvents: 'none',
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '40px 48px',
-            border: '1px dashed var(--border-secondary)',
-            backgroundColor: 'var(--bg-secondary)',
-            pointerEvents: 'auto',
-          }}>
-            <Image size={32} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />
-            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--ink-primary)' }}>
-              拖拽应用截图到此处开始
-            </span>
-            <span style={{ fontSize: '12px', color: 'var(--ink-secondary)' }}>
-              支持 PNG、JPG 格式
-            </span>
-            <input
-              ref={emptyStateFileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files?.[0]) onFileDrop(e.target.files[0]);
-              }}
-            />
-            <button
-              className="ds-btn"
-              style={{ marginTop: '4px', fontSize: '12px' }}
-              onClick={() => emptyStateFileRef.current?.click()}
-            >
-              <Upload size={14} />
-              <span>选择文件上传</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 拖拽指示蒙层 */}
-      {isDragging && (
-        <div style={{
-          position: 'absolute',
-          inset: '20px',
-          border: '2px dashed var(--border-focus)',
-          backgroundColor: 'var(--overlay-bg-heavy)',
-          color: 'var(--overlay-text)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '12px',
-          zIndex: 'var(--z-overlay)',
-          pointerEvents: 'none',
-        }}>
-          <Upload size={32} />
-          <span style={{ fontSize: '14px', fontWeight: 500 }}>释放鼠标以导入应用截图</span>
-        </div>
-      )}
-
-      {/* 缩放悬浮控制栏 - 独立于滚动层，永远固定于可见区域底部 */}
-      <div className="viewport-zoom-bar">
-        <button className="ds-btn ds-btn-icon-only" onClick={handleZoomOut} title="缩小" aria-label="缩小">
-          <ZoomOut size={14} />
-        </button>
-        <span className="viewport-zoom-value">{zoom}%</span>
-        <button className="ds-btn ds-btn-icon-only" onClick={handleZoomIn} title="放大" aria-label="放大">
-          <ZoomIn size={14} />
-        </button>
-        <button className="ds-btn ds-btn-icon-only" onClick={handleZoomReset} title="重置 100%" aria-label="重置缩放比例">
-          <Maximize size={14} />
-        </button>
       </div>
     </div>
   );
