@@ -236,6 +236,20 @@ export const DEFAULT_TERMS_DRAFT: TermsDraft = {
   isDsa: false,
 };
 
+/**
+ * The Compliance Toolkit collects all fields for every generated document in a single
+ * shared questionnaire. Because every field on `PrivacyDraft` and `TermsDraft` that shares
+ * a name already shares the same type, the intersection type below is structurally a valid
+ * `PrivacyDraft` AND a valid `TermsDraft` at once, so a single `MasterDraft` object can be
+ * passed directly to any of the `build*Sections`/`build*Rows` functions below.
+ */
+export type MasterDraft = PrivacyDraft & TermsDraft;
+
+export const DEFAULT_MASTER_DRAFT: MasterDraft = {
+  ...DEFAULT_PRIVACY_DRAFT,
+  ...DEFAULT_TERMS_DRAFT,
+};
+
 export const PLATFORM_LABELS: Record<PrivacyDraft['platform'], string> = {
   ios: 'iOS app',
   android: 'Android app',
@@ -747,4 +761,301 @@ export function renderSectionsToMarkdown(title: string, effectiveDate: string, s
   parts.push('---');
   parts.push(`_${LEGAL_DISCLAIMER}_`);
   return parts.join('\n');
+}
+
+// ============================================================================
+// Compliance Toolkit: Custom EULA, Nutrition Label Cheat Sheet, Account
+// Deletion Page, ATT & Permission Copy Kit, Google Play Data Safety CSV
+// ============================================================================
+
+export type HighRiskType = 'none' | 'ai_generated' | 'health_medical' | 'ugc_community';
+
+export const HIGH_RISK_TYPE_LABELS: Record<HighRiskType, string> = {
+  none: '无',
+  ai_generated: 'AI 生成类',
+  health_medical: '健康/医疗类',
+  ugc_community: 'UGC 社区',
+};
+
+/** Custom EULA = the standard Terms of Use baseline + one mandatory clause inserted before "Contact Us". */
+export function buildCustomEulaSections(draft: TermsDraft, highRiskType: HighRiskType): DocSection[] {
+  const baseline = buildTermsOfUseSections(draft);
+  if (highRiskType === 'none') return baseline;
+
+  let clause: DocSection;
+  if (highRiskType === 'ai_generated') {
+    clause = {
+      heading: 'AI-Generated Content Disclaimer',
+      paragraphs: [
+        `The Application uses artificial intelligence to generate content, recommendations, or other outputs presented to you. We do not guarantee the accuracy, completeness, reliability, or appropriateness of any AI-generated content, and we expressly disclaim liability for any decisions or actions you take in reliance on it.`,
+        `You are solely responsible for independently verifying any AI-generated output before relying on it for any purpose.`,
+      ],
+    };
+  } else if (highRiskType === 'health_medical') {
+    clause = {
+      heading: 'Medical Disclaimer',
+      paragraphs: [
+        `The Application is provided for general informational and reference purposes only and does not constitute professional medical advice, diagnosis, or treatment. It is not a substitute for consultation with a qualified physician or other licensed healthcare provider.`,
+        `Always seek the advice of a qualified healthcare professional with any questions you may have regarding a medical condition, and never disregard professional medical advice or delay seeking it because of information provided by the Application.`,
+      ],
+    };
+  } else {
+    clause = {
+      heading: 'Zero-Tolerance Policy for Objectionable Content',
+      paragraphs: [
+        `We maintain a zero-tolerance policy toward abusive, harassing, hateful, or sexually explicit user-generated content. We provide the following mechanisms to enforce this policy: (1) a content filtering mechanism that screens submitted content; (2) an in-app mechanism allowing any user to block another user from interacting with them; (3) an in-app mechanism allowing any user to report objectionable content or behavior directly within the Service; and (4) a moderation process that promptly reviews reports, removes violating content, and, where warranted, suspends or permanently bans the account responsible.`,
+        `We act on reports of objectionable content and abusive users within a reasonable timeframe. Users who repeatedly violate this policy will have their access to the Service terminated.`,
+      ],
+    };
+  }
+
+  const contactIndex = baseline.findIndex((s) => s.heading === 'Contact Us');
+  if (contactIndex === -1) return [...baseline, clause];
+  return [...baseline.slice(0, contactIndex), clause, ...baseline.slice(contactIndex)];
+}
+
+// ---- Apple Privacy Nutrition Label Cheat Sheet ----
+
+export type NutritionLabelCategory = 'tracking' | 'linked' | 'not_linked';
+
+export const NUTRITION_LABEL_CATEGORY_LABELS: Record<NutritionLabelCategory, string> = {
+  tracking: '用于追踪你的数据 (Data Used to Track You)',
+  linked: '与你关联的数据 (Data Linked to You)',
+  not_linked: '未与你关联的数据 (Data Not Linked to You)',
+};
+
+const AD_ATTRIBUTION_SERVICE_IDS = new Set(
+  SERVICE_CATALOG.find((g) => g.category === '广告 / 归因')?.services.map((s) => s.id) ?? []
+);
+
+const DEFAULT_PURPOSES: Record<string, string[]> = {
+  name: ['App Functionality'],
+  email: ['App Functionality', "Developer's Advertising or Marketing"],
+  phone: ['App Functionality'],
+  address: ['App Functionality'],
+  photos: ['App Functionality'],
+  contacts: ['App Functionality'],
+  precise_location: ['App Functionality', 'Analytics'],
+  approximate_location: ['App Functionality', 'Analytics'],
+  usage_data: ['Analytics', 'App Functionality'],
+  device_id: ['Third-Party Advertising', 'Analytics'],
+  cookies: ['Analytics', 'Third-Party Advertising'],
+};
+
+export interface NutritionLabelRow {
+  dataTypeId: string;
+  dataTypeLabel: string;
+  category: NutritionLabelCategory;
+  purposes: string[];
+}
+
+export function buildNutritionLabelRows(draft: PrivacyDraft): NutritionLabelRow[] {
+  const hasAdService = draft.services.some((id) => AD_ATTRIBUTION_SERVICE_IDS.has(id));
+  return DATA_TYPE_CATALOG.filter((d) => draft.dataTypes.includes(d.id)).map((d) => {
+    const category: NutritionLabelCategory = hasAdService ? 'tracking' : draft.hasUserAccounts ? 'linked' : 'not_linked';
+    return {
+      dataTypeId: d.id,
+      dataTypeLabel: d.label,
+      category,
+      purposes: DEFAULT_PURPOSES[d.id] ?? ['App Functionality'],
+    };
+  });
+}
+
+export function renderNutritionLabelRowsToText(rows: NutritionLabelRow[]): string {
+  const lines = ['Data Type | Apple Category | Suggested Purpose(s)', '--- | --- | ---'];
+  for (const r of rows) {
+    lines.push(`${r.dataTypeLabel} | ${NUTRITION_LABEL_CATEGORY_LABELS[r.category]} | ${r.purposes.join(', ')}`);
+  }
+  return lines.join('\n');
+}
+
+export function renderNutritionLabelRowsToMarkdown(rows: NutritionLabelRow[]): string {
+  const parts = [
+    '# Apple Privacy Nutrition Label — Fill-in Cheat Sheet',
+    '',
+    "_Apple's own App Store Connect questionnaire UI is the source of truth; cross-check this table against its current wording before submitting._",
+    '',
+    '| Data Type | Apple Category | Suggested Purpose(s) |',
+    '| --- | --- | --- |',
+  ];
+  for (const r of rows) {
+    parts.push(`| ${r.dataTypeLabel} | ${NUTRITION_LABEL_CATEGORY_LABELS[r.category]} | ${r.purposes.join(', ')} |`);
+  }
+  return parts.join('\n');
+}
+
+// ---- Standalone Account and Data Deletion Page ----
+
+export function buildAccountDeletionSections(draft: PrivacyDraft): DocSection[] {
+  const appName = draft.appName.trim() || 'the App';
+  const contactLine = `Contact: ${draft.contactEmail.trim() || 'N/A'}`;
+
+  if (draft.hasUserAccounts) {
+    return [
+      {
+        heading: 'Account and Data Deletion',
+        paragraphs: [
+          draft.deletionInstructions.trim()
+            ? draft.deletionInstructions.trim()
+            : `You may request deletion of your ${appName} account and all associated personal data at any time by contacting us using the details below. We will process your request and delete your data within a reasonable timeframe, unless we are required to retain it to comply with a legal obligation.`,
+          contactLine,
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      heading: 'Account and Data Deletion',
+      paragraphs: [
+        `${appName} does not require you to create a persistent account. If you would like us to delete any data we may hold about you, please contact us using the details below.`,
+        contactLine,
+      ],
+    },
+  ];
+}
+
+// ---- ATT Tracking Prompt & System Permission Copy Kit ----
+
+export interface PermissionCopyEntry {
+  dataTypeId: string;
+  iosKey?: string;
+  androidPermission?: string;
+  zh: string;
+  en: string;
+}
+
+const PERMISSION_COPY_MATRIX: Record<string, PermissionCopyEntry> = {
+  photos: {
+    dataTypeId: 'photos',
+    iosKey: 'NSPhotoLibraryUsageDescription',
+    androidPermission: 'READ_MEDIA_IMAGES',
+    zh: '我们需要访问您的相册，以便您选择照片用于【具体功能，例如：设置头像 / 编辑图片】。',
+    en: 'We access your photo library so you can select a photo to use for [specific feature, e.g. your profile picture / image editing].',
+  },
+  contacts: {
+    dataTypeId: 'contacts',
+    iosKey: 'NSContactsUsageDescription',
+    androidPermission: 'READ_CONTACTS',
+    zh: '我们需要访问您的联系人，以便您邀请好友或查找已使用本应用的联系人。',
+    en: 'We access your contacts so you can invite friends or find contacts who already use the app.',
+  },
+  precise_location: {
+    dataTypeId: 'precise_location',
+    iosKey: 'NSLocationWhenInUseUsageDescription',
+    androidPermission: 'ACCESS_FINE_LOCATION',
+    zh: '我们需要获取您的精确位置，以便为您提供【具体功能，例如：附近推荐 / 导航】服务。',
+    en: 'We use your precise location to provide [specific feature, e.g. nearby recommendations / navigation].',
+  },
+  approximate_location: {
+    dataTypeId: 'approximate_location',
+    androidPermission: 'ACCESS_COARSE_LOCATION',
+    zh: '我们需要获取您的大致位置，以便为您提供【具体功能，例如：本地化内容】服务。',
+    en: 'We use your approximate location to provide [specific feature, e.g. localized content].',
+  },
+  device_id: {
+    dataTypeId: 'device_id',
+    iosKey: 'NSUserTrackingUsageDescription',
+    zh: '我们需要获取您的设备标识符，仅用于为您提供更相关的个性化广告体验。',
+    en: 'We need your device identifier only to provide you with a more relevant, personalized advertising experience.',
+  },
+};
+
+// Camera is bundled with "photos" in DATA_TYPE_CATALOG, but iOS/Android each require a
+// distinct camera usage-description key, so expose it as a supplemental entry.
+const CAMERA_SUPPLEMENTAL_ENTRY: PermissionCopyEntry = {
+  dataTypeId: 'camera',
+  iosKey: 'NSCameraUsageDescription',
+  androidPermission: 'CAMERA',
+  zh: '我们需要访问您的相机，以便您拍摄照片用于【具体功能，例如：扫码 / 拍摄头像】。',
+  en: 'We access your camera so you can take a photo to use for [specific feature, e.g. barcode scanning / profile picture].',
+};
+
+export function buildPermissionMatrix(draft: PrivacyDraft): PermissionCopyEntry[] {
+  const entries: PermissionCopyEntry[] = [];
+  for (const id of draft.dataTypes) {
+    const entry = PERMISSION_COPY_MATRIX[id];
+    if (entry) entries.push(entry);
+    if (id === 'photos') entries.push(CAMERA_SUPPLEMENTAL_ENTRY);
+  }
+  return entries;
+}
+
+/** ATT prompt copy is only relevant when the device identifier is collected AND an advertising/attribution SDK is in use. */
+export function shouldShowAttPrompt(draft: PrivacyDraft): boolean {
+  return draft.dataTypes.includes('device_id') && draft.services.some((id) => AD_ATTRIBUTION_SERVICE_IDS.has(id));
+}
+
+export const ATT_PROMPT_COPY = {
+  zh: '我们需要获取您的设备标识符，仅用于为您提供更相关的个性化广告体验。',
+  en: 'We need your device identifier only to provide you with a more relevant, personalized advertising experience.',
+};
+
+export function renderInfoPlistSnippet(entries: PermissionCopyEntry[]): string {
+  return entries
+    .filter((e) => e.iosKey)
+    .map((e) => `<key>${e.iosKey}</key>\n<string>${e.en}</string>`)
+    .join('\n');
+}
+
+export function renderAndroidPermissionSnippet(entries: PermissionCopyEntry[]): string {
+  return entries
+    .filter((e) => e.androidPermission)
+    .map((e) => `<!-- ${e.en} -->\n<uses-permission android:name="android.permission.${e.androidPermission}" />`)
+    .join('\n');
+}
+
+// ---- Google Play Data Safety Form CSV ----
+
+export interface DataSafetyRow {
+  dataType: string;
+  collected: boolean;
+  shared: boolean;
+  purpose: string;
+  optional: boolean;
+}
+
+/**
+ * Column structure is a best-effort mapping and may drift from Google Play Console's
+ * current bulk-import template; cross-check against the live template before relying on it
+ * (see openspec/changes/app-store-compliance-toolkit/design.md Open Questions).
+ */
+const DATA_SAFETY_CSV_COLUMNS: Array<{ key: keyof DataSafetyRow; label: string }> = [
+  { key: 'dataType', label: 'Data type' },
+  { key: 'collected', label: 'Collected' },
+  { key: 'shared', label: 'Shared' },
+  { key: 'purpose', label: 'Purpose' },
+  { key: 'optional', label: 'Optional' },
+];
+
+export function buildDataSafetyRows(draft: PrivacyDraft): DataSafetyRow[] {
+  const hasThirdParty = draft.services.length > 0 || draft.customServices.length > 0;
+  return DATA_TYPE_CATALOG.filter((d) => draft.dataTypes.includes(d.id)).map((d) => ({
+    dataType: d.label,
+    collected: true,
+    shared: hasThirdParty,
+    purpose: (DEFAULT_PURPOSES[d.id] ?? ['App Functionality']).join('; '),
+    optional: false,
+  }));
+}
+
+function escapeCsvValue(v: string): string {
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
+export function toDataSafetyCsv(rows: DataSafetyRow[]): string {
+  const header = DATA_SAFETY_CSV_COLUMNS.map((c) => c.label).join(',');
+  const lines = rows.map((r) =>
+    DATA_SAFETY_CSV_COLUMNS.map((c) => {
+      const val = r[c.key];
+      return escapeCsvValue(typeof val === 'boolean' ? (val ? 'Yes' : 'No') : String(val));
+    }).join(',')
+  );
+  return [header, ...lines].join('\n');
+}
+
+/** Shared by the Privacy/Terms wizards and the Compliance Toolkit to detect an untouched draft. */
+export function isNonEmptyDraft(draft: Record<string, unknown>): boolean {
+  return Object.values(draft).some((v) => (typeof v === 'string' ? v.trim().length > 0 : Array.isArray(v) ? v.length > 0 : !!v));
 }
