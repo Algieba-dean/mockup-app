@@ -23,6 +23,7 @@ export const DATA_TYPE_CATALOG: DataTypeOption[] = [
 export interface ServiceOption {
   id: string;
   label: string;
+  englishLabel?: string; // 用于英文法律文本的纯英文名称（防止在生成的全英文法律文档中出现“微信支付 (WeChat Pay)”等中文字符）
   policyUrl?: string;
 }
 
@@ -40,7 +41,7 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
       { id: 'mixpanel', label: 'Mixpanel', policyUrl: 'https://mixpanel.com/legal/privacy-policy/' },
       { id: 'amplitude', label: 'Amplitude', policyUrl: 'https://amplitude.com/privacy' },
       { id: 'segment', label: 'Segment', policyUrl: 'https://segment.com/legal/privacy/' },
-      { id: 'umeng', label: '友盟+ (U-MENG)', policyUrl: 'https://www.umeng.com/policy' },
+      { id: 'umeng', label: '友盟+ (U-MENG)', englishLabel: 'U-MENG', policyUrl: 'https://www.umeng.com/policy' },
       { id: 'talkingdata', label: 'TalkingData', policyUrl: 'https://www.talkingdata.com/policy.jsp' },
     ],
   },
@@ -51,7 +52,7 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
       { id: 'sentry', label: 'Sentry', policyUrl: 'https://sentry.io/privacy/' },
       { id: 'instabug', label: 'Instabug', policyUrl: 'https://www.instabug.com/privacy' },
       { id: 'bugsnag', label: 'Bugsnag', policyUrl: 'https://www.bugsnag.com/legal/privacy-policy/' },
-      { id: 'bugly', label: '腾讯 Bugly', policyUrl: 'https://bugly.qq.com/v2/agreement/privacy' },
+      { id: 'bugly', label: '腾讯 Bugly', englishLabel: 'Tencent Bugly', policyUrl: 'https://bugly.qq.com/v2/agreement/privacy' },
     ],
   },
   {
@@ -64,7 +65,7 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
       { id: 'startapp', label: 'StartApp', policyUrl: 'https://www.startapp.com/privacy/' },
       { id: 'appsflyer', label: 'AppsFlyer', policyUrl: 'https://www.appsflyer.com/legal/privacy-policy/' },
       { id: 'adjust', label: 'Adjust', policyUrl: 'https://www.adjust.com/terms/privacy-policy/' },
-      { id: 'pangle', label: '穿山甲 (Pangle)', policyUrl: 'https://www.pangleglobal.com/privacy' },
+      { id: 'pangle', label: '穿山甲 (Pangle)', englishLabel: 'Pangle', policyUrl: 'https://www.pangleglobal.com/privacy' },
     ],
   },
   {
@@ -72,8 +73,8 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
     services: [
       { id: 'fcm', label: 'Firebase Cloud Messaging', policyUrl: 'https://firebase.google.com/support/privacy' },
       { id: 'onesignal', label: 'OneSignal', policyUrl: 'https://onesignal.com/privacy_policy' },
-      { id: 'jpush', label: '极光推送 (JPush)', policyUrl: 'https://www.jiguang.cn/license/privacy' },
-      { id: 'getui', label: '个推 (Getui)', policyUrl: 'https://www.getui.com/privacy' },
+      { id: 'jpush', label: '极光推送 (JPush)', englishLabel: 'JPush', policyUrl: 'https://www.jiguang.cn/license/privacy' },
+      { id: 'getui', label: '个推 (Getui)', englishLabel: 'Getui', policyUrl: 'https://www.getui.com/privacy' },
     ],
   },
   {
@@ -89,10 +90,10 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
   {
     category: '登录方式',
     services: [
-      { id: 'google_signin', label: 'Google 登录', policyUrl: 'https://policies.google.com/privacy' },
-      { id: 'apple_signin', label: 'Apple 登录', policyUrl: 'https://www.apple.com/legal/privacy/' },
-      { id: 'facebook_login', label: 'Facebook 登录', policyUrl: 'https://www.facebook.com/privacy/policy/' },
-      { id: 'wechat_login', label: '微信登录', policyUrl: 'https://www.tencent.com/privacy-policy' },
+      { id: 'google_signin', label: 'Google 登录', englishLabel: 'Google Sign-In', policyUrl: 'https://policies.google.com/privacy' },
+      { id: 'apple_signin', label: 'Apple 登录', englishLabel: 'Sign in with Apple', policyUrl: 'https://www.apple.com/legal/privacy/' },
+      { id: 'facebook_login', label: 'Facebook 登录', englishLabel: 'Facebook Login', policyUrl: 'https://www.facebook.com/privacy/policy/' },
+      { id: 'wechat_login', label: '微信登录', englishLabel: 'WeChat Login', policyUrl: 'https://www.tencent.com/privacy-policy' },
     ],
   },
   {
@@ -101,18 +102,18 @@ export const SERVICE_CATALOG: ServiceCategory[] = [
       { id: 'stripe', label: 'Stripe', policyUrl: 'https://stripe.com/privacy' },
       { id: 'revenuecat', label: 'RevenueCat', policyUrl: 'https://www.revenuecat.com/privacy' },
       { id: 'adapty', label: 'Adapty', policyUrl: 'https://adapty.io/privacy' },
-      { id: 'iap', label: 'App 内购买 (StoreKit / Google Play Billing)' },
+      { id: 'iap', label: 'App 内购买 (StoreKit / Google Play Billing)', englishLabel: 'In-App Purchase (StoreKit / Google Play Billing)' },
       { id: 'paypal', label: 'PayPal', policyUrl: 'https://www.paypal.com/us/webapps/mpp/ua/privacy-full' },
-      { id: 'alipay', label: '支付宝 (Alipay)', policyUrl: 'https://www.alipay.com' },
-      { id: 'wechat_pay', label: '微信支付 (WeChat Pay)', policyUrl: 'https://pay.weixin.qq.com' },
+      { id: 'alipay', label: '支付宝 (Alipay)', englishLabel: 'Alipay', policyUrl: 'https://www.alipay.com' },
+      { id: 'wechat_pay', label: '微信支付 (WeChat Pay)', englishLabel: 'WeChat Pay', policyUrl: 'https://pay.weixin.qq.com' },
     ],
   },
   {
     category: '地图 / 定位',
     services: [
       { id: 'google_maps', label: 'Google Maps', policyUrl: 'https://policies.google.com/privacy' },
-      { id: 'amap', label: '高德地图 (AMap)', policyUrl: 'https://www.amap.com/doc/privacy' },
-      { id: 'baidu_map', label: '百度地图 (Baidu Map)', policyUrl: 'https://map.baidu.com/zt/client/privacy/index.html' },
+      { id: 'amap', label: '高德地图 (AMap)', englishLabel: 'AMap (Gaode Maps)', policyUrl: 'https://www.amap.com/doc/privacy' },
+      { id: 'baidu_map', label: '百度地图 (Baidu Map)', englishLabel: 'Baidu Maps', policyUrl: 'https://map.baidu.com/zt/client/privacy/index.html' },
     ],
   },
   {
@@ -358,10 +359,11 @@ export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
       `We may employ third-party companies and individuals to facilitate our Service ("Service Providers"), to provide the Service on our behalf, to perform Service-related services, or to assist us in analyzing how our Service is used. These third parties have access to your personal data only to perform these tasks on our behalf and are obligated not to disclose or use it for any other purpose.`,
     ];
     for (const svc of selectedServices) {
+      const svcName = svc.englishLabel || svc.label;
       paras.push(
         svc.policyUrl
-          ? `We use ${svc.label} as part of our Service. For more information on the privacy practices of ${svc.label}, please visit their Privacy Policy: ${svc.policyUrl}`
-          : `We use ${svc.label} as part of our Service. Please refer to the provider's own privacy policy for details on how they handle your data.`
+          ? `We use ${svcName} as part of our Service. For more information on the privacy practices of ${svcName}, please visit their Privacy Policy: ${svc.policyUrl}`
+          : `We use ${svcName} as part of our Service. Please refer to the provider's own privacy policy for details on how they handle your data.`
       );
     }
     for (const custom of draft.customServices) {
