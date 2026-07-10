@@ -697,14 +697,35 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     value={activeDevice.deviceModel}
                     onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
                   >
-                    <option value="iphone_16_pro">iPhone 16 Pro (深空黑)</option>
-                    <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
-                    <option value="iphone_16_pro_gold">iPhone 16 Pro (金色)</option>
-                    <option value="iphone_16_pro_rose_gold">iPhone 16 Pro (玫瑰金)</option>
-                    <option value="ipad_pro">iPad Pro (银色)</option>
-                    <option value="ipad_pro_dark">iPad Pro (深空黑)</option>
-                    <option value="google_pixel">Google Pixel (深色)</option>
-                    <option value="google_pixel_light">Google Pixel (银色)</option>
+                    <optgroup label="真机边框 (fastlane/frameit-frames)">
+                      <option value="iphone_17_pro_max_silver">iPhone 17 Pro Max (银色)</option>
+                      <option value="iphone_17_pro_max_deep_blue">iPhone 17 Pro Max (深蓝色)</option>
+                      <option value="iphone_17_pro_max_cosmic_orange">iPhone 17 Pro Max (橙色)</option>
+                      <option value="iphone_17_pro_silver">iPhone 17 Pro (银色)</option>
+                      <option value="iphone_17_pro_deep_blue">iPhone 17 Pro (深蓝色)</option>
+                      <option value="iphone_16_pro_max_black_titanium">iPhone 16 Pro Max (黑色钛金属)</option>
+                      <option value="iphone_16_pro_max_natural_titanium">iPhone 16 Pro Max (原色钛金属)</option>
+                      <option value="iphone_16_pro_max_white_titanium">iPhone 16 Pro Max (白色钛金属)</option>
+                      <option value="iphone_16_black">iPhone 16 (黑色)</option>
+                      <option value="iphone_16_white">iPhone 16 (白色)</option>
+                      <option value="iphone_16_ultramarine">iPhone 16 (蓝色)</option>
+                      <option value="ipad_pro_12_9_space_gray">iPad Pro 12.9" (深空灰)</option>
+                      <option value="ipad_pro_12_9_silver">iPad Pro 12.9" (银色)</option>
+                      <option value="galaxy_s21_ultra_black">Samsung Galaxy S21 Ultra (黑色)</option>
+                      <option value="galaxy_s21_ultra_silver">Samsung Galaxy S21 Ultra (银色)</option>
+                      <option value="pixel_5_black">Google Pixel 5 (黑色)</option>
+                      <option value="pixel_5_sage">Google Pixel 5 (鼠尾草绿)</option>
+                    </optgroup>
+                    <optgroup label="手绘矢量外壳 (经典款)">
+                      <option value="iphone_16_pro">iPhone 16 Pro (深空黑)</option>
+                      <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
+                      <option value="iphone_16_pro_gold">iPhone 16 Pro (金色)</option>
+                      <option value="iphone_16_pro_rose_gold">iPhone 16 Pro (玫瑰金)</option>
+                      <option value="ipad_pro">iPad Pro (银色)</option>
+                      <option value="ipad_pro_dark">iPad Pro (深空黑)</option>
+                      <option value="google_pixel">Google Pixel (深色)</option>
+                      <option value="google_pixel_light">Google Pixel (银色)</option>
+                    </optgroup>
                   </select>
                 </div>
 
@@ -1010,7 +1031,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 id="title-size"
                 type="range"
                 min="24"
-                max="96"
+                max="160"
                 value={titleFontSize}
                 onChange={(e) => setTitleFontSize(parseInt(e.target.value))}
                 style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
@@ -1035,7 +1056,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 id="subtitle-size"
                 type="range"
                 min="14"
-                max="48"
+                max="72"
                 value={subtitleFontSize}
                 onChange={(e) => setSubtitleFontSize(parseInt(e.target.value))}
                 style={{ width: '100%', accentColor: 'var(--ink-primary)' }}

@@ -32,6 +32,14 @@ export interface CanvasState {
   showGlassReflection?: boolean;
   showStatusBar?: boolean;
   shadowPreset?: 'none' | 'soft' | 'premium';
+  // 标题/副标题的画布内拖拽/缩放/旋转偏移量 (相对于版式默认锚点的增量)，
+  // 由 Canvas 上的交互控制手柄写入，默认 0 = 完全沿用版式默认排版。
+  titleOffsetX?: number;
+  titleOffsetY?: number;
+  titleAngle?: number;
+  subtitleOffsetX?: number;
+  subtitleOffsetY?: number;
+  subtitleAngle?: number;
 }
 
 interface DeviceMetric {
@@ -39,12 +47,25 @@ interface DeviceMetric {
   height: number;
   screenWidth: number;
   screenHeight: number;
-  rx: number;
-  ry: number;
-  screenBorderWidth: number;
-  sensorType: 'island' | 'punchHole' | 'faceIdBar' | 'none';
-  showSideButtons: boolean;
-  color: 'dark' | 'light' | 'gold' | 'rose_gold';
+  // 以下手绘矢量外壳专用字段：使用真机 PNG 边框 (frameImage) 时可不填
+  rx?: number;
+  ry?: number;
+  screenBorderWidth?: number;
+  sensorType?: 'island' | 'punchHole' | 'faceIdBar' | 'none';
+  showSideButtons?: boolean;
+  color?: 'dark' | 'light' | 'gold' | 'rose_gold';
+  // 真机 PNG 边框素材 (来自 fastlane/frameit-frames)：设置后渲染逻辑会切换到
+  // "真实边框图片" 路径，忽略上面用于手绘矢量外壳的 rx/screenBorderWidth/sensorType 等字段。
+  frameImage?: string;
+  frameOffsetX?: number;   // 屏幕区域左上角在边框原始像素坐标系中的 X 偏移
+  frameOffsetY?: number;   // 屏幕区域左上角在边框原始像素坐标系中的 Y 偏移
+  frameScreenWidth?: number; // 屏幕区域在边框原始像素坐标系中的宽度
+  isLight?: boolean; // 用于对比色/玻璃底板配色的明暗提示 (真机边框场景下不查 FRAME_COLOR_PALETTE)
+  // 屏幕圆角半径 = frameScreenWidth * screenCornerRadiusPct，用于给截图显式裁出圆角。
+  // 边框 PNG 挖空区域本身也带圆角 alpha 蒙版，但其圆角起点与 frameOffsetX/Y 声明的矩形边界
+  // 并不完全贴合 (真机照片边缘存在机身弧面高光过渡带)，若不额外裁剪，截图的直角会从边框
+  // 圆角与声明矩形之间的缝隙中"漏出去"。默认 0.06，未提供时使用该值。
+  screenCornerRadiusPct?: number;
 }
 
 // 设备外壳颜色变体调色板 (深空黑 / 银色 / 金色 / 玫瑰金)
@@ -71,6 +92,96 @@ function buildFrameGradient(stops: [string, string, string], width: number, heig
       { offset: 1, color: stops[2] },
     ],
   });
+}
+
+// 绘制截图离屏 Canvas 上的极简状态栏与玻璃反射光效
+// 手绘矢量外壳 与 真机 PNG 边框 两条渲染路径共用此函数，避免逻辑分叉导致视觉不一致。
+// uiScale: 以 750px 参考宽度为基准等比缩放图标绝对像素尺寸，兼容真机边框远高于该基准的原始分辨率。
+function renderScreenOverlays(
+  tempCtx: CanvasRenderingContext2D,
+  tempCanvas: HTMLCanvasElement,
+  showStatusBar: boolean,
+  showGlassReflection: boolean,
+  isLightFallback: boolean
+) {
+  const uiScale = tempCanvas.width / 750;
+
+  if (showStatusBar) {
+    const sbHeight = Math.max(24, Math.floor(tempCanvas.height * 0.038));
+    const padding = Math.max(12, Math.floor(tempCanvas.width * 0.06));
+
+    // 智能提取状态栏下背景色亮度，自动调整黑白高对比图标文字
+    let isLightBg = false;
+    try {
+      const pixel = tempCtx.getImageData(padding, sbHeight / 2, 1, 1).data;
+      const brightness = (pixel[0] * 299 + pixel[1] * 587 + pixel[2] * 114) / 1000;
+      isLightBg = brightness > 140;
+    } catch (e) {
+      isLightBg = isLightFallback;
+    }
+    const sbColor = isLightBg ? '#111111' : '#ffffff';
+
+    // 绘制左侧时间
+    tempCtx.font = `600 ${Math.max(11, Math.floor(sbHeight * 0.4))}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    tempCtx.fillStyle = sbColor;
+    tempCtx.textBaseline = 'middle';
+    tempCtx.fillText('9:41', padding, sbHeight / 2);
+
+    // 绘制右侧电池电量
+    const batW = 20 * uiScale;
+    const batH = 10 * uiScale;
+    const batX = tempCanvas.width - padding - batW;
+    const batY = (sbHeight - batH) / 2;
+    tempCtx.strokeStyle = sbColor;
+    tempCtx.lineWidth = 1 * uiScale;
+    tempCtx.strokeRect(batX, batY, batW, batH);
+    // 填充电池容量
+    tempCtx.fillStyle = sbColor;
+    tempCtx.fillRect(batX + 2 * uiScale, batY + 2 * uiScale, 13 * uiScale, 6 * uiScale);
+    // 电池触极
+    tempCtx.fillRect(batX + batW, batY + 3 * uiScale, 2 * uiScale, 4 * uiScale);
+
+    // 绘制右侧信号条
+    const sigX = batX - 22 * uiScale;
+    const sigY = (sbHeight - 10 * uiScale) / 2;
+    tempCtx.fillStyle = sbColor;
+    for (let bar = 0; bar < 4; bar++) {
+      const barH = (2 + bar * 2.5) * uiScale;
+      tempCtx.fillRect(sigX + bar * 3.5 * uiScale, sigY + (10 * uiScale - barH), 2 * uiScale, barH);
+    }
+
+    // 绘制右侧 Wifi 图标
+    const wifiX = sigX - 18 * uiScale;
+    const wifiY = sbHeight / 2;
+    tempCtx.strokeStyle = sbColor;
+    tempCtx.lineWidth = 1.2 * uiScale;
+    tempCtx.lineCap = 'round';
+    // 最小弧
+    tempCtx.beginPath();
+    tempCtx.arc(wifiX, wifiY + 3 * uiScale, 2 * uiScale, Math.PI * 1.25, Math.PI * 1.75);
+    tempCtx.stroke();
+    // 中等弧
+    tempCtx.beginPath();
+    tempCtx.arc(wifiX, wifiY + 3 * uiScale, 5 * uiScale, Math.PI * 1.25, Math.PI * 1.75);
+    tempCtx.stroke();
+    // 最大弧
+    tempCtx.beginPath();
+    tempCtx.arc(wifiX, wifiY + 3 * uiScale, 8 * uiScale, Math.PI * 1.25, Math.PI * 1.75);
+    tempCtx.stroke();
+  }
+
+  // 绘制屏幕玻璃反射 (Glass Reflection Glare)
+  if (showGlassReflection) {
+    const glareGrad = tempCtx.createLinearGradient(0, 0, tempCanvas.width, tempCanvas.height);
+    glareGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+    glareGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.15)');
+    glareGrad.addColorStop(0.36, 'rgba(255, 255, 255, 0.03)');
+    glareGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0.0)');
+    glareGrad.addColorStop(0.75, 'rgba(255, 255, 255, 0.05)');
+    glareGrad.addColorStop(1, 'rgba(255, 255, 255, 0.10)');
+    tempCtx.fillStyle = glareGrad;
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+  }
 }
 
 const DEVICE_DB: Record<string, DeviceMetric> = {
@@ -169,6 +280,100 @@ const DEVICE_DB: Record<string, DeviceMetric> = {
     sensorType: 'punchHole',
     showSideButtons: true,
     color: 'light',
+  },
+
+  // ---------------------------------------------------------------------
+  // 真机 PNG 边框素材 (来源: fastlane/frameit-frames)
+  // 注意：width/height 不能直接使用原始 PNG 像素尺寸 (1000~2200+px)，否则会比手绘矢量外壳
+  // (width 基准约 620/900) 大出数倍，导致混用时两种风格的设备大小明显不一致。
+  // 这里改为与矢量外壳同一套"设计单位"基准 (手机 620 / 平板 900)，按原始 PNG 的宽高比等比换算，
+  // 保证 devScale 相同时两种风格视觉大小一致；frameOffsetX/Y/frameScreenWidth 仍使用
+  // frameit-frames 仓库 latest/offsets.json 中的原始像素坐标 (渲染时按加载到的真实图片尺寸动态换算)。
+  // ---------------------------------------------------------------------
+  iphone_17_pro_max_silver: {
+    width: 620, height: 1265, screenWidth: 1320, screenHeight: 2868,
+    frameImage: '/device-frames/iphone-17-pro-max-silver.png',
+    frameOffsetX: 75, frameOffsetY: 66, frameScreenWidth: 1320, isLight: true, screenCornerRadiusPct: 0.09,
+  },
+  iphone_17_pro_max_deep_blue: {
+    width: 620, height: 1265, screenWidth: 1320, screenHeight: 2868,
+    frameImage: '/device-frames/iphone-17-pro-max-deep-blue.png',
+    frameOffsetX: 75, frameOffsetY: 66, frameScreenWidth: 1320, isLight: false, screenCornerRadiusPct: 0.09,
+  },
+  iphone_17_pro_max_cosmic_orange: {
+    width: 620, height: 1265, screenWidth: 1320, screenHeight: 2868,
+    frameImage: '/device-frames/iphone-17-pro-max-cosmic-orange.png',
+    frameOffsetX: 75, frameOffsetY: 66, frameScreenWidth: 1320, isLight: true, screenCornerRadiusPct: 0.09,
+  },
+  iphone_17_pro_silver: {
+    width: 620, height: 1268, screenWidth: 1206, screenHeight: 2622,
+    frameImage: '/device-frames/iphone-17-pro-silver.png',
+    frameOffsetX: 72, frameOffsetY: 69, frameScreenWidth: 1206, isLight: true, screenCornerRadiusPct: 0.09,
+  },
+  iphone_17_pro_deep_blue: {
+    width: 620, height: 1268, screenWidth: 1206, screenHeight: 2622,
+    frameImage: '/device-frames/iphone-17-pro-deep-blue.png',
+    frameOffsetX: 72, frameOffsetY: 69, frameScreenWidth: 1206, isLight: false, screenCornerRadiusPct: 0.09,
+  },
+  iphone_16_pro_max_black_titanium: {
+    width: 620, height: 1265, screenWidth: 1320, screenHeight: 2868,
+    frameImage: '/device-frames/iphone-16-pro-max-black-titanium.png',
+    frameOffsetX: 75, frameOffsetY: 66, frameScreenWidth: 1320, isLight: false, screenCornerRadiusPct: 0.09,
+  },
+  iphone_16_pro_max_natural_titanium: {
+    width: 620, height: 1265, screenWidth: 1320, screenHeight: 2868,
+    frameImage: '/device-frames/iphone-16-pro-max-natural-titanium.png',
+    frameOffsetX: 75, frameOffsetY: 66, frameScreenWidth: 1320, isLight: true, screenCornerRadiusPct: 0.09,
+  },
+  iphone_16_pro_max_white_titanium: {
+    width: 620, height: 1265, screenWidth: 1320, screenHeight: 2868,
+    frameImage: '/device-frames/iphone-16-pro-max-white-titanium.png',
+    frameOffsetX: 75, frameOffsetY: 66, frameScreenWidth: 1320, isLight: true, screenCornerRadiusPct: 0.09,
+  },
+  iphone_16_black: {
+    width: 620, height: 1248, screenWidth: 1179, screenHeight: 2556,
+    frameImage: '/device-frames/iphone-16-black.png',
+    frameOffsetX: 90, frameOffsetY: 90, frameScreenWidth: 1179, isLight: false, screenCornerRadiusPct: 0.09,
+  },
+  iphone_16_white: {
+    width: 620, height: 1248, screenWidth: 1179, screenHeight: 2556,
+    frameImage: '/device-frames/iphone-16-white.png',
+    frameOffsetX: 90, frameOffsetY: 90, frameScreenWidth: 1179, isLight: true, screenCornerRadiusPct: 0.09,
+  },
+  iphone_16_ultramarine: {
+    width: 620, height: 1248, screenWidth: 1179, screenHeight: 2556,
+    frameImage: '/device-frames/iphone-16-ultramarine.png',
+    frameOffsetX: 90, frameOffsetY: 90, frameScreenWidth: 1179, isLight: false, screenCornerRadiusPct: 0.09,
+  },
+  ipad_pro_12_9_space_gray: {
+    width: 900, height: 1175, screenWidth: 2048, screenHeight: 2732,
+    frameImage: '/device-frames/ipad-pro-12-9-space-gray.png',
+    frameOffsetX: 96, frameOffsetY: 102, frameScreenWidth: 2048, isLight: false, screenCornerRadiusPct: 0.018,
+  },
+  ipad_pro_12_9_silver: {
+    width: 900, height: 1175, screenWidth: 2048, screenHeight: 2732,
+    frameImage: '/device-frames/ipad-pro-12-9-silver.png',
+    frameOffsetX: 96, frameOffsetY: 102, frameScreenWidth: 2048, isLight: true, screenCornerRadiusPct: 0.018,
+  },
+  galaxy_s21_ultra_black: {
+    width: 620, height: 1338, screenWidth: 1440, screenHeight: 3200,
+    frameImage: '/device-frames/galaxy-s21-ultra-black.png',
+    frameOffsetX: 44, frameOffsetY: 54, frameScreenWidth: 1440, isLight: false, screenCornerRadiusPct: 0.06,
+  },
+  galaxy_s21_ultra_silver: {
+    width: 620, height: 1338, screenWidth: 1440, screenHeight: 3200,
+    frameImage: '/device-frames/galaxy-s21-ultra-silver.png',
+    frameOffsetX: 44, frameOffsetY: 54, frameScreenWidth: 1440, isLight: true, screenCornerRadiusPct: 0.06,
+  },
+  pixel_5_black: {
+    width: 620, height: 1265, screenWidth: 1080, screenHeight: 2340,
+    frameImage: '/device-frames/pixel-5-black.png',
+    frameOffsetX: 58, frameOffsetY: 58, frameScreenWidth: 1080, isLight: false, screenCornerRadiusPct: 0.09,
+  },
+  pixel_5_sage: {
+    width: 620, height: 1265, screenWidth: 1080, screenHeight: 2340,
+    frameImage: '/device-frames/pixel-5-sage.png',
+    frameOffsetX: 58, frameOffsetY: 58, frameScreenWidth: 1080, isLight: true, screenCornerRadiusPct: 0.09,
   },
 };
 
@@ -295,8 +500,9 @@ export const updateCanvas = async (
 
   if (layoutMode !== 'full-device') {
     const title = new Textbox(state.titleText || '主标题文本', {
-      left: 80 * R,
-      top: titleTop,
+      left: 80 * R + (state.titleOffsetX || 0) * R,
+      top: titleTop + (state.titleOffsetY || 0) * R,
+      angle: state.titleAngle || 0,
       width: canvasWidth - 160 * R,
       fontSize: state.titleFontSize * R,
       fontFamily: `${state.titleFontFamily}, Georgia, serif`,
@@ -305,16 +511,24 @@ export const updateCanvas = async (
       textAlign: 'center',
       originX: 'left',
       originY: 'top',
-      selectable: false,
+      selectable: true,
+      hoverCursor: 'move',
       splitByGrapheme: true,
     });
+    // 标记角色供 App.tsx 的 object:modified 处理函数识别是哪个可编辑元素
+    (title as unknown as { data: Record<string, unknown> }).data = { role: 'title' };
+    // 仅保留四角缩放 + 旋转手柄，隐藏四边中点手柄 (避免拖出与自动换行宽度冲突的独立拉伸)
+    title.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
     canvas.add(title);
+    // 记录本次实际渲染的标题高度，供副标题基准定位与交互反解使用
+    (canvas as unknown as { _lastTitleHeight: number })._lastTitleHeight = title.height || 0;
 
     // 5. 绘制副标题 (紧跟标题高度，动态定位)
     const subtitleColor = contrastingColor === '#0f0f0f' ? '#575756' : '#d4d4d8';
     const subtitle = new Textbox(state.subtitleText || '这里是您的副标题文本说明', {
-      left: 120 * R,
-      top: titleTop + title.height! + 24 * R,
+      left: 120 * R + (state.subtitleOffsetX || 0) * R,
+      top: titleTop + title.height! + 24 * R + (state.subtitleOffsetY || 0) * R,
+      angle: state.subtitleAngle || 0,
       width: canvasWidth - 240 * R,
       fontSize: state.subtitleFontSize * R,
       fontFamily: `${state.subtitleFontFamily}, -apple-system, sans-serif`,
@@ -323,9 +537,12 @@ export const updateCanvas = async (
       textAlign: 'center',
       originX: 'left',
       originY: 'top',
-      selectable: false,
+      selectable: true,
+      hoverCursor: 'move',
       splitByGrapheme: true,
     });
+    (subtitle as unknown as { data: Record<string, unknown> }).data = { role: 'subtitle' };
+    subtitle.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
     canvas.add(subtitle);
   }
 
@@ -349,10 +566,12 @@ export const updateCanvas = async (
         centerY = canvasHeight / 2 + devInst.offsetY * R;
       }
       
-      const cornerRadius = dev.rx * devScale * R;
-      const screenBorderWidth = dev.screenBorderWidth * devScale * R;
-      const activeDeviceColor = dev.color;
+      const cornerRadius = (dev.rx ?? 0) * devScale * R;
+      const screenBorderWidth = (dev.screenBorderWidth ?? 0) * devScale * R;
+      const activeDeviceColor = dev.color || 'dark';
       const frameColors = FRAME_COLOR_PALETTE[activeDeviceColor];
+      // 真机 PNG 边框设备用 isLight 字段直接指定明暗；手绘矢量外壳设备回退到调色板的 isLight
+      const isLightDevice = dev.isLight ?? frameColors.isLight;
 
       // 6A. 渲染毛玻璃底板 (Frosted Glass Panel)
       if (state.showFrostedGlass) {
@@ -361,7 +580,7 @@ export const updateCanvas = async (
         const glassRadius = cornerRadius + 16 * R;
 
         const glassShadow = new Shadow({
-          color: frameColors.isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.4)',
+          color: isLightDevice ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.4)',
           blur: 50 * R,
           offsetX: 0,
           offsetY: 10 * R,
@@ -374,8 +593,8 @@ export const updateCanvas = async (
           height: glassHeight,
           rx: glassRadius,
           ry: glassRadius,
-          fill: frameColors.isLight ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.08)',
-          stroke: frameColors.isLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.15)',
+          fill: isLightDevice ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.08)',
+          stroke: isLightDevice ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.15)',
           strokeWidth: 1.5 * R,
           shadow: glassShadow,
           originX: 'center',
@@ -420,6 +639,107 @@ export const updateCanvas = async (
 
       // 准备构成手机 Group 的各个图层（全部基于相对原点 0,0 绘制）
       const groupParts: any[] = [];
+
+      if (dev.frameImage) {
+        // ---------------------------------------------------------------
+        // 真机 PNG 边框渲染路径 (来源: fastlane/frameit-frames)
+        // 截图先铺底，真机边框图片盖在上层；边框挖空区域自带 alpha 透明像素，
+        // 天然形成精确的圆角屏幕蒙版，无需额外绘制 clipPath。
+        // ---------------------------------------------------------------
+        try {
+          const frameImg = await FabricImage.fromURL(dev.frameImage);
+          const frameNativeW = frameImg.width!;
+          const frameNativeH = frameImg.height!;
+          // dev.width 为归一化后的"设计单位"基准宽度 (与矢量外壳同基准)，需除以边框 PNG
+          // 实际加载到的原始像素宽度，才能得到正确的整体缩放系数
+          const frameScale = devWidth / frameNativeW;
+
+          if (devInst.screenshotSrc) {
+            try {
+              const screenNativeW = dev.frameScreenWidth || frameNativeW;
+              const img = await FabricImage.fromURL(devInst.screenshotSrc);
+              // 注意：屏幕高度必须使用设备真实屏幕分辨率的宽高比 (dev.screenHeight)，
+              // 不能按上传截图自身的宽高比反推——用户截图（尤其是长截图/文档截图）宽高比
+              // 往往和真机屏幕差异很大，若按截图比例反推屏幕框高度，画面会大幅溢出边框
+              // 之外，只留下裸露的截图矩形而看不到边框（即"没有把边框用起来"的根本原因）。
+              // 与手绘矢量外壳一致，这里改为固定屏幕框尺寸 + cover-fit 缩放裁切。
+              const screenNativeH = screenNativeW * ((dev.screenHeight || frameNativeH) / (dev.screenWidth || frameNativeW));
+
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = screenNativeW;
+              tempCanvas.height = screenNativeH;
+              const tempCtx = tempCanvas.getContext('2d')!;
+
+              const scale = Math.max(screenNativeW / img.width!, screenNativeH / img.height!);
+              const scrScale = scale * (devInst.screenshotScale || 1.0);
+              const scrOffsetY = (devInst.screenshotOffsetY || 0) * R;
+
+              const drawW = img.width! * scrScale;
+              const drawH = img.height! * scrScale;
+              const drawX = (screenNativeW - drawW) / 2;
+              const drawY = (screenNativeH - drawH) / 2 + scrOffsetY;
+
+              tempCtx.drawImage(img._element as HTMLImageElement, drawX, drawY, drawW, drawH);
+
+              renderScreenOverlays(
+                tempCtx,
+                tempCanvas,
+                state.showStatusBar !== false,
+                state.showGlassReflection !== false,
+                isLightDevice
+              );
+
+              const croppedImg = new FabricImage(tempCanvas, {
+                originX: 'left',
+                originY: 'top',
+              });
+
+              // 屏幕区域左上角在边框原始像素坐标系中的位置，转换为以边框中心为原点的 group 本地坐标
+              // (originX/Y 均为 'left'/'top'，故只需将原始像素坐标平移 -frameNative/2 再乘以缩放系数)
+              croppedImg.set({
+                left: ((dev.frameOffsetX || 0) - frameNativeW / 2) * frameScale,
+                top: ((dev.frameOffsetY || 0) - frameNativeH / 2) * frameScale,
+                scaleX: frameScale,
+                scaleY: frameScale,
+              });
+
+              // 显式给截图裁出圆角安全边距：真机边框 PNG 挖空区域的圆角起点与
+              // frameOffsetX/Y 声明的矩形边界并不完全贴合 (镜头/机身弧面高光过渡带)，
+              // 若完全依赖边框自身 alpha 蒙版，截图的直角会从缝隙中露出边框之外。
+              // clipPath 坐标系以被裁剪对象 (croppedImg，即整张 tempCanvas) 的中心为原点，
+              // 与其 originX/Y 设置无关，故直接以 0,0 为中心即可，无需换算 origin。
+              const cornerInset = 6;
+              const cornerRadiusPx = screenNativeW * (dev.screenCornerRadiusPct ?? 0.06);
+              croppedImg.clipPath = new Rect({
+                left: 0,
+                top: 0,
+                width: screenNativeW - cornerInset * 2,
+                height: screenNativeH - cornerInset * 2,
+                rx: cornerRadiusPx,
+                ry: cornerRadiusPx,
+                originX: 'center',
+                originY: 'center',
+              });
+
+              groupParts.push(croppedImg);
+            } catch (error) {
+              console.error('Failed to load screenshot image in Fabric.js', error);
+            }
+          }
+
+          frameImg.set({
+            left: 0,
+            top: 0,
+            originX: 'center',
+            originY: 'center',
+            scaleX: frameScale,
+            scaleY: frameScale,
+          });
+          groupParts.push(frameImg);
+        } catch (error) {
+          console.error('Failed to load real device frame image', error);
+        }
+      } else {
 
       // Bezel 外边框
       const bezelOuter = new Rect({
@@ -481,83 +801,14 @@ export const updateCanvas = async (
           // 将裁剪缩放后的截图绘制到离线 canvas 上
           tempCtx.drawImage(img._element as HTMLImageElement, drawX, drawY, drawW, drawH);
 
-          // 绘制极简状态栏 (Minimalist Status Bar)
-          if (state.showStatusBar !== false) {
-            const sbHeight = Math.max(24, Math.floor(tempCanvas.height * 0.038));
-            const padding = Math.max(12, Math.floor(tempCanvas.width * 0.06));
-            
-            // 智能提取状态栏下背景色亮度，自动调整黑白高对比图标文字
-            let isLightBg = false;
-            try {
-              const pixel = tempCtx.getImageData(padding, sbHeight / 2, 1, 1).data;
-              const brightness = (pixel[0] * 299 + pixel[1] * 587 + pixel[2] * 114) / 1000;
-              isLightBg = brightness > 140;
-            } catch (e) {
-              isLightBg = frameColors.isLight;
-            }
-            const sbColor = isLightBg ? '#111111' : '#ffffff';
-
-            // 绘制左侧时间
-            tempCtx.font = `600 ${Math.max(11, Math.floor(sbHeight * 0.4))}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-            tempCtx.fillStyle = sbColor;
-            tempCtx.textBaseline = 'middle';
-            tempCtx.fillText('9:41', padding, sbHeight / 2);
-
-            // 绘制右侧电池电量
-            const batW = 20;
-            const batH = 10;
-            const batX = tempCanvas.width - padding - batW;
-            const batY = (sbHeight - batH) / 2;
-            tempCtx.strokeStyle = sbColor;
-            tempCtx.lineWidth = 1;
-            tempCtx.strokeRect(batX, batY, batW, batH);
-            // 填充电池容量
-            tempCtx.fillStyle = sbColor;
-            tempCtx.fillRect(batX + 2, batY + 2, 13, 6);
-            // 电池触极
-            tempCtx.fillRect(batX + batW, batY + 3, 2, 4);
-
-            // 绘制右侧信号条
-            const sigX = batX - 22;
-            const sigY = (sbHeight - 10) / 2;
-            tempCtx.fillStyle = sbColor;
-            for (let bar = 0; bar < 4; bar++) {
-              const barH = 2 + bar * 2.5;
-              tempCtx.fillRect(sigX + bar * 3.5, sigY + (10 - barH), 2, barH);
-            }
-
-            // 绘制右侧 Wifi 图标
-            const wifiX = sigX - 18;
-            const wifiY = sbHeight / 2;
-            tempCtx.strokeStyle = sbColor;
-            tempCtx.lineWidth = 1.2;
-            tempCtx.lineCap = 'round';
-            // 最小弧
-            tempCtx.beginPath();
-            tempCtx.arc(wifiX, wifiY + 3, 2, Math.PI * 1.25, Math.PI * 1.75);
-            tempCtx.stroke();
-            // 中等弧
-            tempCtx.beginPath();
-            tempCtx.arc(wifiX, wifiY + 3, 5, Math.PI * 1.25, Math.PI * 1.75);
-            tempCtx.stroke();
-            // 最大弧
-            tempCtx.beginPath();
-            tempCtx.arc(wifiX, wifiY + 3, 8, Math.PI * 1.25, Math.PI * 1.75);
-            tempCtx.stroke();
-          }
-
-          // 绘制屏幕玻璃反射 (Glass Reflection Glare)
-          if (state.showGlassReflection !== false) {
-            const glareGrad = tempCtx.createLinearGradient(0, 0, tempCanvas.width, tempCanvas.height);
-            glareGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
-            glareGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.15)');
-            glareGrad.addColorStop(0.36, 'rgba(255, 255, 255, 0.03)');
-            glareGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0.0)');
-            glareGrad.addColorStop(0.75, 'rgba(255, 255, 255, 0.05)');
-            glareGrad.addColorStop(1, 'rgba(255, 255, 255, 0.10)');
-            tempCtx.fillStyle = glareGrad;
-            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-          }
+          // 绘制极简状态栏 与 玻璃反射光效
+          renderScreenOverlays(
+            tempCtx,
+            tempCanvas,
+            state.showStatusBar !== false,
+            state.showGlassReflection !== false,
+            isLightDevice
+          );
 
           // 3. 从离线 canvas 创建 Fabric 图像对象，此对象的宽高刚好等于屏幕宽高，绝不溢出
           const croppedImg = new FabricImage(tempCanvas, {
@@ -664,6 +915,7 @@ export const updateCanvas = async (
           originY: 'center',
         }));
       }
+      } // end else (手绘矢量外壳渲染路径)
 
       // 创建统一的设备 Group
       const deviceGroup = new Group(groupParts, {
@@ -674,9 +926,13 @@ export const updateCanvas = async (
         angle: devInst.angle,
         skewX: devInst.skewX,
         shadow: deviceShadow,
-        selectable: false,
-        hoverCursor: 'default',
+        selectable: true,
+        hoverCursor: 'move',
       });
+      // 标记角色 + 所属设备 id，供 App.tsx 的 object:modified 处理函数反解回 offsetX/offsetY/scale/angle
+      (deviceGroup as unknown as { data: Record<string, unknown> }).data = { role: 'device', deviceId: devInst.id };
+      // 仅保留四角缩放 + 旋转手柄，隐藏四边中点手柄 (机型整体等比缩放，不支持单轴拉伸变形)
+      deviceGroup.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
 
       canvas.add(deviceGroup);
     }
@@ -685,6 +941,91 @@ export const updateCanvas = async (
   // 重新渲染画布
   canvas.requestRenderAll();
 };
+
+// 拖拽/缩放/旋转手柄操作结束后 (object:modified) 的最终变换值
+export interface ObjectTransformSnapshot {
+  left: number;
+  top: number;
+  scaleX: number;
+  scaleY: number;
+  angle: number;
+}
+
+/**
+ * 将设备 Group 手柄操作后的最终变换 (left/top/scaleX/scaleY/angle，均为画布绝对坐标)
+ * 反解回 DeviceInstance 的 offsetX/offsetY/scale/angle 字段。
+ * 反解公式与 updateCanvas 中构造 centerX/centerY 的公式严格对应，保证下一次重建渲染出
+ * 与手柄操作结束时视觉一致的结果 (数值上做了轻微精度舍入)。
+ */
+export function computeDeviceTransformUpdate(
+  target: ObjectTransformSnapshot,
+  dev: DeviceInstance,
+  layoutMode: 'text-top' | 'text-bottom' | 'full-device',
+  canvasWidth: number,
+  canvasHeight: number
+): Partial<DeviceInstance> {
+  const R = canvasHeight / 2208;
+  const deviceMeta = DEVICE_DB[dev.deviceModel] || DEVICE_DB.iphone_16_pro;
+  const avgScale = (target.scaleX + target.scaleY) / 2;
+  const newScale = Math.max(0.1, (dev.scale || 1) * avgScale);
+  const newDevHeight = deviceMeta.height * newScale * R;
+
+  let baseY = 680 * R;
+  if (layoutMode === 'text-bottom') baseY = 220 * R;
+
+  let newOffsetY: number;
+  if (layoutMode === 'full-device') {
+    newOffsetY = (target.top - canvasHeight / 2) / R;
+  } else {
+    newOffsetY = (target.top - baseY - newDevHeight / 2) / R;
+  }
+  const newOffsetX = (target.left - canvasWidth / 2) / R;
+
+  return {
+    scale: Math.round(newScale * 1000) / 1000,
+    angle: Math.round(target.angle * 100) / 100,
+    offsetX: Math.round(newOffsetX),
+    offsetY: Math.round(newOffsetY),
+  };
+}
+
+/**
+ * 将标题/副标题手柄操作后的最终变换反解回 titleOffsetX/Y/Angle (或 subtitle 对应字段) +
+ * 新字号。角标缩放手柄的 scaleX/scaleY 平均值直接乘算到当前字号上，随后手柄自身的
+ * scale 会在下一次重建时被重置为 1 (视觉上无缝衔接，字体保持清晰矢量渲染而非拉伸位图)。
+ */
+export function computeTextTransformUpdate(
+  target: ObjectTransformSnapshot,
+  role: 'title' | 'subtitle',
+  layoutMode: 'text-top' | 'text-bottom' | 'full-device',
+  canvasHeight: number,
+  currentFontSize: number,
+  lastTitleHeight: number
+): { offsetX: number; offsetY: number; angle: number; fontSize: number } {
+  const R = canvasHeight / 2208;
+  let titleTop = 180 * R;
+  if (layoutMode === 'text-bottom') titleTop = 1620 * R;
+
+  const avgScale = (target.scaleX + target.scaleY) / 2;
+  const newFontSize = Math.max(8, Math.round(currentFontSize * avgScale));
+
+  if (role === 'title') {
+    return {
+      offsetX: Math.round((target.left - 80 * R) / R),
+      offsetY: Math.round((target.top - titleTop) / R),
+      angle: Math.round(target.angle * 100) / 100,
+      fontSize: newFontSize,
+    };
+  }
+
+  const subtitleBaseTop = titleTop + lastTitleHeight + 24 * R;
+  return {
+    offsetX: Math.round((target.left - 120 * R) / R),
+    offsetY: Math.round((target.top - subtitleBaseTop) / R),
+    angle: Math.round(target.angle * 100) / 100,
+    fontSize: newFontSize,
+  };
+}
 
 /**
  * 辅助函数：绘制纯色背景

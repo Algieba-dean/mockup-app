@@ -9,8 +9,8 @@ import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
 import { AssetDock } from './components/AssetDock';
 import { FocusTrap } from './components/FocusTrap';
-import { updateCanvas } from './utils/canvasManager';
-import type { DeviceInstance } from './utils/canvasManager';
+import { updateCanvas, computeDeviceTransformUpdate, computeTextTransformUpdate } from './utils/canvasManager';
+import type { DeviceInstance, ObjectTransformSnapshot } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
 import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE, ICON_SIZE_PREVIEW_SPECS } from './utils/iconManager';
 import type { IconBgMode } from './utils/iconManager';
@@ -38,6 +38,13 @@ interface MockupPage {
   showGlassReflection?: boolean;
   showStatusBar?: boolean;
   shadowPreset?: 'none' | 'soft' | 'premium';
+  // 画布上通过拖拽手柄操作标题/副标题后写入的位移/旋转增量，默认 0
+  titleOffsetX?: number;
+  titleOffsetY?: number;
+  titleAngle?: number;
+  subtitleOffsetX?: number;
+  subtitleOffsetY?: number;
+  subtitleAngle?: number;
 }
 
 const EXPORT_PRESETS = [
@@ -64,8 +71,8 @@ const DEFAULT_PAGES: MockupPage[] = [
     ],
     titleFontFamily: 'Playfair Display',
     subtitleFontFamily: 'Geist',
-    titleFontSize: 54,
-    subtitleFontSize: 24,
+    titleFontSize: 76,
+    subtitleFontSize: 30,
     layout: 'text-top',
     showGlassReflection: true,
     showStatusBar: true,
@@ -86,8 +93,8 @@ const DEFAULT_PAGES: MockupPage[] = [
     ],
     titleFontFamily: 'Playfair Display',
     subtitleFontFamily: 'Geist',
-    titleFontSize: 54,
-    subtitleFontSize: 24,
+    titleFontSize: 76,
+    subtitleFontSize: 30,
     layout: 'text-top',
     showGlassReflection: true,
     showStatusBar: true,
@@ -621,6 +628,12 @@ function App() {
   const showGlassReflection = activePage.showGlassReflection !== false;
   const showStatusBar = activePage.showStatusBar !== false;
   const shadowPreset = activePage.shadowPreset || 'premium';
+  const titleOffsetX = activePage.titleOffsetX || 0;
+  const titleOffsetY = activePage.titleOffsetY || 0;
+  const titleAngle = activePage.titleAngle || 0;
+  const subtitleOffsetX = activePage.subtitleOffsetX || 0;
+  const subtitleOffsetY = activePage.subtitleOffsetY || 0;
+  const subtitleAngle = activePage.subtitleAngle || 0;
 
   // "连图" (panoramic) 模式下，一张超宽图会按页面索引横向切片铺满所有故事帧，
   // 因此其类型/图源/模糊/缩放必须同步广播到全部页面，而不能只写入当前激活页，
@@ -662,7 +675,10 @@ function App() {
   const setSubtitleFontFamily = (v: string) => updateActivePage({ subtitleFontFamily: v });
 
   // Viewport Zoom
-  const [zoom, setZoom] = useState<number>(30); // Default to 30% for a 1242x2208 canvas fitting on screen
+  // 初始值仅为 ResizeObserver 首次测量完成前的占位；CanvasViewport 会在挂载后
+  // 立即依据实际容器尺寸计算"完整显示画布"的缩放比例并覆盖此值，避免小视口下
+  // 画布顶部/底部被裁到滚动区域之外（表现为"看不到标题文字"）。
+  const [zoom, setZoom] = useState<number>(30);
 
   // Canvas References
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -694,6 +710,90 @@ function App() {
       };
     }
   }, []);
+
+  // 画布上直接拖拽/缩放/旋转标题、副标题与机型的手柄交互：
+  // updateCanvas 每次都会 canvas.clear() 后整体重建，所以不能在事件回调里直接
+  // 闭包读取 devices/layout 等值 (会拿到挂载时的旧值)。这里用一个 ref 始终持有
+  // "最新" 的可编辑状态与 setter，事件处理函数只在 fabricCanvas 变化时绑定一次，
+  // 但读取的永远是最新数据 —— 这是 React 里处理"稳定回调 + 易变数据"的标准写法。
+  const latestEditableStateRef = useRef({
+    devices,
+    layout,
+    titleFontSize,
+    subtitleFontSize,
+    updateActivePage,
+    setDevices,
+  });
+  latestEditableStateRef.current = {
+    devices,
+    layout,
+    titleFontSize,
+    subtitleFontSize,
+    updateActivePage,
+    setDevices,
+  };
+
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleObjectModified = (e: { target?: unknown }) => {
+      const target = e.target as (Record<string, unknown> & {
+        left: number; top: number; scaleX: number; scaleY: number; angle: number;
+        data?: { role?: string; deviceId?: string };
+      }) | undefined;
+      const data = target?.data;
+      if (!target || !data?.role) return;
+
+      const {
+        devices: curDevices,
+        layout: curLayout,
+        titleFontSize: curTitleFontSize,
+        subtitleFontSize: curSubtitleFontSize,
+        updateActivePage: curUpdateActivePage,
+        setDevices: curSetDevices,
+      } = latestEditableStateRef.current;
+
+      const canvasWidth = fabricCanvas.getWidth();
+      const canvasHeight = fabricCanvas.getHeight();
+      const snapshot: ObjectTransformSnapshot = {
+        left: target.left,
+        top: target.top,
+        scaleX: target.scaleX,
+        scaleY: target.scaleY,
+        angle: target.angle,
+      };
+
+      if (data.role === 'device' && data.deviceId) {
+        const idx = curDevices.findIndex((d) => d.id === data.deviceId);
+        if (idx === -1) return;
+        const updates = computeDeviceTransformUpdate(snapshot, curDevices[idx], curLayout, canvasWidth, canvasHeight);
+        curSetDevices(curDevices.map((d, i) => (i === idx ? { ...d, ...updates } : d)));
+      } else if (data.role === 'title') {
+        const lastTitleHeight = (fabricCanvas as unknown as { _lastTitleHeight?: number })._lastTitleHeight || 0;
+        const result = computeTextTransformUpdate(snapshot, 'title', curLayout, canvasHeight, curTitleFontSize, lastTitleHeight);
+        curUpdateActivePage({
+          titleOffsetX: result.offsetX,
+          titleOffsetY: result.offsetY,
+          titleAngle: result.angle,
+          titleFontSize: result.fontSize,
+        });
+      } else if (data.role === 'subtitle') {
+        const lastTitleHeight = (fabricCanvas as unknown as { _lastTitleHeight?: number })._lastTitleHeight || 0;
+        const result = computeTextTransformUpdate(snapshot, 'subtitle', curLayout, canvasHeight, curSubtitleFontSize, lastTitleHeight);
+        curUpdateActivePage({
+          subtitleOffsetX: result.offsetX,
+          subtitleOffsetY: result.offsetY,
+          subtitleAngle: result.angle,
+          subtitleFontSize: result.fontSize,
+        });
+      }
+    };
+
+    fabricCanvas.on('object:modified', handleObjectModified);
+    return () => {
+      fabricCanvas.off('object:modified', handleObjectModified);
+    };
+  }, [fabricCanvas]);
 
   // No more bidirectional sync effects needed — pages[activePageIndex] is the
   // single source of truth and the setter functions above update it directly.
@@ -746,6 +846,12 @@ function App() {
             showGlassReflection,
             showStatusBar,
             shadowPreset,
+            titleOffsetX,
+            titleOffsetY,
+            titleAngle,
+            subtitleOffsetX,
+            subtitleOffsetY,
+            subtitleAngle,
           },
           activePageIndex
         );
@@ -773,6 +879,12 @@ function App() {
     showGlassReflection,
     showStatusBar,
     shadowPreset,
+    titleOffsetX,
+    titleOffsetY,
+    titleAngle,
+    subtitleOffsetX,
+    subtitleOffsetY,
+    subtitleAngle,
   ]);
 
   // Handle uploading screenshots
@@ -910,14 +1022,20 @@ function App() {
               devices: page.devices || [],
               titleText: page.title,
               subtitleText: page.subtitle,
-              titleFontSize: page.titleFontSize || 54,
-              subtitleFontSize: page.subtitleFontSize || 24,
+              titleFontSize: page.titleFontSize || 76,
+              subtitleFontSize: page.subtitleFontSize || 30,
               titleFontFamily: page.titleFontFamily || 'Playfair Display',
               subtitleFontFamily: page.subtitleFontFamily || 'Geist',
               layout: page.layout || 'text-top',
               showGlassReflection: page.showGlassReflection !== false,
               showStatusBar: page.showStatusBar !== false,
               shadowPreset: page.shadowPreset || 'premium',
+              titleOffsetX: page.titleOffsetX || 0,
+              titleOffsetY: page.titleOffsetY || 0,
+              titleAngle: page.titleAngle || 0,
+              subtitleOffsetX: page.subtitleOffsetX || 0,
+              subtitleOffsetY: page.subtitleOffsetY || 0,
+              subtitleAngle: page.subtitleAngle || 0,
             },
             i
           );

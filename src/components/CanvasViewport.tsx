@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut, Maximize, Upload, AlertTriangle } from 'lucide-react';
 
 export interface IconSizeWarning {
@@ -36,6 +36,13 @@ interface CanvasViewportProps {
 const ICON_PADDING_MIN = 0;
 const ICON_PADDING_MAX = 0.4;
 const ICON_DISPLAY_SIZE = 300;
+
+// 编辑画布的固定设计分辨率 (与 App.tsx 中 new Canvas({ width: 1242, height: 2208 }) 保持一致)
+const EDITOR_CANVAS_WIDTH = 1242;
+const EDITOR_CANVAS_HEIGHT = 2208;
+// 画布外层留白 (对应下方 wrapper 的 padding: '40px 40px 100px 40px')
+const VIEWPORT_PADDING_X = 80;
+const VIEWPORT_PADDING_Y = 140;
 
 /**
  * Curated Android adaptive-icon mask shapes, referencing the shape catalog
@@ -117,6 +124,38 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   const iconFileRef = useRef<HTMLInputElement>(null);
   const iconFileEmptyRef = useRef<HTMLInputElement>(null);
 
+  // 自适应视口缩放：容器可用空间会随窗口/侧边栏宽度变化，硬编码固定百分比 (如之前的
+  // 30%) 在较小视口下会导致画布顶部/底部被裁到滚动区域之外，看起来像"文字消失了"。
+  // 这里改为测量滚动容器实际尺寸，自动算出刚好完整显示整张画布的缩放比例。
+  // 仅在用户尚未手动调整过缩放时才自动纠正，避免打断用户主动缩放的操作。
+  const screenshotScrollRef = useRef<HTMLDivElement>(null);
+  const userAdjustedZoomRef = useRef(false);
+
+  useEffect(() => {
+    const container = screenshotScrollRef.current;
+    if (!container || activeTool !== 'screenshots') return;
+
+    const recalcFit = () => {
+      if (userAdjustedZoomRef.current) return;
+      const availableWidth = container.clientWidth - VIEWPORT_PADDING_X;
+      const availableHeight = container.clientHeight - VIEWPORT_PADDING_Y;
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+      const fitRatio = Math.min(availableWidth / EDITOR_CANVAS_WIDTH, availableHeight / EDITOR_CANVAS_HEIGHT);
+      const fitPercent = Math.max(10, Math.min(200, Math.floor(fitRatio * 100)));
+      setZoom(fitPercent);
+    };
+
+    recalcFit();
+    const observer = new ResizeObserver(recalcFit);
+    observer.observe(container);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool]);
+
+  const markZoomAdjustedByUser = () => {
+    userAdjustedZoomRef.current = true;
+  };
+
   // Drag and zoom interaction tracking
   const [isPointerDown, setIsPointerDown] = useState(false);
   const pointerStartRef = useRef({ x: 0, y: 0 });
@@ -125,9 +164,9 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   const initialDistanceRef = useRef<number | null>(null);
   const initialScaleRef = useRef<number>(1);
 
-  const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200));
-  const handleZoomOut = () => setZoom(Math.max(zoom - 10, 10));
-  const handleZoomReset = () => setZoom(100);
+  const handleZoomIn = () => { markZoomAdjustedByUser(); setZoom(Math.min(zoom + 10, 200)); };
+  const handleZoomOut = () => { markZoomAdjustedByUser(); setZoom(Math.max(zoom - 10, 10)); };
+  const handleZoomReset = () => { markZoomAdjustedByUser(); setZoom(100); };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -276,24 +315,27 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          overflow: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '40px 40px 100px 40px',
-        }}>
+        <div
+          ref={screenshotScrollRef}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            overflow: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 40px 100px 40px',
+          }}
+        >
           <div style={{
-            width: `${1242 * (zoom / 100)}px`,
-            height: `${2208 * (zoom / 100)}px`,
+            width: `${EDITOR_CANVAS_WIDTH * (zoom / 100)}px`,
+            height: `${EDITOR_CANVAS_HEIGHT * (zoom / 100)}px`,
             position: 'relative',
             flexShrink: 0,
           }}>
             <div style={{
-              width: '1242px',
-              height: '2208px',
+              width: `${EDITOR_CANVAS_WIDTH}px`,
+              height: `${EDITOR_CANVAS_HEIGHT}px`,
               position: 'absolute',
               left: '50%',
               top: '50%',

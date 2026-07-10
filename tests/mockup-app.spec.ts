@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import JSZip from 'jszip';
 
 test.describe('MockupApp E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -411,5 +413,101 @@ test.describe('MockupApp E2E Tests', () => {
     // 9. Switching back to Privacy Policy preserves the generated result (per-mode state)
     await page.locator('button[role="tab"]:has-text("隐私政策")').click();
     await expect(page.locator('h2:has-text("Privacy Policy")')).toBeVisible();
+  });
+
+  test('Compliance Toolkit shows empty-state guidance before any wizard data exists', async ({ page }) => {
+    await page.locator('button:has-text("隐私与条款")').click();
+    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
+    await expect(page.locator('.compliance-toolkit')).toBeVisible();
+
+    // All five rows unchecked by default
+    const checkboxes = page.locator('.compliance-checklist-header input[type="checkbox"]');
+    await expect(checkboxes).toHaveCount(5);
+    for (let i = 0; i < 5; i++) {
+      await expect(checkboxes.nth(i)).not.toBeChecked();
+    }
+
+    // Checking a row before any Privacy/Terms data exists shows guidance, not a generated document
+    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页")').locator('input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-checklist-panel:has-text("请先完成")')).toBeVisible();
+    await expect(page.locator('.compliance-checklist-panel button:has-text("下载 HTML")')).not.toBeVisible();
+  });
+
+  test('Compliance Toolkit reuses Privacy/Terms data for ATT, Nutrition Label, and Custom EULA', async ({ page }) => {
+    // 1. Fill Privacy Policy step 1-3 with data that makes ATT applicable (device id + AdMob)
+    await page.locator('button:has-text("隐私与条款")').click();
+    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
+    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
+    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+    await page.locator('.legal-workspace button:has-text("下一步")').click();
+
+    await page.locator('.legal-checkbox-row:has-text("Device identifiers / Advertising ID")').click();
+    await page.locator('.legal-workspace button:has-text("下一步")').click();
+
+    await page.locator('.legal-checkbox-row:has-text("AdMob")').click();
+
+    // 2. Switch to Compliance Toolkit; data types/services persist independently of wizard completion
+    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
+
+    // 3. ATT row: applicable because device_id + AdMob were selected
+    await page.locator('.compliance-checklist-row:has-text("ATT 与系统权限话术矩阵")').locator('input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-checklist-panel:has-text("个性化广告体验")')).toBeVisible();
+
+    // 4. Nutrition Label row: the selected data type is classified as "tracking" because an ad SDK is present
+    await page.locator('.compliance-checklist-row:has-text("隐私营养标签")').locator('input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-checklist-panel:has-text("Data Used to Track You")')).toBeVisible();
+
+    // 5. Custom EULA row: default high-risk type is "无", switching to UGC injects the zero-tolerance clause
+    await page.locator('.compliance-checklist-row:has-text("Custom EULA")').locator('input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-checklist-panel:has-text("Zero-Tolerance")')).not.toBeVisible();
+    await page.locator('.compliance-checklist-panel label:has-text("UGC 社区")').click();
+    await expect(page.locator('.compliance-checklist-panel:has-text("Zero-Tolerance Policy for Objectionable Content")')).toBeVisible();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('.compliance-checklist-panel button:has-text("下载 HTML")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('custom-eula.html');
+  });
+
+  test('Compliance Toolkit shows a bundled ZIP download only once 2+ rows are checked, and persists state on reload', async ({ page }) => {
+    await page.locator('button:has-text("隐私与条款")').click();
+    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
+    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
+    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+
+    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
+
+    const zipButton = page.locator('button:has-text("打包下载 ZIP")');
+    await expect(zipButton).not.toBeVisible();
+
+    await page.locator('.compliance-checklist-row:has-text("Custom EULA")').locator('input[type="checkbox"]').check();
+    await expect(zipButton).not.toBeVisible();
+
+    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页")').locator('input[type="checkbox"]').check();
+    await expect(zipButton).toBeVisible();
+    await expect(zipButton).toContainText('已选 2 项');
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      zipButton.click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('compliance-toolkit.zip');
+
+    // Verify the ZIP actually bundles both checked rows' files
+    const zipPath = await download.path();
+    expect(zipPath).toBeTruthy();
+    const zip = await JSZip.loadAsync(fs.readFileSync(zipPath!));
+    expect(Object.keys(zip.files)).toEqual(expect.arrayContaining(['custom-eula.html', 'account-deletion.html']));
+
+    // Give the 300ms debounced localStorage write time to settle before reloading
+    await page.waitForTimeout(500);
+
+    // Reload restores the same checked/expanded rows
+    await page.reload();
+    await page.locator('button:has-text("隐私与条款")').click();
+    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
+    await expect(page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]')).toBeChecked();
+    await expect(page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]')).toBeChecked();
   });
 });
