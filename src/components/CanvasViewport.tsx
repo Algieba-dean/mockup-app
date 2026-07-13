@@ -449,7 +449,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink-primary)' }}>
                   导入应用截图
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--ink-secondary)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--ink-secondary)' }}>
                   拖拽图片到画布，或点击下方按钮
                 </span>
               </div>
@@ -679,7 +679,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 </div>
               )}
 
-              <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', flexShrink: 0, maxWidth: '420px', textAlign: 'center' }}>
+              <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', flexShrink: 0, maxWidth: '420px', textAlign: 'center' }}>
                 {iconPlatformPreview === 'ios'
                   ? '按住画布拖动/滚轮缩放，虚线为系统圆角遮罩区域，不影响导出像素'
                   : '按住画布拖动/滚轮缩放；不同安卓厂商启动器会应用不同形状的遮罩，阴影覆盖区域为该形状下可能被裁切的部分，圆形为官方保证的最小安全区'}
@@ -713,7 +713,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', textAlign: 'center' }}>
                 建议 ≥1024×1024 正方形 PNG，将自动生成 iOS / Android 全尺寸图标
               </span>
-              <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', opacity: 0.8, borderTop: '1px solid var(--border-primary)', paddingTop: '8px', width: '100%', textAlign: 'center' }}>
+              <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', opacity: 0.8, borderTop: '1px solid var(--border-primary)', paddingTop: '8px', width: '100%', textAlign: 'center' }}>
                 全部处理在本地浏览器完成，图片不会上传到任何服务器
               </span>
               <input

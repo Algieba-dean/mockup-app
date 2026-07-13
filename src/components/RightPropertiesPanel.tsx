@@ -762,7 +762,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
                 {/* 2.5D Sliders */}
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-angle">旋转角度 ({activeDevice.angle || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-angle" title="围绕平面中心旋转整个设备外壳，用于制造轻微倾斜的展示视角">旋转角度 ({activeDevice.angle || 0}°)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-angle"
@@ -791,7 +791,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-skew">三维错切 ({activeDevice.skewX || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-skew" title="沿垂直轴错切外壳边缘，制造透视/立体感，模拟设备侧向倾斜展示的效果">三维错切 ({activeDevice.skewX || 0}°)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-skew"
@@ -820,7 +820,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-scale">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-scale" title="整体放大或缩小设备外壳尺寸">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-scale"
@@ -849,7 +849,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-offset-x">水平偏移 ({activeDevice.offsetX || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-x" title="沿水平方向移动整个设备外壳在画布中的位置">水平偏移 ({activeDevice.offsetX || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-offset-x"
@@ -878,7 +878,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-offset-y">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-y" title="沿垂直方向移动整个设备外壳在画布中的位置">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-offset-y"
@@ -907,7 +907,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-ss-scale">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-ss-scale" title="仅缩放设备屏幕内的截图内容本身，不影响外壳大小">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-ss-scale"
@@ -936,7 +936,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-ss-offset-y">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-ss-offset-y" title="仅上下移动屏幕内的截图内容，用于对齐状态栏或裁掉截图顶部/底部的多余留白 (与上方“垂直偏移”移动整个外壳不同)">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-ss-offset-y"
@@ -1179,7 +1179,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     />
                   </div>
                   {iconHasAlpha && (
-                    <span style={{ fontSize: '11px', color: 'var(--ink-secondary)', marginTop: '4px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', marginTop: '4px' }}>
                       检测到透明背景，已自动提取边缘色作为建议填充色，可手动覆盖。
                     </span>
                   )}

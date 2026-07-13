@@ -513,7 +513,7 @@ function DocPreview({ sections, effectiveDate }: { sections: DocSection[]; effec
           ))}
         </div>
       ))}
-      <p style={{ fontSize: '11px', color: 'var(--ink-secondary)' }}>Effective date: {effectiveDate}</p>
+      <p style={{ fontSize: '12px', color: 'var(--ink-secondary)' }}>Effective date: {effectiveDate}</p>
     </div>
   );
 }

@@ -102,6 +102,18 @@ const DEFAULT_PAGES: MockupPage[] = [
   },
 ];
 
+// 导出失败时，优先展示具体的失败原因 (若能识别为常见场景则给出人话提示)，
+// 只有在完全无法判断原因时才回退到"查看控制台日志"的兜底文案。
+function describeExportError(error: unknown): string {
+  if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+    return '导出失败：设备存储空间不足，请清理浏览器存储后重试。';
+  }
+  if (error instanceof Error && error.message) {
+    return `导出失败：${error.message}`;
+  }
+  return '导出失败，请查看控制台错误日志。';
+}
+
 function loadSavedState<T>(key: string, fallback: T): T {
   try {
     const saved = localStorage.getItem(key);
@@ -244,6 +256,9 @@ function App() {
     () => loadSavedState<IconHistoryEntry[]>('mockup_app_icon_history', [])
   );
   const [showIconHistoryDrawer, setShowIconHistoryDrawer] = useState<boolean>(false);
+  // 保存方案命名对话框 (替代原生 prompt()，与 LeftSidebar 预设命名弹窗保持一致的交互模式)
+  const [showIconHistoryNameInput, setShowIconHistoryNameInput] = useState<boolean>(false);
+  const [iconHistoryNameValue, setIconHistoryNameValue] = useState('');
 
   useEffect(() => {
     try { localStorage.setItem('mockup_app_icon_history', JSON.stringify(iconHistory)); } catch { /* quota exceeded */ }
@@ -530,7 +545,7 @@ function App() {
       setIconExportDone(true);
     } catch (error) {
       console.error('Error generating icon ZIP export:', error);
-      showToast('导出失败，请查看控制台错误日志。');
+      showToast(describeExportError(error));
       setIsExporting(false);
       setExportProgress('');
     }
@@ -1088,7 +1103,7 @@ function App() {
       exportCanvas.dispose();
     } catch (error) {
       console.error('Error generating mockup ZIP export:', error);
-      showToast('导出失败，请查看控制台错误日志。');
+      showToast(describeExportError(error));
     } finally {
       setIsExporting(false);
       setExportProgress('');
@@ -1269,15 +1284,71 @@ function App() {
           iconBgGradient={iconBgGradient}
           setIconBgGradient={setIconBgGradient}
           onSaveIconHistory={() => {
-            const name = prompt('请输入方案名称：', `方案 ${iconHistory.length + 1}`);
-            if (name !== null) {
-              handleSaveIconHistory(name);
-            }
+            setIconHistoryNameValue(`方案 ${iconHistory.length + 1}`);
+            setShowIconHistoryNameInput(true);
           }}
         />
         </>
         )}
       </div>
+
+      {/* 保存图标方案命名对话框 (替代原生 prompt()) */}
+      {showIconHistoryNameInput && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+          onClick={() => setShowIconHistoryNameInput(false)}
+        >
+          <FocusTrap onEscape={() => setShowIconHistoryNameInput(false)}>
+            <div className="ds-panel" style={{
+              width: '320px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              boxShadow: 'var(--shadow-lg)',
+            }} onClick={(e) => e.stopPropagation()}>
+              <label className="ds-label" htmlFor="icon-history-name-input">方案名称</label>
+              <input
+                id="icon-history-name-input"
+                type="text"
+                className="ds-input"
+                value={iconHistoryNameValue}
+                autoFocus
+                onChange={(e) => setIconHistoryNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveIconHistory(iconHistoryNameValue);
+                    setShowIconHistoryNameInput(false);
+                  }
+                }}
+                placeholder="请输入方案名称"
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="ds-btn" style={{ flex: 1 }} onClick={() => setShowIconHistoryNameInput(false)}>取消</button>
+                <button
+                  className="ds-btn ds-btn-active"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    handleSaveIconHistory(iconHistoryNameValue);
+                    setShowIconHistoryNameInput(false);
+                  }}
+                >
+                  保存方案
+                </button>
+              </div>
+            </div>
+          </FocusTrap>
+        </div>
+      )}
 
       {/* 图标导出平台选择模态弹窗 */}
       {showIconExportModal && (
@@ -1372,7 +1443,7 @@ function App() {
               </label>
             </div>
 
-            <div style={{ fontSize: '11px', color: 'var(--ink-secondary)', opacity: 0.8, textAlign: 'center', borderTop: '1px solid var(--border-primary)', paddingTop: '8px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--ink-secondary)', opacity: 0.8, textAlign: 'center', borderTop: '1px solid var(--border-primary)', paddingTop: '8px' }}>
               全部处理在本地浏览器完成，图片不会上传到任何服务器
             </div>
 
