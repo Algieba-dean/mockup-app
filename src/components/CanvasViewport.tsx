@@ -13,6 +13,9 @@ interface CanvasViewportProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onFileDrop: (file: File) => void;
   hasScreenshots?: boolean;
+  // 首个设备在画布坐标系 (设计分辨率 1242x2208) 下的矩形范围，用于将"导入应用截图"
+  // 空状态提示精确定位在设备屏幕区域内，使其随缩放比例/设备拖拽缩放同步跟随
+  deviceOverlayRect?: { left: number; top: number; width: number; height: number } | null;
 
   // Icon workspace mode
   iconCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
@@ -102,6 +105,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   canvasRef,
   onFileDrop,
   hasScreenshots = false,
+  deviceOverlayRect = null,
   iconCanvasRef,
   hasIconImage = false,
   onIconFileDrop,
@@ -322,16 +326,20 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
             inset: 0,
             overflow: 'auto',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             padding: '40px 40px 100px 40px',
           }}
         >
+          {/* 注意：不要用 alignItems/justifyContent: 'center' 做居中——当画布放大后
+              尺寸超出滚动容器时，flex 居中会把内容推到滚动原点 (0,0) 的负方向，
+              而 overflow:auto 无法滚动到负偏移，导致顶部/左侧被裁切到不可见区域
+              (视觉上表现为被顶部工具栏遮挡)。改用子元素 margin:auto：内容小于容器
+              时依旧居中，一旦超出容器则自动退化为贴靠起始边、可完整滚动查看全部内容。 */}
           <div style={{
             width: `${EDITOR_CANVAS_WIDTH * (zoom / 100)}px`,
             height: `${EDITOR_CANVAS_HEIGHT * (zoom / 100)}px`,
             position: 'relative',
             flexShrink: 0,
+            margin: 'auto',
           }}>
             <div style={{
               width: `${EDITOR_CANVAS_WIDTH}px`,
@@ -345,11 +353,72 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             }}>
               <canvas ref={canvasRef} aria-label="应用商店截图实时预览，呈现您配置的设备外壳及主副标题排版" role="img" />
+
+              {/* 空状态提示：直接叠加在设备屏幕矩形范围内 (画布设计坐标)，随该容器的
+                  zoom 缩放同步缩放/跟随设备拖拽位置，而不是固定悬浮在视口中央——
+                  避免小缩放比例下显得比设备本身还大、与画面比例脱节的"突兀"感。 */}
+              {!hasScreenshots && !isDragging && deviceOverlayRect && (
+                <div style={{
+                  position: 'absolute',
+                  left: `${deviceOverlayRect.left}px`,
+                  top: `${deviceOverlayRect.top}px`,
+                  width: `${deviceOverlayRect.width}px`,
+                  height: `${deviceOverlayRect.height}px`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '18px',
+                  border: '3px dashed rgba(255,255,255,0.38)',
+                  borderRadius: `${Math.min(deviceOverlayRect.width, deviceOverlayRect.height) * 0.08}px`,
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  pointerEvents: 'auto',
+                  textAlign: 'center',
+                  boxSizing: 'border-box',
+                  padding: '5%',
+                }}>
+                  <Upload size={Math.max(24, deviceOverlayRect.width * 0.09)} strokeWidth={1.2} style={{ color: 'rgba(255,255,255,0.85)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: `${deviceOverlayRect.width * 0.015}px` }}>
+                    <span style={{ fontSize: `${deviceOverlayRect.width * 0.052}px`, fontWeight: 600, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3 }}>
+                      导入应用截图
+                    </span>
+                    <span style={{ fontSize: `${deviceOverlayRect.width * 0.034}px`, color: 'rgba(255,255,255,0.62)', lineHeight: 1.4 }}>
+                      拖拽图片到画布，或点击下方按钮
+                    </span>
+                  </div>
+                  <input
+                    ref={emptyStateFileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) onFileDrop(e.target.files[0]);
+                    }}
+                  />
+                  <button
+                    className="ds-btn"
+                    style={{
+                      fontSize: `${deviceOverlayRect.width * 0.034}px`,
+                      width: '70%',
+                      padding: `${deviceOverlayRect.width * 0.022}px 0`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                    }}
+                    onClick={() => emptyStateFileRef.current?.click()}
+                  >
+                    <span>选择图片文件</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {!hasScreenshots && !isDragging && (
+        {/* 兜底空状态：首次渲染完成前 deviceOverlayRect 尚未算出时短暂显示，
+            或页面完全没有设备实例时的通用提示 */}
+        {!hasScreenshots && !isDragging && !deviceOverlayRect && (
           <div style={{
             position: 'absolute',
             inset: 0,
