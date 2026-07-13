@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas } from 'fabric';
 import JSZip from 'jszip';
-import { Layers } from 'lucide-react';
+import { Layers, Info } from 'lucide-react';
 import { AppHeader } from './components/AppHeader';
 import { LeftSidebar } from './components/LeftSidebar';
 import type { CustomPreset } from './components/LeftSidebar';
@@ -157,13 +157,14 @@ function App() {
   );
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<number>(-1);
 
-  // Toast notification (replaces alert())
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Toast notification (replaces alert())。可选携带一个操作按钮 (如"撤销")，
+  // 用于把原本需要二次确认弹窗拦截的可逆操作，改为"直接执行 + 事后可撤销"的轻量模式。
+  const [toast, setToast] = useState<{ message: string; actionLabel?: string; onAction?: () => void } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
+  const showToast = (msg: string, action?: { label: string; onClick: () => void }) => {
+    setToast({ message: msg, actionLabel: action?.label, onAction: action?.onClick });
     clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToastMessage(null), 3500);
+    toastTimerRef.current = setTimeout(() => setToast(null), action ? 5000 : 3500);
   };
 
   const [customPresets, setCustomPresets] = useState<CustomPreset[]>(() => {
@@ -256,6 +257,7 @@ function App() {
     () => loadSavedState<IconHistoryEntry[]>('mockup_app_icon_history', [])
   );
   const [showIconHistoryDrawer, setShowIconHistoryDrawer] = useState<boolean>(false);
+  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   // 保存方案命名对话框 (替代原生 prompt()，与 LeftSidebar 预设命名弹窗保持一致的交互模式)
   const [showIconHistoryNameInput, setShowIconHistoryNameInput] = useState<boolean>(false);
   const [iconHistoryNameValue, setIconHistoryNameValue] = useState('');
@@ -818,12 +820,22 @@ function App() {
   // single source of truth and the setter functions above update it directly.
 
   // Persist pages and screenshots to localStorage
+  // lastSavedAt 驱动 header 里的"已自动保存"状态指示，让用户能确认自己的编辑
+  // 确实落盘了 (Nielsen #1 系统状态可见性)，而不是只能"信任"自动保存默默发生。
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+
   useEffect(() => {
-    try { localStorage.setItem('mockup_app_pages', JSON.stringify(pages)); } catch { /* quota exceeded */ }
+    try {
+      localStorage.setItem('mockup_app_pages', JSON.stringify(pages));
+      setLastSavedAt(Date.now());
+    } catch { /* quota exceeded */ }
   }, [pages]);
 
   useEffect(() => {
-    try { localStorage.setItem('mockup_app_screenshots', JSON.stringify(screenshots)); } catch { /* quota exceeded */ }
+    try {
+      localStorage.setItem('mockup_app_screenshots', JSON.stringify(screenshots));
+      setLastSavedAt(Date.now());
+    } catch { /* quota exceeded */ }
   }, [screenshots]);
 
   // Draw and render the FabricJS canvas when state changes (debounced)
@@ -1039,14 +1051,80 @@ function App() {
     setActivePageIndex(pages.length);
   };
 
+  // 删除画幅是可逆操作 (全局 undo/redo 已覆盖)，因此不再用阻塞式确认弹窗拦截，
+  // 而是直接执行 + 附带"撤销"操作的 toast，减少一次多余的点击确认。
   const handleDeletePage = useCallback((index: number) => {
-    setPages((prev) => {
-      if (prev.length <= 1) return prev;
-      const newPages = prev.filter((_, i) => i !== index);
-      setActivePageIndex(Math.max(0, index - 1));
-      return newPages;
+    if (pages.length <= 1) {
+      showToast('至少保留一个画幅');
+      return;
+    }
+    setPages((prev) => prev.filter((_, i) => i !== index));
+    const previousActiveIndex = activePageIndex;
+    setActivePageIndex(Math.max(0, index - 1));
+    showToast(`已删除画幅 P${index + 1}`, {
+      label: '撤销',
+      onClick: () => {
+        undo();
+        setActivePageIndex(previousActiveIndex);
+      },
     });
-  }, [setPages]);
+  }, [pages.length, setPages, activePageIndex, undo]);
+
+  // 复制当前画幅：克隆完整状态 (背景/设备/文案) 插入到紧随其后的位置并激活，
+  // 支持点击 AssetDock 上的复制按钮，也支持 Ctrl/Cmd+D 快捷键。
+  const handleDuplicatePage = useCallback((index?: number) => {
+    const sourceIndex = index ?? activePageIndex;
+    setPages((prev) => {
+      const source = prev[sourceIndex];
+      if (!source) return prev;
+      const clone: MockupPage = {
+        ...source,
+        id: `page-${Date.now()}`,
+        devices: source.devices.map((d) => ({ ...d, id: `dev-${d.id}-${Date.now()}` })),
+      };
+      const next = [...prev];
+      next.splice(sourceIndex + 1, 0, clone);
+      return next;
+    });
+    setActivePageIndex(sourceIndex + 1);
+    showToast('已复制画幅');
+  }, [activePageIndex, setPages]);
+
+  // 全局快捷键：Ctrl/Cmd+D 复制当前画幅，Ctrl/Cmd + +/- 缩放画布。
+  // +/- 会被浏览器默认拦截为整页缩放，这里主动 preventDefault 改为缩放画布本身；
+  // 输入框内输入 +/- 字符时跳过，避免打断正常打字。
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (activeTool !== 'screenshots') return;
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd) return;
+
+      if (e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        handleDuplicatePage();
+        return;
+      }
+
+      const target = e.target as HTMLElement | null;
+      const isTyping = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+      if (isTyping) return;
+
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        setZoom((z) => Math.min(200, z + 10));
+      } else if (e.key === '-') {
+        e.preventDefault();
+        setZoom((z) => Math.max(10, z - 10));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeTool, handleDuplicatePage]);
 
   // 拖拽调整画幅顺序：把 fromIndex 处的画幅移动到 toIndex，并让当前激活页跟随同一张画幅
   // 一起移动 (而不是跟随原来的下标)，避免拖拽后用户正在编辑的画幅意外切换成别的内容。
@@ -1198,6 +1276,8 @@ function App() {
         canUndo={canUndo}
         canRedo={canRedo}
         onToggleHistory={() => setShowIconHistoryDrawer(!showIconHistoryDrawer)}
+        lastSavedAt={lastSavedAt}
+        onShowHelp={() => setShowHelpModal(true)}
       />
 
       {/* 主工作区 */}
@@ -1247,6 +1327,7 @@ function App() {
                 setActivePageIndex={setActivePageIndex}
                 onAddPage={handleAddPage}
                 onDeletePage={handleDeletePage}
+                onDuplicatePage={handleDuplicatePage}
                 onReorderPages={handleReorderPages}
               />
             </>
@@ -1341,6 +1422,7 @@ function App() {
           shadowPreset={shadowPreset}
           setShadowPreset={setShadowPreset}
           showToast={showToast}
+          onUndoLastAction={undo}
           collapsed={rightSidebarCollapsed}
           hasIconImage={!!iconSourceDataUrl}
           iconPadding={iconPadding}
@@ -1418,6 +1500,90 @@ function App() {
                   保存方案
                 </button>
               </div>
+            </div>
+          </FocusTrap>
+        </div>
+      )}
+
+      {/* 帮助与快捷键面板 */}
+      {showHelpModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="help-modal-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'var(--overlay-bg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 'var(--z-modal)',
+          }}
+          onClick={() => setShowHelpModal(false)}
+        >
+          <FocusTrap onEscape={() => setShowHelpModal(false)}>
+            <div className="ds-panel" style={{
+              width: '400px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+              boxShadow: 'var(--shadow-lg)',
+            }} onClick={(e) => e.stopPropagation()}>
+              <span id="help-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                帮助与快捷键
+              </span>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                  键盘快捷键
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    ['Ctrl / Cmd + Z', '撤销上一步操作'],
+                    ['Ctrl / Cmd + Shift + Z', '重做'],
+                    ['Ctrl / Cmd + D', '复制当前画幅'],
+                    ['Ctrl / Cmd + 滚轮 或 触控板双指手势', '缩放画布'],
+                    ['Ctrl / Cmd + ＋ / －', '缩放画布'],
+                  ].map(([keys, desc]) => (
+                    <div key={keys} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
+                      <span style={{ color: 'var(--ink-secondary)' }}>{desc}</span>
+                      <kbd style={{
+                        fontSize: '11px',
+                        fontFamily: 'inherit',
+                        padding: '3px 8px',
+                        backgroundColor: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: '4px',
+                        color: 'var(--ink-primary)',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}>
+                        {keys}
+                      </kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                  使用提示
+                </div>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: 'var(--ink-secondary)', lineHeight: 1.5, paddingLeft: '18px', margin: 0 }}>
+                  <li>拖拽底部的画幅缩略图可调整先后顺序</li>
+                  <li>一次选择或拖入多张截图，除第一张外都会自动新建一个画幅</li>
+                  <li>标签旁带 <Info size={11} strokeWidth={2} style={{ display: 'inline', verticalAlign: '-1px' }} /> 图标的选项，鼠标悬停即可查看具体说明</li>
+                  <li>所有编辑都会实时自动保存在当前浏览器本地，无需手动保存；关闭标签页也不会丢失</li>
+                  <li>删除画幅或设备是可撤销操作，误删后点击提示中的"撤销"或按 Ctrl+Z 即可恢复</li>
+                </ul>
+              </div>
+
+              <button className="ds-btn ds-btn-active" style={{ width: '100%' }} onClick={() => setShowHelpModal(false)}>
+                知道了
+              </button>
             </div>
           </FocusTrap>
         </div>
@@ -1738,7 +1904,7 @@ function App() {
       />
 
       {/* Toast notification */}
-      {toastMessage && (
+      {toast && (
         <div
           role="alert"
           style={{
@@ -1749,13 +1915,29 @@ function App() {
             backgroundColor: 'var(--bg-tertiary)',
             color: 'var(--ink-primary)',
             border: '1px solid var(--border-primary)',
-            padding: '12px 24px',
+            padding: '12px 16px 12px 24px',
             fontSize: '13px',
             zIndex: 'var(--z-toast)',
             boxShadow: 'var(--shadow-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
           }}
         >
-          {toastMessage}
+          <span>{toast.message}</span>
+          {toast.actionLabel && toast.onAction && (
+            <button
+              className="ds-btn ds-btn-active"
+              style={{ padding: '4px 10px', fontSize: '12px', flexShrink: 0 }}
+              onClick={() => {
+                toast.onAction?.();
+                setToast(null);
+                clearTimeout(toastTimerRef.current);
+              }}
+            >
+              {toast.actionLabel}
+            </button>
+          )}
         </div>
       )}
     </div>

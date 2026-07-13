@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-import { FocusTrap } from './FocusTrap';
+import { Plus, Trash2, Copy } from 'lucide-react';
 
 interface MockupPage {
   id: string;
@@ -14,6 +13,7 @@ interface AssetDockProps {
   setActivePageIndex: (index: number) => void;
   onAddPage: () => void;
   onDeletePage: (index: number) => void;
+  onDuplicatePage?: (index: number) => void;
   onReorderPages?: (fromIndex: number, toIndex: number) => void;
 }
 
@@ -23,16 +23,16 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
   setActivePageIndex,
   onAddPage,
   onDeletePage,
+  onDuplicatePage,
   onReorderPages,
 }) => {
-  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   return (
     <div className="asset-dock">
       <div className="asset-dock-header">
-        <span>故事画幅序列 (Mockup Pages)</span>
+        <span>画幅序列</span>
         <button
           className="ds-btn"
           style={{ padding: '4px 10px', fontSize: '11px' }}
@@ -123,12 +123,43 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
               </div>
             </div>
 
-            {/* 删除按钮 */}
+            {/* 复制按钮 */}
+            {onDuplicatePage && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicatePage(index);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  left: '-4px',
+                  backgroundColor: 'var(--bg-primary)',
+                  color: 'var(--ink-primary)',
+                  border: '1px solid var(--border-primary)',
+                  borderRadius: '50%',
+                  width: '22px',
+                  height: '22px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 2,
+                }}
+                title="复制此页 (Ctrl+D)"
+              >
+                <Copy size={10} />
+              </button>
+            )}
+
+            {/* 删除按钮：删除画幅可通过全局 Ctrl+Z 或 toast 上的“撤销”恢复，
+                因此不再用二次确认弹窗拦截。 */}
             {pages.length > 1 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setConfirmDeleteIndex(index);
+                  onDeletePage(index);
                 }}
                 style={{
                   position: 'absolute',
@@ -166,56 +197,6 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
         </div>
       </div>
 
-      {/* Custom delete confirmation */}
-      {confirmDeleteIndex !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'var(--overlay-bg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 'var(--z-modal)',
-          }}
-          onClick={() => setConfirmDeleteIndex(null)}
-        >
-          <FocusTrap onEscape={() => setConfirmDeleteIndex(null)}>
-          <div className="ds-panel" style={{
-            width: '320px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            boxShadow: 'var(--shadow-lg)',
-          }} onClick={(e) => e.stopPropagation()}>
-            <span style={{ fontSize: '14px', color: 'var(--ink-primary)' }}>
-              确定要删除画幅 P{confirmDeleteIndex + 1} 吗？此操作无法恢复。
-            </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                className="ds-btn"
-                style={{ flex: 1 }}
-                onClick={() => setConfirmDeleteIndex(null)}
-              >
-                取消
-              </button>
-              <button
-                className="ds-btn ds-btn-active"
-                style={{ flex: 1 }}
-                onClick={() => {
-                  onDeletePage(confirmDeleteIndex);
-                  setConfirmDeleteIndex(null);
-                }}
-              >
-                确定删除
-              </button>
-            </div>
-          </div>
-          </FocusTrap>
-        </div>
-      )}
     </div>
   );
 });

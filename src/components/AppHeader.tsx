@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Undo2, Redo2, History } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Undo2, Redo2, History, Check, HelpCircle } from 'lucide-react';
 
 interface AppHeaderProps {
   activeTool: string;
@@ -18,7 +18,47 @@ interface AppHeaderProps {
   canUndo: boolean;
   canRedo: boolean;
   onToggleHistory?: () => void;
+  // 最近一次成功写入 localStorage 的时间戳，用于驱动"已自动保存"状态指示
+  lastSavedAt?: number | null;
+  onShowHelp?: () => void;
 }
+
+// 持续可见的保存状态提示：每次 pages/screenshots 变更并成功写入 localStorage 后
+// 更新，让用户随时能确认自己的编辑确实已经落盘 (Nielsen heuristic #1)，
+// 而不必"信任"自动保存在背后默默发生、出错也无从察觉。
+const SaveStatusIndicator: React.FC<{ lastSavedAt?: number | null }> = ({ lastSavedAt }) => {
+  const [, forceTick] = useState(0);
+
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const interval = setInterval(() => forceTick((n) => n + 1), 15000);
+    return () => clearInterval(interval);
+  }, [lastSavedAt]);
+
+  if (!lastSavedAt) return null;
+
+  const seconds = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000));
+  const relative = seconds < 5 ? '刚刚' : seconds < 60 ? `${seconds} 秒前` : `${Math.floor(seconds / 60)} 分钟前`;
+  const absolute = new Date(lastSavedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  return (
+    <span
+      title={`已自动保存到本机浏览器 · ${absolute}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '12px',
+        color: 'var(--ink-tertiary)',
+        marginLeft: '14px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Check size={12} strokeWidth={2} />
+      已保存 {relative}
+    </span>
+  );
+};
 
 export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
   activeTool,
@@ -35,6 +75,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
   canUndo,
   canRedo,
   onToggleHistory,
+  lastSavedAt,
+  onShowHelp,
 }) => {
   return (
     <header className="app-header">
@@ -52,6 +94,7 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
         )}
         <Layers size={18} strokeWidth={1.5} style={{ marginLeft: activeTool !== 'privacy' ? '8px' : '0' }} />
         <h1 style={{ fontSize: '15px' }}>MockupApp</h1>
+        {activeTool !== 'privacy' && <SaveStatusIndicator lastSavedAt={lastSavedAt} />}
       </div>
 
       <nav className="app-nav">
@@ -104,6 +147,16 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
             </button>
             <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)', margin: '0 4px' }} />
           </>
+        )}
+        {onShowHelp && (
+          <button
+            className="ds-btn ds-btn-icon-only"
+            onClick={onShowHelp}
+            title="帮助与快捷键"
+            aria-label="帮助与快捷键"
+          >
+            <HelpCircle size={18} />
+          </button>
         )}
         <button
           className="ds-btn ds-btn-icon-only"

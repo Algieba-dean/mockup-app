@@ -11,37 +11,65 @@ const SectionAccordion: React.FC<{
   title: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
-}> = ({ title, defaultOpen = false, children }) => {
+  // 可选的小型操作 (如"恢复默认")，渲染在标题栏内、折叠箭头左侧，
+  // 点击时需要 stopPropagation 避免同时触发折叠/展开。
+  headerAction?: React.ReactNode;
+}> = ({ title, defaultOpen = false, children, headerAction }) => {
   const [open, setOpen] = useState(defaultOpen);
   const [panelId] = useState(() => `accordion-panel-${++accordionIdCounter}`);
   return (
     <div>
-      <button
-        onClick={() => setOpen(!open)}
+      <div
         className="sidebar-title"
-        aria-expanded={open}
-        aria-controls={panelId}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
-          background: 'none',
-          border: 'none',
           borderBottom: '1px solid var(--border-primary)',
-          cursor: 'pointer',
           color: 'var(--ink-secondary)',
         }}
       >
-        <span>{title}</span>
-        <ChevronDown
-          size={14}
+        <button
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-controls={panelId}
           style={{
-            transition: 'transform 0.15s ease',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flex: 1,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'inherit',
+            padding: 0,
+            font: 'inherit',
+            textTransform: 'inherit',
+            letterSpacing: 'inherit',
           }}
-        />
-      </button>
+        >
+          <span>{title}</span>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {headerAction}
+          <button
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-controls={panelId}
+            aria-label={open ? `折叠${title}` : `展开${title}`}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex', padding: 0 }}
+          >
+            <ChevronDown
+              size={14}
+              style={{
+                transition: 'transform 0.15s ease',
+                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            />
+          </button>
+        </div>
+      </div>
       <div
         id={panelId}
         role="region"
@@ -134,7 +162,9 @@ interface RightPropertiesPanelProps {
   setShowStatusBar?: (show: boolean) => void;
   shadowPreset?: 'none' | 'soft' | 'premium';
   setShadowPreset?: (preset: 'none' | 'soft' | 'premium') => void;
-  showToast?: (msg: string) => void;
+  showToast?: (msg: string, action?: { label: string; onClick: () => void }) => void;
+  // 供"删除设备"之类可逆操作在 toast 里挂一个"撤销"按钮，直接回退到全局历史栈的上一步。
+  onUndoLastAction?: () => void;
 }
 
 export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
@@ -194,6 +224,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   shadowPreset = 'premium',
   setShadowPreset,
   showToast,
+  onUndoLastAction,
 }) => {
   const bgPresets = ['#ffffff', '#f5f5f4', '#e5e5e4', '#dcdcdc', '#8a8a8a', '#4a4a4a', '#1e1e1e', '#0a0a0a'];
   
@@ -313,6 +344,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
     const newDevices = devices.filter((_, i) => i !== index);
     setDevices(newDevices);
     setActiveDeviceIndex(Math.max(0, index - 1));
+    showToast?.(`已删除设备 ${index + 1}`, onUndoLastAction ? { label: '撤销', onClick: onUndoLastAction } : undefined);
   };
 
   const handleSmartColorExtract = async () => {
@@ -337,7 +369,27 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
       {activeTool === 'screenshots' ? (
         <>
           {/* 画布背景 */}
-          <SectionAccordion title="画布背景" defaultOpen={true}>
+          <SectionAccordion
+            title="画布背景"
+            defaultOpen={true}
+            headerAction={
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBgType('solid');
+                  setBgColor('#f5f5f4');
+                  setBgBlur(0);
+                  setShowFrostedGlass(false);
+                  setBgImageScale?.(1);
+                  showToast?.('已恢复默认背景');
+                }}
+                title="恢复默认背景设置"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-tertiary)', fontSize: '11px', textTransform: 'none', letterSpacing: 'normal', padding: 0 }}
+              >
+                恢复默认
+              </button>
+            }
+          >
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
               <label className="ds-label">填充方式</label>
@@ -637,7 +689,32 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           </SectionAccordion>
 
           {/* 设备与布局设置 */}
-          <SectionAccordion title="设备布局与变换">
+          <SectionAccordion
+            title="设备布局与变换"
+            headerAction={
+              activeDevice ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateActiveDevice({
+                      angle: 0,
+                      skewX: 0,
+                      scale: 1,
+                      offsetX: 0,
+                      offsetY: 100,
+                      screenshotScale: 1,
+                      screenshotOffsetY: 0,
+                    });
+                    showToast?.('已恢复默认变换');
+                  }}
+                  title="恢复当前设备的默认位置与变换"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-tertiary)', fontSize: '11px', textTransform: 'none', letterSpacing: 'normal', padding: 0 }}
+                >
+                  恢复默认
+                </button>
+              ) : undefined
+            }
+          >
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
               <label className="ds-label">快捷布局</label>
