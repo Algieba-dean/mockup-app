@@ -9,7 +9,7 @@ import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
 import { AssetDock } from './components/AssetDock';
 import { FocusTrap } from './components/FocusTrap';
-import { updateCanvas, computeDeviceTransformUpdate, computeTextTransformUpdate } from './utils/canvasManager';
+import { updateCanvas, computeDeviceTransformUpdate, computeTextTransformUpdate, computeDeviceRect } from './utils/canvasManager';
 import type { DeviceInstance, ObjectTransformSnapshot } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
 import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE, ICON_SIZE_PREVIEW_SPECS } from './utils/iconManager';
@@ -67,12 +67,12 @@ const DEFAULT_PAGES: MockupPage[] = [
     bgBlur: 0,
     showFrostedGlass: false,
     devices: [
-      { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
+      { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 0, screenshotScale: 1.05, screenshotOffsetY: 25 }
     ],
     titleFontFamily: 'Playfair Display',
     subtitleFontFamily: 'Geist',
-    titleFontSize: 76,
-    subtitleFontSize: 30,
+    titleFontSize: 92,
+    subtitleFontSize: 44,
     layout: 'text-top',
     showGlassReflection: true,
     showStatusBar: true,
@@ -89,12 +89,12 @@ const DEFAULT_PAGES: MockupPage[] = [
     bgBlur: 0,
     showFrostedGlass: false,
     devices: [
-      { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 60, screenshotScale: 1.05, screenshotOffsetY: 25 }
+      { id: 'dev-1', deviceModel: 'iphone_16_pro_light', screenshotSrc: undefined, angle: 0, skewX: 0, scale: 1.28, offsetX: 0, offsetY: 0, screenshotScale: 1.05, screenshotOffsetY: 25 }
     ],
     titleFontFamily: 'Playfair Display',
     subtitleFontFamily: 'Geist',
-    titleFontSize: 76,
-    subtitleFontSize: 30,
+    titleFontSize: 92,
+    subtitleFontSize: 44,
     layout: 'text-top',
     showGlassReflection: true,
     showStatusBar: true,
@@ -683,6 +683,9 @@ function App() {
   // Canvas References
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [fabricCanvas, setFabricCanvas] = useState<Canvas | null>(null);
+  // 首个设备在画布坐标系下的矩形范围 (每次重绘后同步计算)，供无截图时的
+  // "导入应用截图" 空状态提示定位——使其随缩放/设备拖拽同步跟随，而非固定悬浮。
+  const [deviceOverlayRect, setDeviceOverlayRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   // Sync state between global theme and DOM element class
   useEffect(() => {
@@ -763,13 +766,15 @@ function App() {
         angle: target.angle,
       };
 
+      const lastTitleHeight = (fabricCanvas as unknown as { _lastTitleHeight?: number })._lastTitleHeight || 0;
+      const lastSubtitleHeight = (fabricCanvas as unknown as { _lastSubtitleHeight?: number })._lastSubtitleHeight || 0;
+
       if (data.role === 'device' && data.deviceId) {
         const idx = curDevices.findIndex((d) => d.id === data.deviceId);
         if (idx === -1) return;
-        const updates = computeDeviceTransformUpdate(snapshot, curDevices[idx], curLayout, canvasWidth, canvasHeight);
+        const updates = computeDeviceTransformUpdate(snapshot, curDevices[idx], curLayout, canvasWidth, canvasHeight, lastTitleHeight, lastSubtitleHeight);
         curSetDevices(curDevices.map((d, i) => (i === idx ? { ...d, ...updates } : d)));
       } else if (data.role === 'title') {
-        const lastTitleHeight = (fabricCanvas as unknown as { _lastTitleHeight?: number })._lastTitleHeight || 0;
         const result = computeTextTransformUpdate(snapshot, 'title', curLayout, canvasHeight, curTitleFontSize, lastTitleHeight);
         curUpdateActivePage({
           titleOffsetX: result.offsetX,
@@ -778,7 +783,6 @@ function App() {
           titleFontSize: result.fontSize,
         });
       } else if (data.role === 'subtitle') {
-        const lastTitleHeight = (fabricCanvas as unknown as { _lastTitleHeight?: number })._lastTitleHeight || 0;
         const result = computeTextTransformUpdate(snapshot, 'subtitle', curLayout, canvasHeight, curSubtitleFontSize, lastTitleHeight);
         curUpdateActivePage({
           subtitleOffsetX: result.offsetX,
@@ -825,7 +829,7 @@ function App() {
           }
         }
 
-        updateCanvas(
+        await updateCanvas(
           fabricCanvas,
           {
             bgType,
@@ -855,6 +859,27 @@ function App() {
           },
           activePageIndex
         );
+
+        if (devices.length > 0) {
+          const lastTitleHeight = (fabricCanvas as unknown as { _lastTitleHeight?: number })._lastTitleHeight || 0;
+          const lastSubtitleHeight = (fabricCanvas as unknown as { _lastSubtitleHeight?: number })._lastSubtitleHeight || 0;
+          const rect = computeDeviceRect(
+            devices[0],
+            layout,
+            fabricCanvas.getWidth(),
+            fabricCanvas.getHeight(),
+            lastTitleHeight,
+            lastSubtitleHeight
+          );
+          setDeviceOverlayRect({
+            left: rect.centerX - rect.width / 2,
+            top: rect.centerY - rect.height / 2,
+            width: rect.width,
+            height: rect.height,
+          });
+        } else {
+          setDeviceOverlayRect(null);
+        }
       }, 150);
     }
     return () => clearTimeout(drawTimerRef.current);
@@ -1022,8 +1047,8 @@ function App() {
               devices: page.devices || [],
               titleText: page.title,
               subtitleText: page.subtitle,
-              titleFontSize: page.titleFontSize || 76,
-              subtitleFontSize: page.subtitleFontSize || 30,
+              titleFontSize: page.titleFontSize || 92,
+              subtitleFontSize: page.subtitleFontSize || 44,
               titleFontFamily: page.titleFontFamily || 'Playfair Display',
               subtitleFontFamily: page.subtitleFontFamily || 'Geist',
               layout: page.layout || 'text-top',
@@ -1125,6 +1150,7 @@ function App() {
                 canvasRef={canvasRef}
                 onFileDrop={handleUploadScreenshot}
                 hasScreenshots={devices.some(d => d.screenshotSrc)}
+                deviceOverlayRect={deviceOverlayRect}
               />
 
               {/* 底部故事画幅 Dock */}

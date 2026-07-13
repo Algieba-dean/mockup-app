@@ -184,6 +184,9 @@ function renderScreenOverlays(
   }
 }
 
+// 'text-top' 布局下，标题+副标题文案块底部与设备顶部之间的固定间距 (基准像素，随 R 缩放)。
+const TEXT_TO_DEVICE_GAP = 56;
+
 const DEVICE_DB: Record<string, DeviceMetric> = {
   iphone_16_pro: {
     width: 620,
@@ -498,6 +501,11 @@ export const updateCanvas = async (
     titleTop = 1620 * R;
   }
 
+  // 文案区实际占用的底部坐标 (标题+副标题自然排版高度)，用于 'text-top' 布局下动态
+  // 计算设备起始位置 —— 避免旧版硬编码 680 的固定基准线在字号变化后产生巨大空白间隙
+  // 或反之与文案重叠 (即"画布利用率不高"的根本原因)。
+  let textBlockBottom = titleTop;
+
   if (layoutMode !== 'full-device') {
     const title = new Textbox(state.titleText || '主标题文本', {
       left: 80 * R + (state.titleOffsetX || 0) * R,
@@ -544,6 +552,9 @@ export const updateCanvas = async (
     (subtitle as unknown as { data: Record<string, unknown> }).data = { role: 'subtitle' };
     subtitle.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
     canvas.add(subtitle);
+    // 记录本次实际渲染的副标题高度，供动态设备基准线与交互反解使用
+    (canvas as unknown as { _lastSubtitleHeight: number })._lastSubtitleHeight = subtitle.height || 0;
+    textBlockBottom = titleTop + title.height! + 24 * R + subtitle.height!;
   }
 
   // 6. 多设备迭代渲染逻辑 (支持设备混搭与三维偏角计算)
@@ -559,7 +570,7 @@ export const updateCanvas = async (
       // 计算外壳在 Canvas 的绝对中心坐标 (根据布局模式动态调整基准 Y 坐标)
       const centerX = canvasWidth / 2 + devInst.offsetX * R;
       
-      let centerY = 680 * R + devHeight / 2 + devInst.offsetY * R;
+      let centerY = textBlockBottom + TEXT_TO_DEVICE_GAP * R + devHeight / 2 + devInst.offsetY * R;
       if (layoutMode === 'text-bottom') {
         centerY = 220 * R + devHeight / 2 + devInst.offsetY * R;
       } else if (layoutMode === 'full-device') {
@@ -962,7 +973,9 @@ export function computeDeviceTransformUpdate(
   dev: DeviceInstance,
   layoutMode: 'text-top' | 'text-bottom' | 'full-device',
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  lastTitleHeight: number = 0,
+  lastSubtitleHeight: number = 0
 ): Partial<DeviceInstance> {
   const R = canvasHeight / 2208;
   const deviceMeta = DEVICE_DB[dev.deviceModel] || DEVICE_DB.iphone_16_pro;
@@ -970,7 +983,11 @@ export function computeDeviceTransformUpdate(
   const newScale = Math.max(0.1, (dev.scale || 1) * avgScale);
   const newDevHeight = deviceMeta.height * newScale * R;
 
-  let baseY = 680 * R;
+  // 与 updateCanvas 中的动态文案块基准线保持严格一致，否则拖拽/缩放结束后
+  // 下一次重建渲染会因基准不一致而发生"跳位"。
+  const titleTop = 180 * R;
+  const textBlockBottom = titleTop + lastTitleHeight + 24 * R + lastSubtitleHeight;
+  let baseY = textBlockBottom + TEXT_TO_DEVICE_GAP * R;
   if (layoutMode === 'text-bottom') baseY = 220 * R;
 
   let newOffsetY: number;
@@ -987,6 +1004,38 @@ export function computeDeviceTransformUpdate(
     offsetX: Math.round(newOffsetX),
     offsetY: Math.round(newOffsetY),
   };
+}
+
+/**
+ * 计算设备外壳在画布绝对坐标系下的矩形范围 (中心点 + 宽高)，公式与 updateCanvas 中
+ * 构造 centerX/centerY/devWidth/devHeight 严格对应。供 App.tsx 在无截图时定位
+ * "导入应用截图" 空状态提示的位置/尺寸，使其能随缩放比例与设备拖拽/缩放同步跟随，
+ * 而不是固定叠加在视口中央 (避免视觉上显得与画布比例脱节、突兀)。
+ */
+export function computeDeviceRect(
+  dev: DeviceInstance,
+  layoutMode: 'text-top' | 'text-bottom' | 'full-device',
+  canvasWidth: number,
+  canvasHeight: number,
+  lastTitleHeight: number = 0,
+  lastSubtitleHeight: number = 0
+): { centerX: number; centerY: number; width: number; height: number } {
+  const R = canvasHeight / 2208;
+  const deviceMeta = DEVICE_DB[dev.deviceModel] || DEVICE_DB.iphone_16_pro;
+  const devScale = dev.scale || 1.0;
+  const devWidth = deviceMeta.width * devScale * R;
+  const devHeight = deviceMeta.height * devScale * R;
+
+  const titleTop = 180 * R;
+  const textBlockBottom = layoutMode === 'text-bottom' ? titleTop : titleTop + lastTitleHeight + 24 * R + lastSubtitleHeight;
+  let baseY = textBlockBottom + TEXT_TO_DEVICE_GAP * R;
+  if (layoutMode === 'text-bottom') baseY = 220 * R;
+
+  const centerX = canvasWidth / 2 + dev.offsetX * R;
+  let centerY = baseY + devHeight / 2 + dev.offsetY * R;
+  if (layoutMode === 'full-device') centerY = canvasHeight / 2 + dev.offsetY * R;
+
+  return { centerX, centerY, width: devWidth, height: devHeight };
 }
 
 /**
