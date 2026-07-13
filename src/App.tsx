@@ -947,6 +947,57 @@ function App() {
     reader.readAsDataURL(file);
   }, []);
 
+  // 批量导入截图：第一张沿用原有行为绑定到当前激活画幅的设备0，其余每张各自
+  // 新建一个画幅 (复用当前画幅的背景/设备/文案设置)，方便一次性铺好一整套多画幅商店截图。
+  const handleUploadScreenshots = useCallback((files: File[]) => {
+    if (files.length === 0) return;
+    Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              if (e.target?.result && typeof e.target.result === 'string') resolve(e.target.result);
+              else reject(new Error('文件读取失败'));
+            };
+            reader.onerror = () => reject(new Error('文件读取失败'));
+            reader.readAsDataURL(file);
+          })
+      )
+    )
+      .then((dataUrls) => {
+        const [first, ...rest] = dataUrls;
+        setScreenshots((prev) => {
+          setSelectedScreenshotIndex(prev.length);
+          return [...prev, ...dataUrls];
+        });
+        setDevices((prevDevs) =>
+          prevDevs.map((d, i) => (i === 0 ? { ...d, screenshotSrc: first } : d))
+        );
+
+        if (rest.length > 0) {
+          setPages((prevPages) => {
+            const basePage = prevPages[activePageIndex] ?? prevPages[0];
+            const newPages: MockupPage[] = rest.map((src, idx) => ({
+              ...basePage,
+              id: `page-${Date.now()}-${idx}`,
+              devices: basePage.devices.map((d, di) =>
+                di === 0
+                  ? { ...d, id: `dev-${d.id}-${Date.now()}-${idx}`, screenshotSrc: src }
+                  : { ...d, id: `dev-${d.id}-${Date.now()}-${idx}` }
+              ),
+            }));
+            return [...prevPages, ...newPages];
+          });
+          showToast(`已导入 ${dataUrls.length} 张截图，新增 ${rest.length} 个画幅`);
+        }
+      })
+      .catch((error) => {
+        console.error('Batch screenshot upload failed', error);
+        showToast('部分截图导入失败，请重试');
+      });
+  }, [activePageIndex, setPages]);
+
   useEffect(() => {
     (window as any).__uploadScreenshot = (dataUrl: string) => {
       setScreenshots((prev) => {
@@ -994,6 +1045,25 @@ function App() {
       const newPages = prev.filter((_, i) => i !== index);
       setActivePageIndex(Math.max(0, index - 1));
       return newPages;
+    });
+  }, [setPages]);
+
+  // 拖拽调整画幅顺序：把 fromIndex 处的画幅移动到 toIndex，并让当前激活页跟随同一张画幅
+  // 一起移动 (而不是跟随原来的下标)，避免拖拽后用户正在编辑的画幅意外切换成别的内容。
+  const handleReorderPages = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setPages((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length || toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+    setActivePageIndex((prevActive) => {
+      if (prevActive === fromIndex) return toIndex;
+      if (fromIndex < prevActive && toIndex >= prevActive) return prevActive - 1;
+      if (fromIndex > prevActive && toIndex <= prevActive) return prevActive + 1;
+      return prevActive;
     });
   }, [setPages]);
 
@@ -1143,6 +1213,7 @@ function App() {
           activeTool={activeTool}
           screenshots={screenshots}
           onUploadScreenshot={handleUploadScreenshot}
+          onUploadScreenshots={handleUploadScreenshots}
           onSelectScreenshot={setSelectedScreenshotIndex}
           selectedScreenshotIndex={selectedScreenshotIndex}
           customPresets={customPresets}
@@ -1164,6 +1235,7 @@ function App() {
                 setZoom={setZoom}
                 canvasRef={canvasRef}
                 onFileDrop={handleUploadScreenshot}
+                onFilesDrop={handleUploadScreenshots}
                 hasScreenshots={devices.some(d => d.screenshotSrc)}
                 deviceOverlayRect={deviceOverlayRect}
               />
@@ -1175,6 +1247,7 @@ function App() {
                 setActivePageIndex={setActivePageIndex}
                 onAddPage={handleAddPage}
                 onDeletePage={handleDeletePage}
+                onReorderPages={handleReorderPages}
               />
             </>
           ) : activeTool === 'icons' ? (

@@ -12,6 +12,9 @@ interface CanvasViewportProps {
   setZoom: (z: number) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onFileDrop: (file: File) => void;
+  // 可选：一次性导入多张截图 (拖入/多选文件时)，用于批量新建画幅。未提供时回退为
+  // 逐个调用 onFileDrop，仅处理第一张，保持向后兼容。
+  onFilesDrop?: (files: File[]) => void;
   hasScreenshots?: boolean;
   // 首个设备在画布坐标系 (设计分辨率 1242x2208) 下的矩形范围，用于将"导入应用截图"
   // 空状态提示精确定位在设备屏幕区域内，使其随缩放比例/设备拖拽缩放同步跟随
@@ -104,6 +107,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   setZoom,
   canvasRef,
   onFileDrop,
+  onFilesDrop,
   hasScreenshots = false,
   deviceOverlayRect = null,
   iconCanvasRef,
@@ -172,6 +176,29 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   const handleZoomOut = () => { markZoomAdjustedByUser(); setZoom(Math.max(zoom - 10, 10)); };
   const handleZoomReset = () => { markZoomAdjustedByUser(); setZoom(100); };
 
+  // Ctrl/Cmd + 滚轮缩放画布 (浏览器会将触控板双指缩放手势合成为携带 ctrlKey 的 wheel 事件，
+  // 因此同一处理逻辑同时覆盖了「按住 Ctrl 滚轮」与「触控板手势缩放」两种输入方式)。
+  // 不按修饰键时保留默认滚动行为，用于在放大后平移画布。
+  // 用原生 addEventListener 而非 React 的 onWheel 挂载：React 17+ 默认以 passive
+  // 监听器绑定 wheel 事件，其中调用 preventDefault() 只会抛出警告而不会真正生效，
+  // 导致缩放的同时画布还会跟着滚动。这里显式传 { passive: false } 才能真正拦截默认滚动。
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  useEffect(() => {
+    const container = screenshotScrollRef.current;
+    if (!container) return;
+    const onWheelZoom = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      userAdjustedZoomRef.current = true;
+      const step = Math.round(e.deltaY * -0.15) || (e.deltaY < 0 ? 2 : -2);
+      setZoom(Math.min(200, Math.max(10, zoomRef.current + step)));
+    };
+    container.addEventListener('wheel', onWheelZoom, { passive: false });
+    return () => container.removeEventListener('wheel', onWheelZoom);
+  }, [setZoom]);
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -184,11 +211,12 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('image/')) {
-        onFileDrop(file);
-      }
+    const imageFiles = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+    if (onFilesDrop) {
+      onFilesDrop(imageFiles);
+    } else {
+      onFileDrop(imageFiles[0]);
     }
   };
 
@@ -390,9 +418,13 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                     ref={emptyStateFileRef}
                     type="file"
                     accept="image/*"
+                    multiple
                     style={{ display: 'none' }}
                     onChange={(e) => {
-                      if (e.target.files?.[0]) onFileDrop(e.target.files[0]);
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      if (onFilesDrop) onFilesDrop(files);
+                      else onFileDrop(files[0]);
                     }}
                   />
                   <button
@@ -457,9 +489,13 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 ref={emptyStateFileRef}
                 type="file"
                 accept="image/*"
+                multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {
-                  if (e.target.files?.[0]) onFileDrop(e.target.files[0]);
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) return;
+                  if (onFilesDrop) onFilesDrop(files);
+                  else onFileDrop(files[0]);
                 }}
               />
               <button
@@ -506,7 +542,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
           <button className="ds-btn ds-btn-icon-only" onClick={handleZoomOut} title="缩小" aria-label="缩小">
             <ZoomOut size={14} />
           </button>
-          <span className="viewport-zoom-value">{zoom}%</span>
+          <span className="viewport-zoom-value" title="按住 Ctrl/Cmd 滚轮或触控板双指缩放手势也可直接缩放画布">{zoom}%</span>
           <button className="ds-btn ds-btn-icon-only" onClick={handleZoomIn} title="放大" aria-label="放大">
             <ZoomIn size={14} />
           </button>

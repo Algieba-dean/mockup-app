@@ -14,6 +14,7 @@ interface AssetDockProps {
   setActivePageIndex: (index: number) => void;
   onAddPage: () => void;
   onDeletePage: (index: number) => void;
+  onReorderPages?: (fromIndex: number, toIndex: number) => void;
 }
 
 export const AssetDock: React.FC<AssetDockProps> = React.memo(({
@@ -22,8 +23,11 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
   setActivePageIndex,
   onAddPage,
   onDeletePage,
+  onReorderPages,
 }) => {
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   return (
     <div className="asset-dock">
@@ -44,11 +48,41 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
           <div
             key={page.id}
             onClick={() => setActivePageIndex(index)}
+            draggable={!!onReorderPages}
+            onDragStart={(e) => {
+              setDraggedIndex(index);
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragOver={(e) => {
+              if (draggedIndex === null) return;
+              e.preventDefault();
+              if (dragOverIndex !== index) setDragOverIndex(index);
+            }}
+            onDragLeave={() => {
+              if (dragOverIndex === index) setDragOverIndex(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (draggedIndex !== null && draggedIndex !== index) {
+                onReorderPages?.(draggedIndex, index);
+              }
+              setDraggedIndex(null);
+              setDragOverIndex(null);
+            }}
+            onDragEnd={() => {
+              setDraggedIndex(null);
+              setDragOverIndex(null);
+            }}
+            title="拖拽以调整画幅顺序"
             style={{
               display: 'flex',
               alignItems: 'center',
               position: 'relative',
-              cursor: 'pointer',
+              cursor: onReorderPages ? 'grab' : 'pointer',
+              opacity: draggedIndex === index ? 0.4 : 1,
+              outline: dragOverIndex === index && draggedIndex !== null && draggedIndex !== index ? '2px solid var(--border-focus)' : 'none',
+              outlineOffset: '2px',
+              transition: 'opacity 0.15s ease',
             }}
           >
             {/* 卡片主体 */}

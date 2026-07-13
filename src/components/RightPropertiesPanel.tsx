@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ChevronDown, Palette } from 'lucide-react';
+import { ChevronDown, Palette, Info } from 'lucide-react';
 import marbleBg from '../assets/white_marble_bg.jpg';
 import grainBg from '../assets/minimal_grain_bg.jpg';
 import type { DeviceInstance } from '../utils/canvasManager';
@@ -58,6 +58,17 @@ const SectionAccordion: React.FC<{
     </div>
   );
 };
+
+// 附着在 label 上的可见"可查看说明"提示图标 (label 本身携带 title 属性提供 hover 说明，
+// 该图标仅作为发现性提示，不重复承载 title，避免冗余 tooltip)
+const HintIcon: React.FC = () => (
+  <Info
+    size={11}
+    strokeWidth={2}
+    aria-hidden="true"
+    style={{ display: 'inline-block', verticalAlign: '-1px', marginLeft: '4px', opacity: 0.5, pointerEvents: 'none' }}
+  />
+);
 
 interface RightPropertiesPanelProps {
   activeTool: string;
@@ -505,8 +516,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="bg-image-scale">
-                    背景图缩放 ({Math.round(bgImageScale * 100)}%)
+                  <label className="ds-label" htmlFor="bg-image-scale" title="放大底图以填满画布边缘，避免留白，不影响标题与设备的位置">
+                    背景图缩放<HintIcon /> ({Math.round(bgImageScale * 100)}%)
                   </label>
                   <input
                     id="bg-image-scale"
@@ -529,7 +540,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {(bgType === 'image' || bgType === 'panoramic') && (
               <div className="ds-input-group">
-                <label className="ds-label" htmlFor="bg-blur">背景高斯模糊 ({bgBlur}px)</label>
+                <label className="ds-label" htmlFor="bg-blur" title="模糊底图细节，让前景的标题与设备更突出，数值越大越模糊">背景高斯模糊<HintIcon /> ({bgBlur}px)</label>
                 <input
                   id="bg-blur"
                   type="range"
@@ -762,7 +773,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
                 {/* 2.5D Sliders */}
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-angle" title="围绕平面中心旋转整个设备外壳，用于制造轻微倾斜的展示视角">旋转角度 ({activeDevice.angle || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-angle" title="围绕平面中心旋转整个设备外壳，用于制造轻微倾斜的展示视角">旋转角度<HintIcon /> ({activeDevice.angle || 0}°)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-angle"
@@ -791,7 +802,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-skew" title="沿垂直轴错切外壳边缘，制造透视/立体感，模拟设备侧向倾斜展示的效果">三维错切 ({activeDevice.skewX || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-skew" title="沿垂直轴错切外壳边缘，制造透视/立体感，模拟设备侧向倾斜展示的效果">三维错切<HintIcon /> ({activeDevice.skewX || 0}°)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-skew"
@@ -820,7 +831,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-scale" title="整体放大或缩小设备外壳尺寸">缩放大小 ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-scale" title="整体放大或缩小设备外壳尺寸">缩放大小<HintIcon /> ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-scale"
@@ -849,7 +860,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-offset-x" title="沿水平方向移动整个设备外壳在画布中的位置">水平偏移 ({activeDevice.offsetX || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-x" title="沿水平方向移动整个设备外壳在画布中的位置">水平偏移<HintIcon /> ({activeDevice.offsetX || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-offset-x"
@@ -878,7 +889,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-offset-y" title="沿垂直方向移动整个设备外壳在画布中的位置">垂直偏移 ({activeDevice.offsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-y" title="沿垂直方向移动整个设备外壳在画布中的位置">垂直偏移<HintIcon /> ({activeDevice.offsetY || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-offset-y"
@@ -907,7 +918,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-ss-scale" title="仅缩放设备屏幕内的截图内容本身，不影响外壳大小">截图缩放 ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-ss-scale" title="仅缩放设备屏幕内的截图内容本身，不影响外壳大小">截图缩放<HintIcon /> ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-ss-scale"
@@ -936,7 +947,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-ss-offset-y" title="仅上下移动屏幕内的截图内容，用于对齐状态栏或裁掉截图顶部/底部的多余留白 (与上方“垂直偏移”移动整个外壳不同)">截图垂直偏移 ({activeDevice.screenshotOffsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-ss-offset-y" title="仅上下移动屏幕内的截图内容，用于对齐状态栏或裁掉截图顶部/底部的多余留白 (与上方“垂直偏移”移动整个外壳不同)">截图垂直偏移<HintIcon /> ({activeDevice.screenshotOffsetY || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-ss-offset-y"

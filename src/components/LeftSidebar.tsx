@@ -27,6 +27,7 @@ interface LeftSidebarProps {
   activeTool: string;
   screenshots: string[];
   onUploadScreenshot: (file: File) => void;
+  onUploadScreenshots?: (files: File[]) => void;
   onSelectScreenshot: (index: number) => void;
   selectedScreenshotIndex: number;
   customPresets: CustomPreset[];
@@ -45,6 +46,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   activeTool,
   screenshots,
   onUploadScreenshot,
+  onUploadScreenshots,
   onSelectScreenshot,
   selectedScreenshotIndex,
   customPresets,
@@ -60,9 +62,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const iconFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onUploadScreenshot(e.target.files[0]);
-    }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    if (onUploadScreenshots) onUploadScreenshots(files);
+    else onUploadScreenshot(files[0]);
   };
 
   const [confirmDeletePresetId, setConfirmDeletePresetId] = useState<string | null>(null);
@@ -106,6 +109,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               ref={fileInputRef}
               onChange={handleFileChange}
               accept="image/*"
+              multiple
               style={{ display: 'none' }}
             />
 
