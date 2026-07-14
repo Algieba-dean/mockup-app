@@ -31,7 +31,7 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
 
   return (
     <div className="asset-dock">
-      <div className="asset-dock-header">
+      <div className="sidebar-title asset-dock-header">
         <span>画幅序列</span>
         <button
           className="ds-btn"
@@ -75,8 +75,6 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
             }}
             title="拖拽以调整画幅顺序"
             style={{
-              display: 'flex',
-              alignItems: 'center',
               position: 'relative',
               cursor: onReorderPages ? 'grab' : 'pointer',
               opacity: draggedIndex === index ? 0.4 : 1,
@@ -85,13 +83,13 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
               transition: 'opacity 0.15s ease',
             }}
           >
-            {/* 卡片主体 */}
+            {/* 卡片主体：与截图素材网格保持一致的 9:16 竖屏比例，更贴近实际画布形态 */}
             <div
               className="asset-item-card"
               style={{
                 borderColor: activePageIndex === index ? 'var(--border-focus)' : 'var(--border-primary)',
-                width: '76px',
-                height: '76px',
+                width: '100%',
+                aspectRatio: '9 / 16',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: page.devices[0]?.screenshotSrc ? 'center' : 'flex-end',
@@ -190,7 +188,7 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
         <div
           className="asset-item-card asset-item-add"
           onClick={onAddPage}
-          style={{ width: '76px', height: '76px', cursor: 'pointer' }}
+          style={{ width: '100%', aspectRatio: '9 / 16', cursor: 'pointer' }}
           title="新增一页"
         >
           <Plus size={20} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />

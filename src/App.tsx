@@ -7,7 +7,6 @@ import { LeftSidebar } from './components/LeftSidebar';
 import type { CustomPreset } from './components/LeftSidebar';
 import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
-import { AssetDock } from './components/AssetDock';
 import { FocusTrap } from './components/FocusTrap';
 import { updateCanvas, computeDeviceTransformUpdate, computeTextTransformUpdate, computeDeviceRect } from './utils/canvasManager';
 import type { DeviceInstance, ObjectTransformSnapshot } from './utils/canvasManager';
@@ -824,7 +823,7 @@ function App() {
         const updates = computeDeviceTransformUpdate(snapshot, curDevices[idx], curLayout, canvasWidth, canvasHeight, lastTitleHeight, lastSubtitleHeight);
         curSetDevices(curDevices.map((d, i) => (i === idx ? { ...d, ...updates } : d)));
       } else if (data.role === 'title') {
-        const result = computeTextTransformUpdate(snapshot, 'title', curLayout, canvasHeight, curTitleFontSize, lastTitleHeight);
+        const result = computeTextTransformUpdate(snapshot, 'title', curLayout, canvasHeight, curTitleFontSize, lastTitleHeight, curDevices);
         curUpdateActivePage({
           titleOffsetX: result.offsetX,
           titleOffsetY: result.offsetY,
@@ -832,7 +831,7 @@ function App() {
           titleFontSize: result.fontSize,
         });
       } else if (data.role === 'subtitle') {
-        const result = computeTextTransformUpdate(snapshot, 'subtitle', curLayout, canvasHeight, curSubtitleFontSize, lastTitleHeight);
+        const result = computeTextTransformUpdate(snapshot, 'subtitle', curLayout, canvasHeight, curSubtitleFontSize, lastTitleHeight, curDevices);
         curUpdateActivePage({
           subtitleOffsetX: result.offsetX,
           subtitleOffsetY: result.offsetY,
@@ -1336,33 +1335,27 @@ function App() {
           hasIconImage={!!iconSourceDataUrl}
           iconSizePreviews={iconSizePreviews}
           onUploadIcon={handleUploadIcon}
+          pages={pages}
+          activePageIndex={activePageIndex}
+          setActivePageIndex={setActivePageIndex}
+          onAddPage={handleAddPage}
+          onDeletePage={handleDeletePage}
+          onDuplicatePage={handleDuplicatePage}
+          onReorderPages={handleReorderPages}
         />
 
         {/* 画布视口 */}
         <main className="viewport-container">
           {activeTool === 'screenshots' ? (
-            <>
-              <CanvasViewport
-                zoom={zoom}
-                setZoom={setZoom}
-                canvasRef={canvasRef}
-                onFileDrop={handleUploadScreenshot}
-                onFilesDrop={handleUploadScreenshots}
-                hasScreenshots={devices.some(d => d.screenshotSrc)}
-                deviceOverlayRect={deviceOverlayRect}
-              />
-
-              {/* 底部故事画幅 Dock */}
-              <AssetDock
-                pages={pages}
-                activePageIndex={activePageIndex}
-                setActivePageIndex={setActivePageIndex}
-                onAddPage={handleAddPage}
-                onDeletePage={handleDeletePage}
-                onDuplicatePage={handleDuplicatePage}
-                onReorderPages={handleReorderPages}
-              />
-            </>
+            <CanvasViewport
+              zoom={zoom}
+              setZoom={setZoom}
+              canvasRef={canvasRef}
+              onFileDrop={handleUploadScreenshot}
+              onFilesDrop={handleUploadScreenshots}
+              hasScreenshots={devices.some(d => d.screenshotSrc)}
+              deviceOverlayRect={deviceOverlayRect}
+            />
           ) : activeTool === 'icons' ? (
             <CanvasViewport
               activeTool="icons"

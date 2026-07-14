@@ -380,6 +380,32 @@ const DEVICE_DB: Record<string, DeviceMetric> = {
   },
 };
 
+// 'text-bottom' 布局下，设备外壳锚定的顶部基准线 (逻辑像素，未乘 R)。
+const TEXT_BOTTOM_DEVICE_ANCHOR = 220;
+
+/**
+ * 计算 'text-bottom' 布局下标题应起始的 Y 坐标。设备外壳锚定在画布顶部
+ * (TEXT_BOTTOM_DEVICE_ANCHOR) 向下展开，标题必须排在所有设备实际下边缘之后，
+ * 否则默认缩放 (如 1.28x) 下设备会比旧版硬编码的固定起始线 (1620) 更靠下，
+ * 导致标题被设备外壳遮挡——这正是该函数要修复的根本原因。
+ * updateCanvas 的主渲染与 computeTextTransformUpdate 的交互反解必须共用同一份计算，
+ * 否则拖拽标题结束后下一次重建会因基准不一致发生"跳位"。
+ */
+function computeTextBottomTitleTop(devices: DeviceInstance[] | undefined, canvasHeight: number): number {
+  const R = canvasHeight / 2208;
+  const anchorY = TEXT_BOTTOM_DEVICE_ANCHOR * R;
+  let deviceMaxBottom = anchorY;
+  if (devices && devices.length > 0) {
+    for (const devInst of devices) {
+      const dev = DEVICE_DB[devInst.deviceModel] || DEVICE_DB.iphone_16_pro;
+      const devHeight = dev.height * (devInst.scale || 1.0) * R;
+      const centerY = anchorY + devHeight / 2 + (devInst.offsetY || 0) * R;
+      deviceMaxBottom = Math.max(deviceMaxBottom, centerY + devHeight / 2);
+    }
+  }
+  return deviceMaxBottom + TEXT_TO_DEVICE_GAP * R;
+}
+
 export const updateCanvas = async (
   canvas: Canvas,
   state: CanvasState,
@@ -498,7 +524,7 @@ export const updateCanvas = async (
   // 4. 绘制标题与副标题 (根据布局模式动态调整)
   let titleTop = 180 * R;
   if (layoutMode === 'text-bottom') {
-    titleTop = 1620 * R;
+    titleTop = computeTextBottomTitleTop(state.devices, canvasHeight);
   }
 
   // 文案区实际占用的底部坐标 (标题+副标题自然排版高度)，用于 'text-top' 布局下动态
@@ -572,7 +598,7 @@ export const updateCanvas = async (
       
       let centerY = textBlockBottom + TEXT_TO_DEVICE_GAP * R + devHeight / 2 + devInst.offsetY * R;
       if (layoutMode === 'text-bottom') {
-        centerY = 220 * R + devHeight / 2 + devInst.offsetY * R;
+        centerY = TEXT_BOTTOM_DEVICE_ANCHOR * R + devHeight / 2 + devInst.offsetY * R;
       } else if (layoutMode === 'full-device') {
         centerY = canvasHeight / 2 + devInst.offsetY * R;
       }
@@ -736,6 +762,28 @@ export const updateCanvas = async (
             } catch (error) {
               console.error('Failed to load screenshot image in Fabric.js', error);
             }
+          } else {
+            // 空状态占位屏幕：手绘矢量外壳 (bezelInner) 默认用纯黑填充屏幕区域，
+            // 但真机 PNG 边框的屏幕挖空区域此前未填充任何颜色，会直接透出画布背景色，
+            // 与矢量外壳的默认黑屏不一致 (即"两种外壳默认颜色不一样"的根本原因)。
+            // 这里补上同样的纯黑占位矩形，位置/圆角与有截图时的裁剪区域完全对应。
+            const screenNativeW = dev.frameScreenWidth || frameNativeW;
+            const screenNativeH = screenNativeW * ((dev.screenHeight || frameNativeH) / (dev.screenWidth || frameNativeW));
+            const cornerRadiusPx = screenNativeW * (dev.screenCornerRadiusPct ?? 0.06);
+            const placeholderScreen = new Rect({
+              left: ((dev.frameOffsetX || 0) - frameNativeW / 2) * frameScale,
+              top: ((dev.frameOffsetY || 0) - frameNativeH / 2) * frameScale,
+              width: screenNativeW,
+              height: screenNativeH,
+              rx: cornerRadiusPx,
+              ry: cornerRadiusPx,
+              scaleX: frameScale,
+              scaleY: frameScale,
+              fill: '#000000',
+              originX: 'left',
+              originY: 'top',
+            });
+            groupParts.push(placeholderScreen);
           }
 
           frameImg.set({
@@ -988,7 +1036,7 @@ export function computeDeviceTransformUpdate(
   const titleTop = 180 * R;
   const textBlockBottom = titleTop + lastTitleHeight + 24 * R + lastSubtitleHeight;
   let baseY = textBlockBottom + TEXT_TO_DEVICE_GAP * R;
-  if (layoutMode === 'text-bottom') baseY = 220 * R;
+  if (layoutMode === 'text-bottom') baseY = TEXT_BOTTOM_DEVICE_ANCHOR * R;
 
   let newOffsetY: number;
   if (layoutMode === 'full-device') {
@@ -1029,7 +1077,7 @@ export function computeDeviceRect(
   const titleTop = 180 * R;
   const textBlockBottom = layoutMode === 'text-bottom' ? titleTop : titleTop + lastTitleHeight + 24 * R + lastSubtitleHeight;
   let baseY = textBlockBottom + TEXT_TO_DEVICE_GAP * R;
-  if (layoutMode === 'text-bottom') baseY = 220 * R;
+  if (layoutMode === 'text-bottom') baseY = TEXT_BOTTOM_DEVICE_ANCHOR * R;
 
   const centerX = canvasWidth / 2 + dev.offsetX * R;
   let centerY = baseY + devHeight / 2 + dev.offsetY * R;
@@ -1049,11 +1097,12 @@ export function computeTextTransformUpdate(
   layoutMode: 'text-top' | 'text-bottom' | 'full-device',
   canvasHeight: number,
   currentFontSize: number,
-  lastTitleHeight: number
+  lastTitleHeight: number,
+  devices?: DeviceInstance[]
 ): { offsetX: number; offsetY: number; angle: number; fontSize: number } {
   const R = canvasHeight / 2208;
   let titleTop = 180 * R;
-  if (layoutMode === 'text-bottom') titleTop = 1620 * R;
+  if (layoutMode === 'text-bottom') titleTop = computeTextBottomTitleTop(devices, canvasHeight);
 
   const avgScale = (target.scaleX + target.scaleY) / 2;
   const newFontSize = Math.max(8, Math.round(currentFontSize * avgScale));

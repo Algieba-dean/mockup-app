@@ -41,7 +41,6 @@
   /* Layout scale */
   --header-height: 56px;
   --sidebar-width: 320px;
-  --dock-height: 120px;
 }
 
 /* Light Theme overrides */
@@ -672,7 +671,7 @@ p, span, label, input, button, textarea, select {
 /* Center viewport layout */
 .viewport-container {
   display: grid;
-  grid-template-rows: 1fr var(--dock-height);
+  grid-template-rows: 1fr;
   height: 100%;
   position: relative;
 }
@@ -709,45 +708,26 @@ p, span, label, input, button, textarea, select {
   text-align: center;
 }
 
-/* Bottom Asset Dock */
+/* 画幅序列 (Left Sidebar section, 迁移自原底部 Dock) */
 .asset-dock {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--border-primary);
-  background-color: var(--bg-secondary);
-  height: 100%;
-  overflow: hidden;
 }
 
 .asset-dock-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px;
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.asset-dock-header span {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-secondary);
-  font-weight: 600;
 }
 
 .asset-dock-scroll {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  overflow-x: auto;
-  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 16px 20px;
 }
 
 .asset-item-card {
-  flex-shrink: 0;
-  width: 60px;
-  height: 60px;
   border: 1px solid var(--border-primary);
   background-color: var(--bg-primary);
   position: relative;
@@ -810,7 +790,6 @@ button:focus-visible {
 @media (max-width: 1024px) and (min-width: 769px) {
   :root {
     --sidebar-width: 260px;
-    --dock-height: 100px;
   }
 
   .app-header {
@@ -838,7 +817,6 @@ button:focus-visible {
 @media (max-width: 768px) {
   :root {
     --sidebar-width: 280px;
-    --dock-height: 100px;
     --header-height: 48px;
   }
 
@@ -929,11 +907,6 @@ button:focus-visible {
   .platform-tab-btn {
     min-height: 44px;
     min-width: 44px;
-  }
-
-  .asset-item-card {
-    width: 52px;
-    height: 52px;
   }
 }
 

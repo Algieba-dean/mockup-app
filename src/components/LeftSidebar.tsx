@@ -1,6 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { Plus, Image as ImageIcon, Trash2, Bookmark, RefreshCw } from 'lucide-react';
 import { FocusTrap } from './FocusTrap';
+import { AssetDock } from './AssetDock';
+
+interface MockupPage {
+  id: string;
+  title: string;
+  devices: { screenshotSrc?: string }[];
+}
 
 export interface CustomPreset {
   id: string;
@@ -40,6 +47,15 @@ interface LeftSidebarProps {
   hasIconImage?: boolean;
   iconSizePreviews?: Array<{ size: number; dataUrl: string }>;
   onUploadIcon?: (file: File) => void;
+
+  // 画幅序列 (原底部 Dock，现迁移至左侧栏首个板块，为画布腾出完整高度)
+  pages: MockupPage[];
+  activePageIndex: number;
+  setActivePageIndex: (index: number) => void;
+  onAddPage: () => void;
+  onDeletePage: (index: number) => void;
+  onDuplicatePage?: (index: number) => void;
+  onReorderPages?: (fromIndex: number, toIndex: number) => void;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
@@ -57,6 +73,13 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   hasIconImage = false,
   iconSizePreviews = [],
   onUploadIcon,
+  pages,
+  activePageIndex,
+  setActivePageIndex,
+  onAddPage,
+  onDeletePage,
+  onDuplicatePage,
+  onReorderPages,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const iconFileInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +116,17 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       {activeTool === 'screenshots' ? (
         <>
+          {/* 画幅序列：先选定要编辑的画幅，再决定素材与风格 */}
+          <AssetDock
+            pages={pages}
+            activePageIndex={activePageIndex}
+            setActivePageIndex={setActivePageIndex}
+            onAddPage={onAddPage}
+            onDeletePage={onDeletePage}
+            onDuplicatePage={onDuplicatePage}
+            onReorderPages={onReorderPages}
+          />
+
           {/* 素材上传 */}
           <div className="sidebar-title">截图素材</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

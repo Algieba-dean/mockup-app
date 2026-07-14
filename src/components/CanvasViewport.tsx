@@ -385,7 +385,24 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               {/* 空状态提示：直接叠加在设备屏幕矩形范围内 (画布设计坐标)，随该容器的
                   zoom 缩放同步缩放/跟随设备拖拽位置，而不是固定悬浮在视口中央——
                   避免小缩放比例下显得比设备本身还大、与画面比例脱节的"突兀"感。 */}
-              {!hasScreenshots && !isDragging && deviceOverlayRect && (
+              {!hasScreenshots && !isDragging && deviceOverlayRect && (() => {
+                // 该提示框位于随 zoom 整体缩放的容器内部，尺寸/字号若仅按 deviceOverlayRect
+                // (画布设计坐标，未缩放) 的比例计算，会在常见的自适应缩放比例 (如 25%-35%)
+                // 下缩成几像素高、完全无法阅读的文字 (根本原因)。这里换算出屏幕实际可视宽度，
+                // 再对图标/字号设定"实际 CSS 像素"下限 (用 /zoomFactor 换算回设计坐标)，
+                // 确保无论当前缩放多小，提示文字始终清晰可读；缩放较大时则保留原比例上限。
+                const zoomFactor = Math.max(zoom, 1) / 100;
+                const screenWidthCss = deviceOverlayRect.width * zoomFactor;
+                const toDesignPx = (cssPx: number) => cssPx / zoomFactor;
+
+                const iconSizeCss = Math.min(48, Math.max(22, screenWidthCss * 0.09));
+                const titleFontCss = Math.min(22, Math.max(14, screenWidthCss * 0.052));
+                const subtitleFontCss = Math.min(15, Math.max(12, screenWidthCss * 0.034));
+                const btnFontCss = Math.min(15, Math.max(12, screenWidthCss * 0.034));
+                const gapCss = Math.max(6, screenWidthCss * 0.015);
+                const btnPaddingCss = Math.max(6, screenWidthCss * 0.022);
+
+                return (
                 <div style={{
                   position: 'absolute',
                   left: `${deviceOverlayRect.left}px`,
@@ -405,12 +422,12 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                   boxSizing: 'border-box',
                   padding: '5%',
                 }}>
-                  <Upload size={Math.max(24, deviceOverlayRect.width * 0.09)} strokeWidth={1.2} style={{ color: 'rgba(255,255,255,0.85)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: `${deviceOverlayRect.width * 0.015}px` }}>
-                    <span style={{ fontSize: `${deviceOverlayRect.width * 0.052}px`, fontWeight: 600, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3 }}>
+                  <Upload size={toDesignPx(iconSizeCss)} strokeWidth={1.2} style={{ color: 'rgba(255,255,255,0.85)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: `${toDesignPx(gapCss)}px` }}>
+                    <span style={{ fontSize: `${toDesignPx(titleFontCss)}px`, fontWeight: 600, color: 'rgba(255,255,255,0.92)', lineHeight: 1.3 }}>
                       导入应用截图
                     </span>
-                    <span style={{ fontSize: `${deviceOverlayRect.width * 0.034}px`, color: 'rgba(255,255,255,0.62)', lineHeight: 1.4 }}>
+                    <span style={{ fontSize: `${toDesignPx(subtitleFontCss)}px`, color: 'rgba(255,255,255,0.62)', lineHeight: 1.4 }}>
                       拖拽图片到画布，或点击下方按钮
                     </span>
                   </div>
@@ -430,9 +447,9 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                   <button
                     className="ds-btn"
                     style={{
-                      fontSize: `${deviceOverlayRect.width * 0.034}px`,
+                      fontSize: `${toDesignPx(btnFontCss)}px`,
                       width: '70%',
-                      padding: `${deviceOverlayRect.width * 0.022}px 0`,
+                      padding: `${toDesignPx(btnPaddingCss)}px 0`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -443,7 +460,8 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                     <span>选择图片文件</span>
                   </button>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
