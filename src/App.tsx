@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas } from 'fabric';
 import JSZip from 'jszip';
-import { Layers, Info } from 'lucide-react';
+import { Layers, Info, Search } from 'lucide-react';
 import { AppHeader } from './components/AppHeader';
 import { LeftSidebar } from './components/LeftSidebar';
 import type { CustomPreset } from './components/LeftSidebar';
@@ -122,6 +122,37 @@ function loadSavedState<T>(key: string, fallback: T): T {
     return fallback;
   }
 }
+
+// 帮助面板的内容源：按模块分类、可搜索。四个顶部导航模块 (商店截图/图标生成/
+// 文案助手/隐私与条款) 都要有对应条目，而不是只覆盖当前默认打开的模块。
+interface HelpEntry {
+  category: string;
+  keys?: string;
+  desc: string;
+}
+
+const HELP_ENTRIES: HelpEntry[] = [
+  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + Z', desc: '撤销上一步操作' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + Shift + Z', desc: '重做' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + D', desc: '复制当前画幅' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + 滚轮 / 双指手势', desc: '缩放画布' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + ＋ / －', desc: '缩放画布' },
+  { category: '商店截图 · 使用提示', desc: '拖拽底部的画幅缩略图可调整先后顺序' },
+  { category: '商店截图 · 使用提示', desc: '一次选择或拖入多张截图，除第一张外都会自动新建一个画幅' },
+  { category: '商店截图 · 使用提示', desc: '标签旁带说明图标的选项，鼠标悬停即可查看具体解释' },
+  { category: '商店截图 · 使用提示', desc: '主标题、副标题字数超出建议长度时会出现提醒，避免文案在画布中被截断或溢出' },
+  { category: '商店截图 · 使用提示', desc: '"画布背景"与"设备布局与变换"区块标题旁的"恢复默认"可一键复原对应设置' },
+  { category: '商店截图 · 使用提示', desc: '所有编辑都会实时自动保存在当前浏览器本地，无需手动保存，关闭标签页也不会丢失' },
+  { category: '商店截图 · 使用提示', desc: '删除画幅或设备是可撤销操作，误删后点击提示中的"撤销"或按 Ctrl+Z 即可恢复' },
+  { category: '图标生成 · 使用提示', desc: '上传正方形、分辨率越高越好的原始图标图，可分别设置内边距、背景色、圆角与投影' },
+  { category: '图标生成 · 使用提示', desc: '"智能配色"会从当前内屏截图中提取主色，一键生成契合的渐变背景' },
+  { category: '图标生成 · 使用提示', desc: '每次修改都可在"历史记录"抽屉里保存为具名方案，方便对比与回滚' },
+  { category: '图标生成 · 使用提示', desc: '导出前可选择只导出 iOS、只导出 Android 或两者都导出，一次性打包为 ZIP' },
+  { category: '文案助手 · 说明', desc: '该模块仍在开发中，敬请期待' },
+  { category: '隐私与条款 · 使用提示', desc: '先在清单中勾选需要生成的文档（隐私政策/使用条款/EULA/ATT 话术/隐私标签/账号注销页等），所有文档共享同一份问卷，只需填写一次' },
+  { category: '隐私与条款 · 使用提示', desc: '填写完成后可分别下载单个文档的 HTML / Markdown，或一次性打包为 ZIP' },
+  { category: '隐私与条款 · 使用提示', desc: '高风险 App 类型（如金融、医疗、儿童向）会自动在 EULA 中插入 Apple 要求的强制性条款' },
+];
 
 function App() {
   // App Routing & Theme State
@@ -258,6 +289,7 @@ function App() {
   );
   const [showIconHistoryDrawer, setShowIconHistoryDrawer] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const [helpSearchQuery, setHelpSearchQuery] = useState('');
   // 保存方案命名对话框 (替代原生 prompt()，与 LeftSidebar 预设命名弹窗保持一致的交互模式)
   const [showIconHistoryNameInput, setShowIconHistoryNameInput] = useState<boolean>(false);
   const [iconHistoryNameValue, setIconHistoryNameValue] = useState('');
@@ -1277,7 +1309,7 @@ function App() {
         canRedo={canRedo}
         onToggleHistory={() => setShowIconHistoryDrawer(!showIconHistoryDrawer)}
         lastSavedAt={lastSavedAt}
-        onShowHelp={() => setShowHelpModal(true)}
+        onShowHelp={() => { setHelpSearchQuery(''); setShowHelpModal(true); }}
       />
 
       {/* 主工作区 */}
@@ -1524,64 +1556,88 @@ function App() {
         >
           <FocusTrap onEscape={() => setShowHelpModal(false)}>
             <div className="ds-panel" style={{
-              width: '400px',
+              width: '440px',
               maxHeight: '80vh',
-              overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: '18px',
+              gap: '14px',
               boxShadow: 'var(--shadow-lg)',
             }} onClick={(e) => e.stopPropagation()}>
               <span id="help-modal-title" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink-primary)' }}>
                 帮助与快捷键
               </span>
 
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                  键盘快捷键
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {[
-                    ['Ctrl / Cmd + Z', '撤销上一步操作'],
-                    ['Ctrl / Cmd + Shift + Z', '重做'],
-                    ['Ctrl / Cmd + D', '复制当前画幅'],
-                    ['Ctrl / Cmd + 滚轮 或 触控板双指手势', '缩放画布'],
-                    ['Ctrl / Cmd + ＋ / －', '缩放画布'],
-                  ].map(([keys, desc]) => (
-                    <div key={keys} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
-                      <span style={{ color: 'var(--ink-secondary)' }}>{desc}</span>
-                      <kbd style={{
-                        fontSize: '11px',
-                        fontFamily: 'inherit',
-                        padding: '3px 8px',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border-primary)',
-                        borderRadius: '4px',
-                        color: 'var(--ink-primary)',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}>
-                        {keys}
-                      </kbd>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <Search size={13} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-tertiary)' }} />
+                <input
+                  type="text"
+                  className="ds-input"
+                  style={{ paddingLeft: '30px', width: '100%' }}
+                  placeholder="搜索快捷键或使用提示…（覆盖全部四个模块）"
+                  value={helpSearchQuery}
+                  onChange={(e) => setHelpSearchQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {(() => {
+                  const q = helpSearchQuery.trim().toLowerCase();
+                  const filtered = q
+                    ? HELP_ENTRIES.filter((e) =>
+                        e.desc.toLowerCase().includes(q) ||
+                        e.category.toLowerCase().includes(q) ||
+                        (e.keys && e.keys.toLowerCase().includes(q))
+                      )
+                    : HELP_ENTRIES;
+
+                  if (filtered.length === 0) {
+                    return (
+                      <p style={{ fontSize: '13px', color: 'var(--ink-tertiary)', textAlign: 'center', padding: '20px 0' }}>
+                        未找到匹配"{helpSearchQuery}"的内容
+                      </p>
+                    );
+                  }
+
+                  const categories = Array.from(new Set(filtered.map((e) => e.category)));
+                  return categories.map((category) => (
+                    <div key={category}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                        {category}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {filtered.filter((e) => e.category === category).map((entry, i) => (
+                          entry.keys ? (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
+                              <span style={{ color: 'var(--ink-secondary)' }}>{entry.desc}</span>
+                              <kbd style={{
+                                fontSize: '11px',
+                                fontFamily: 'inherit',
+                                padding: '3px 8px',
+                                backgroundColor: 'var(--bg-tertiary)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: '4px',
+                                color: 'var(--ink-primary)',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                              }}>
+                                {entry.keys}
+                              </kbd>
+                            </div>
+                          ) : (
+                            <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '13px', color: 'var(--ink-secondary)', lineHeight: 1.5 }}>
+                              <Info size={13} strokeWidth={2} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--ink-tertiary)' }} />
+                              <span>{entry.desc}</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  ));
+                })()}
               </div>
 
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                  使用提示
-                </div>
-                <ul style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: 'var(--ink-secondary)', lineHeight: 1.5, paddingLeft: '18px', margin: 0 }}>
-                  <li>拖拽底部的画幅缩略图可调整先后顺序</li>
-                  <li>一次选择或拖入多张截图，除第一张外都会自动新建一个画幅</li>
-                  <li>标签旁带 <Info size={11} strokeWidth={2} style={{ display: 'inline', verticalAlign: '-1px' }} /> 图标的选项，鼠标悬停即可查看具体说明</li>
-                  <li>所有编辑都会实时自动保存在当前浏览器本地，无需手动保存；关闭标签页也不会丢失</li>
-                  <li>删除画幅或设备是可撤销操作，误删后点击提示中的"撤销"或按 Ctrl+Z 即可恢复</li>
-                </ul>
-              </div>
-
-              <button className="ds-btn ds-btn-active" style={{ width: '100%' }} onClick={() => setShowHelpModal(false)}>
+              <button className="ds-btn ds-btn-active" style={{ width: '100%', flexShrink: 0 }} onClick={() => setShowHelpModal(false)}>
                 知道了
               </button>
             </div>

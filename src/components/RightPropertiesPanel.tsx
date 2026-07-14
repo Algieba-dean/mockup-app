@@ -5,6 +5,20 @@ import grainBg from '../assets/minimal_grain_bg.jpg';
 import type { DeviceInstance } from '../utils/canvasManager';
 import { extractPaletteFromImage } from '../utils/canvasManager';
 
+// 画布基准分辨率为 1242x2208 (见 canvasManager.ts 中 updateCanvas 的 canvasWidth/canvasHeight)，
+// 标题/副标题文本框宽度分别为 canvasWidth - 160 与 canvasWidth - 240。
+// 用当前字号反推"建议最大字数"，字数超出时给出非阻塞式预警，避免文案在画布中换行过多甚至溢出。
+const TITLE_BOX_WIDTH = 1082;
+const TITLE_MAX_LINES = 3;
+const SUBTITLE_BOX_WIDTH = 1002;
+const SUBTITLE_MAX_LINES = 4;
+
+const estimateRecommendedMaxChars = (fontSize: number, boxWidth: number, maxLines: number): number => {
+  const avgCharWidth = fontSize * 0.6; // 中英文混排场景下的经验平均字符宽度系数
+  const charsPerLine = Math.max(1, Math.floor(boxWidth / avgCharWidth));
+  return charsPerLine * maxLines;
+};
+
 let accordionIdCounter = 0;
 
 const SectionAccordion: React.FC<{
@@ -363,6 +377,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
       showToast?.('色彩提取失败，请重试');
     }
   };
+
+  const titleOverLimit = titleText.length > estimateRecommendedMaxChars(titleFontSize, TITLE_BOX_WIDTH, TITLE_MAX_LINES);
+  const subtitleOverLimit = subtitleText.length > estimateRecommendedMaxChars(subtitleFontSize, SUBTITLE_BOX_WIDTH, SUBTITLE_MAX_LINES);
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -1110,7 +1127,13 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 value={titleText}
                 onChange={(e) => setTitleText(e.target.value)}
                 placeholder="请输入主标题"
+                aria-describedby={titleOverLimit ? 'title-text-hint' : undefined}
               />
+              {titleOverLimit && (
+                <p id="title-text-hint" role="status" style={{ fontSize: '11px', color: '#d97706', marginTop: '4px', lineHeight: 1.4 }}>
+                  文案较长（{titleText.length} 字），当前字号下可能自动换行过多甚至超出画布，建议精简文案或调低字号
+                </p>
+              )}
             </div>
 
             <div className="ds-input-group">
@@ -1119,7 +1142,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 id="title-size"
                 type="range"
                 min="24"
-                max="160"
+                max="320"
                 value={titleFontSize}
                 onChange={(e) => setTitleFontSize(parseInt(e.target.value))}
                 style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
@@ -1135,7 +1158,13 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 value={subtitleText}
                 onChange={(e) => setSubtitleText(e.target.value)}
                 placeholder="请输入副标题"
+                aria-describedby={subtitleOverLimit ? 'subtitle-text-hint' : undefined}
               />
+              {subtitleOverLimit && (
+                <p id="subtitle-text-hint" role="status" style={{ fontSize: '11px', color: '#d97706', marginTop: '4px', lineHeight: 1.4 }}>
+                  文案较长（{subtitleText.length} 字），当前字号下可能自动换行过多甚至超出画布，建议精简文案或调低字号
+                </p>
+              )}
             </div>
 
             <div className="ds-input-group">
@@ -1144,7 +1173,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 id="subtitle-size"
                 type="range"
                 min="14"
-                max="72"
+                max="144"
                 value={subtitleFontSize}
                 onChange={(e) => setSubtitleFontSize(parseInt(e.target.value))}
                 style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
