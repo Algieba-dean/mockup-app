@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { X, Trash2, Edit2, Check, RefreshCw } from 'lucide-react';
 import { FocusTrap } from './FocusTrap';
+import { getMessages, formatMessage } from '../i18n';
+
+const m = getMessages().iconHistory;
+const appMsg = getMessages().app;
 
 export interface IconHistoryEntry {
   id: string;
@@ -181,14 +185,14 @@ export const IconHistoryDrawer: React.FC<IconHistoryDrawerProps> = ({
                 color: 'var(--ink-primary)',
               }}
             >
-              历史方案
+              {m.title}
             </h2>
             <button
               className="ds-btn ds-btn-icon-only"
               style={{ border: 'none', background: 'none' }}
               onClick={onClose}
-              title="关闭抽屉"
-              aria-label="关闭抽屉"
+              title={m.closeDrawer}
+              aria-label={m.closeDrawer}
             >
               <X size={16} />
             </button>
@@ -212,10 +216,10 @@ export const IconHistoryDrawer: React.FC<IconHistoryDrawerProps> = ({
               >
                 <RefreshCw size={24} strokeWidth={1} style={{ opacity: 0.5 }} />
                 <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--ink-primary)' }}>
-                  暂无历史记录
+                  {m.emptyTitle}
                 </span>
                 <p style={{ fontSize: '12px', lineHeight: 1.5, margin: 0, maxWidth: '240px' }}>
-                  调整参数后点击“保存到历史”按钮即可创建第一份方案副本，方便后续对比与恢复。
+                  {m.emptyDesc}
                 </p>
               </div>
             ) : (
@@ -251,7 +255,7 @@ export const IconHistoryDrawer: React.FC<IconHistoryDrawerProps> = ({
                             letterSpacing: '0.05em',
                           }}
                         >
-                          当前
+                          {m.currentBadge}
                         </span>
                       )}
 
@@ -415,11 +419,7 @@ export const IconHistoryDrawer: React.FC<IconHistoryDrawerProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <span style={{ fontSize: '13px', color: 'var(--ink-primary)', lineHeight: 1.5 }}>
-                确认永久删除此历史方案「
-                <strong>
-                  {history.find((h) => h.id === confirmDeleteId)?.name}
-                </strong>
-                」吗？
+                {formatMessage(m.confirmDeleteScheme, { name: history.find((h) => h.id === confirmDeleteId)?.name || '' })}
               </span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -427,7 +427,7 @@ export const IconHistoryDrawer: React.FC<IconHistoryDrawerProps> = ({
                   style={{ flex: 1, fontSize: '12px', height: '32px' }}
                   onClick={() => setConfirmDeleteId(null)}
                 >
-                  取消
+                  {appMsg.modals.cancel}
                 </button>
                 <button
                   className="ds-btn ds-btn-active"
@@ -437,7 +437,7 @@ export const IconHistoryDrawer: React.FC<IconHistoryDrawerProps> = ({
                     setConfirmDeleteId(null);
                   }}
                 >
-                  确认删除
+                  {appMsg.modals.confirmDelete}
                 </button>
               </div>
             </div>

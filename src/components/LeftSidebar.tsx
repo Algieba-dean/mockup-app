@@ -2,10 +2,17 @@ import React, { useRef, useState } from 'react';
 import { Plus, Image as ImageIcon, Trash2, Bookmark, RefreshCw } from 'lucide-react';
 import { FocusTrap } from './FocusTrap';
 import { AssetDock } from './AssetDock';
+import { getMessages, formatMessage } from '../i18n';
+
+const m = getMessages().leftSidebar;
+const appMsg = getMessages().app;
 
 interface MockupPage {
   id: string;
   title: string;
+  bgType?: 'solid' | 'gradient' | 'image' | 'panoramic';
+  bgColor?: string;
+  bgGradient?: string[];
   devices: { screenshotSrc?: string }[];
 }
 
@@ -27,6 +34,8 @@ export interface CustomPreset {
     subtitleFontSize: number;
     titleFontFamily: string;
     subtitleFontFamily: string;
+    textAlign?: 'left' | 'center' | 'right';
+    customTextColor?: string;
     textOnTop?: boolean;
     layout?: 'text-top' | 'text-bottom' | 'full-device';
     showGlassReflection?: boolean;
@@ -114,7 +123,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   };
 
   const triggerSavePreset = () => {
-    setPresetNameValue(`自定义风格预设 ${customPresets.length + 1}`);
+    setPresetNameValue(formatMessage(appMsg.defaults.presetDefaultName, { n: customPresets.length + 1 }));
     setShowPresetNameInput(true);
   };
 
@@ -142,7 +151,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           />
 
           {/* 素材上传 */}
-          <div className="sidebar-title">截图素材</div>
+          <div className="sidebar-title">{m.screenshotAssets}</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button
               className="ds-btn"
@@ -150,7 +159,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               style={{ width: '100%', borderStyle: 'dashed', height: '40px' }}
             >
               <Plus size={16} />
-              <span>导入应用截图</span>
+              <span>{m.importScreenshots}</span>
             </button>
             <input
               type="file"
@@ -170,7 +179,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 fontSize: '12px',
               }}>
                 <ImageIcon size={24} style={{ margin: '0 auto 8px', strokeWidth: 1 }} />
-                暂未导入截图素材
+                {m.noScreenshots}
               </div>
             ) : (
               <div style={{
@@ -183,7 +192,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   <div
                     key={index}
                     onClick={() => onSelectScreenshot(index)}
-                    title="点击绑定到当前选中设备"
+                    title={m.clickToBindDevice}
                     style={{
                       aspectRatio: '9/16',
                       border: '1px solid',
@@ -194,7 +203,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                       backgroundColor: 'var(--bg-tertiary)',
                     }}
                   >
-                    <img src={src} alt={`Screenshot ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={src} alt={`${m.screenshotAssets} ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     {onDeleteScreenshot && (
                       <button
                         type="button"
@@ -202,8 +211,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                           e.stopPropagation();
                           onDeleteScreenshot(index);
                         }}
-                        title="移除此截图素材"
-                        aria-label={`移除截图素材 ${index + 1}`}
+                        title={m.removeScreenshotTitle}
+                        aria-label={`${m.removeScreenshotTitle} ${index + 1}`}
                         style={{
                           position: 'absolute',
                           top: '2px',
@@ -231,7 +240,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           </div>
 
           {/* 自定义风格预设 */}
-          <div className="sidebar-title">自定义设计预设</div>
+          <div className="sidebar-title">{m.customPresets}</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button
               className="ds-btn"
@@ -239,7 +248,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               style={{ width: '100%', height: '40px', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-primary)' }}
             >
               <Bookmark size={14} style={{ marginRight: '6px' }} />
-              <span>保存当前风格为预设</span>
+              <span>{m.saveCurrentAsPreset}</span>
             </button>
 
             {customPresets.length === 0 ? (
@@ -250,7 +259,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 color: 'var(--ink-secondary)',
                 fontSize: '12px',
               }}>
-                暂无自定义设计预设
+                {m.noCustomPresets}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -294,7 +303,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                         e.stopPropagation();
                         setConfirmDeletePresetId(preset.id);
                       }}
-                      title="删除预设"
+                      title={m.deletePresetTitle}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -304,10 +313,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             )}
           </div>
         </>
-      ) : activeTool === 'icons' ? (
+      ) : (
         <>
           {/* 图标原图上传 */}
-          <div className="sidebar-title">图标原图</div>
+          <div className="sidebar-title">{m.iconSource}</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <input
               type="file"
@@ -322,7 +331,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               style={{ width: '100%', borderStyle: hasIconImage ? 'solid' : 'dashed', height: '40px' }}
             >
               {hasIconImage ? <RefreshCw size={14} /> : <Plus size={16} />}
-              <span>{hasIconImage ? '替换图标原图' : '导入图标原图'}</span>
+              <span>{hasIconImage ? m.replaceIconSource : m.importIconSource}</span>
             </button>
 
             {!hasIconImage && (
@@ -334,16 +343,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 fontSize: '12px',
               }}>
                 <ImageIcon size={24} style={{ margin: '0 auto 8px', strokeWidth: 1 }} />
-                暂未导入图标原图
+                {m.noIconSource}
               </div>
             )}
           </div>
 
-          {/* 尺寸预览网格：每个尺寸均按其平台的实际内边距/偏移/缩放独立渲染，
-              方框大小也按真实像素尺寸成比例缩放，以直观呈现尺寸差异 */}
           {hasIconImage && iconSizePreviews.length > 0 && (
             <>
-              <div className="sidebar-title">导出尺寸预览</div>
+              <div className="sidebar-title">{m.exportSizePreview}</div>
               <div className="sidebar-content">
                 <div style={{
                   display: 'grid',
@@ -388,10 +395,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             </>
           )}
         </>
-      ) : (
-        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-secondary)', fontSize: '13px' }}>
-          功能开发中...
-        </div>
       )}
       {/* Custom preset delete confirmation */}
       {confirmDeletePresetId !== null && (
@@ -418,11 +421,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             boxShadow: 'var(--shadow-lg)',
           }} onClick={(e) => e.stopPropagation()}>
             <span style={{ fontSize: '14px', color: 'var(--ink-primary)' }}>
-              确认删除预设「{customPresets.find(p => p.id === confirmDeletePresetId)?.name}」吗？
+              {formatMessage(m.confirmDeletePreset, { name: customPresets.find(p => p.id === confirmDeletePresetId)?.name || '' })}
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="ds-btn" style={{ flex: 1 }} onClick={() => setConfirmDeletePresetId(null)}>取消</button>
-              <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={() => { onDeletePreset(confirmDeletePresetId); setConfirmDeletePresetId(null); }}>确定删除</button>
+              <button className="ds-btn" style={{ flex: 1 }} onClick={() => setConfirmDeletePresetId(null)}>{appMsg.modals.cancel}</button>
+              <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={() => { onDeletePreset(confirmDeletePresetId); setConfirmDeletePresetId(null); }}>{appMsg.modals.confirmDelete}</button>
             </div>
           </div>
           </FocusTrap>
@@ -452,7 +455,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             gap: '14px',
             boxShadow: 'var(--shadow-lg)',
           }} onClick={(e) => e.stopPropagation()}>
-            <label className="ds-label" htmlFor="preset-name-input">预设名称</label>
+            <label className="ds-label" htmlFor="preset-name-input">{m.presetNameLabel}</label>
             <input
               id="preset-name-input"
               type="text"
@@ -460,11 +463,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               value={presetNameValue}
               onChange={(e) => setPresetNameValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') confirmSavePreset(); }}
-              placeholder="请输入预设名称"
+              placeholder={m.presetNamePlaceholder}
             />
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="ds-btn" style={{ flex: 1 }} onClick={() => { setShowPresetNameInput(false); setPresetNameValue(''); }}>取消</button>
-              <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={confirmSavePreset}>保存预设</button>
+              <button className="ds-btn" style={{ flex: 1 }} onClick={() => { setShowPresetNameInput(false); setPresetNameValue(''); }}>{appMsg.modals.cancel}</button>
+              <button className="ds-btn ds-btn-active" style={{ flex: 1 }} onClick={confirmSavePreset}>{m.savePreset}</button>
             </div>
           </div>
           </FocusTrap>

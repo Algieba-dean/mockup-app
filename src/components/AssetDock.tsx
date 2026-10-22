@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Copy } from 'lucide-react';
+import { getMessages, formatMessage } from '../i18n';
+
+const m = getMessages().leftSidebar;
 
 interface MockupPage {
   id: string;
   title: string;
+  bgType?: 'solid' | 'gradient' | 'image' | 'panoramic';
+  bgColor?: string;
+  bgGradient?: string[];
   devices: { screenshotSrc?: string }[];
 }
 
@@ -32,19 +38,23 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
   return (
     <div className="asset-dock">
       <div className="sidebar-title asset-dock-header">
-        <span>画幅序列</span>
+        <span>{m.pageSequence}</span>
         <button
           className="ds-btn"
           style={{ padding: '4px 10px', fontSize: '11px' }}
           onClick={onAddPage}
         >
           <Plus size={12} />
-          <span>添加画幅</span>
+          <span>{m.addPage}</span>
         </button>
       </div>
 
       <div className="asset-dock-scroll">
-        {pages.map((page, index) => (
+        {pages.map((page, index) => {
+          const cardBg = page.bgType === 'gradient' && page.bgGradient && page.bgGradient.length >= 2
+            ? `linear-gradient(180deg, ${page.bgGradient[0]}, ${page.bgGradient[1]})`
+            : (page.bgColor || 'var(--bg-tertiary)');
+          return (
           <div
             key={page.id}
             onClick={() => setActivePageIndex(index)}
@@ -73,7 +83,7 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
               setDraggedIndex(null);
               setDragOverIndex(null);
             }}
-            title="拖拽以调整画幅顺序"
+            title={m.dragToReorder}
             style={{
               position: 'relative',
               cursor: onReorderPages ? 'grab' : 'pointer',
@@ -83,28 +93,70 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
               transition: 'opacity 0.15s ease',
             }}
           >
-            {/* 卡片主体：与截图素材网格保持一致的 9:16 竖屏比例，更贴近实际画布形态 */}
+            {/* 卡片主体：呈现该画幅的真实背景色/渐变、标题预览与微缩设备框 */}
             <div
               className="asset-item-card"
               style={{
                 borderColor: activePageIndex === index ? 'var(--border-focus)' : 'var(--border-primary)',
+                borderWidth: activePageIndex === index ? '2px' : '1px',
                 width: '100%',
                 aspectRatio: '9 / 16',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: page.devices[0]?.screenshotSrc ? 'center' : 'flex-end',
+                justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '4px',
+                padding: '6px 4px 0 4px',
                 fontSize: '9px',
-                backgroundColor: 'var(--bg-tertiary)',
+                background: cardBg,
                 color: 'var(--ink-secondary)',
               }}
             >
+              <div style={{
+                width: '100%',
+                fontSize: '8px',
+                fontWeight: 600,
+                textAlign: 'center',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: '#121212',
+                backgroundColor: 'rgba(255,255,255,0.72)',
+                padding: '1px 3px',
+                borderRadius: '2px',
+                flexShrink: 0,
+              }}>
+                {page.title || m.emptyPage}
+              </div>
               {page.devices[0]?.screenshotSrc ? (
-                <img src={page.devices[0].screenshotSrc} alt={`Page ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{
+                  width: '78%',
+                  height: '72%',
+                  border: '2px solid #18181b',
+                  borderBottom: 'none',
+                  borderTopLeftRadius: '6px',
+                  borderTopRightRadius: '6px',
+                  overflow: 'hidden',
+                  backgroundColor: '#000',
+                }}>
+                  <img src={page.devices[0].screenshotSrc} alt={formatMessage(m.pageBadge, { n: index + 1 })} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
               ) : (
-                <div style={{ textAlign: 'center', margin: 'auto 0' }}>
-                  空白画幅
+                <div style={{
+                  width: '74%',
+                  height: '68%',
+                  border: '1px dashed rgba(120,120,120,0.45)',
+                  borderBottom: 'none',
+                  borderTopLeftRadius: '6px',
+                  borderTopRightRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  fontSize: '8px',
+                  color: 'var(--ink-secondary)',
+                  backgroundColor: 'rgba(0,0,0,0.08)',
+                }}>
+                  {m.emptyPage}
                 </div>
               )}
               <div style={{
@@ -117,7 +169,7 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
                 borderRadius: '2px',
                 fontSize: '8px'
               }}>
-                P{index + 1}
+                {formatMessage(m.pageBadge, { n: index + 1 })}
               </div>
             </div>
 
@@ -145,14 +197,13 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
                   cursor: 'pointer',
                   zIndex: 2,
                 }}
-                title="复制此页 (Ctrl+D)"
+                title={m.duplicatePageTitle}
               >
                 <Copy size={10} />
               </button>
             )}
 
-            {/* 删除按钮：删除画幅可通过全局 Ctrl+Z 或 toast 上的“撤销”恢复，
-                因此不再用二次确认弹窗拦截。 */}
+            {/* 删除按钮 */}
             {pages.length > 1 && (
               <button
                 onClick={(e) => {
@@ -176,20 +227,21 @@ export const AssetDock: React.FC<AssetDockProps> = React.memo(({
                   cursor: 'pointer',
                   zIndex: 2,
                 }}
-                title="删除此页"
+                title={m.deletePageTitle}
               >
                 <Trash2 size={10} />
               </button>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {/* 快速添加占位卡 */}
         <div
           className="asset-item-card asset-item-add"
           onClick={onAddPage}
           style={{ width: '100%', aspectRatio: '9 / 16', cursor: 'pointer' }}
-          title="新增一页"
+          title={m.addNewPageTitle}
         >
           <Plus size={20} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />
         </div>

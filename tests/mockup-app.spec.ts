@@ -15,10 +15,10 @@ test.describe('MockupApp E2E Tests', () => {
 
   test('should load page with correct title and elements', async ({ page }) => {
     // 1. Verify page title
-    await expect(page).toHaveTitle('MockupApp');
+    await expect(page).toHaveTitle('极简造物');
 
     // 2. Verify header buttons
-    const exportBtn = page.locator('button:has-text("导出 ZIP")');
+    const exportBtn = page.locator('button:has-text("导出压缩包")');
     await expect(exportBtn).toBeVisible();
 
     // 3. Verify sidebar section titles
@@ -83,7 +83,7 @@ test.describe('MockupApp E2E Tests', () => {
 
   test('should trigger multi-size export modal and generate ZIP download', async ({ page }) => {
     // 1. Trigger export config modal
-    const exportBtn = page.locator('button:has-text("导出 ZIP")');
+    const exportBtn = page.locator('button:has-text("导出压缩包")');
     await exportBtn.click();
 
     const modalTitle = page.locator('h3:has-text("一键多尺寸商店图打包")');
@@ -174,7 +174,7 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(page.locator('text=建议原图 ≥1024×1024 正方形')).toBeVisible();
 
     // 4. Platform toggle switches the safe-zone/mask preview
-    const androidTab = page.locator('button[role="tab"]:has-text("Android")');
+    const androidTab = page.locator('button[role="tab"]:has-text("安卓平台")');
     await androidTab.click();
     await expect(androidTab).toHaveAttribute('aria-selected', 'true');
 
@@ -183,7 +183,7 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(paddingSlider).toBeVisible();
 
     // 6. Trigger export and verify ZIP download
-    await page.locator('button:has-text("导出 ZIP")').click();
+    await page.locator('button:has-text("导出压缩包")').click();
     const modalTitle = page.locator('h3:has-text("导出应用图标包")');
     await expect(modalTitle).toBeVisible();
 
@@ -217,7 +217,7 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(paddingYSlider).toHaveValue('30');
 
     // 3. Export both platforms and verify the ZIP's iOS Contents.json mapping
-    await page.locator('button:has-text("导出 ZIP")').click();
+    await page.locator('button:has-text("导出压缩包")').click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.locator('button:has-text("生成并下载")').click(),
@@ -262,10 +262,10 @@ test.describe('MockupApp E2E Tests', () => {
     await page.locator('button:has-text("图标生成")').click();
     const fileInput = page.locator('aside.sidebar input[type="file"]').first();
     await fileInput.setInputFiles('example/09_multi_languages.png');
-    await page.locator('button[role="tab"]:has-text("Android")').click();
+    await page.locator('button[role="tab"]:has-text("安卓平台")').click();
 
     // 2. The mask shape selector should offer 4 real OEM-referenced shapes
-    const shapeTabs = page.locator('div[role="tablist"][aria-label="Android 厂商遮罩形状预览"] button[role="tab"]');
+    const shapeTabs = page.locator('div[role="tablist"][aria-label="安卓厂商遮罩形状预览"] button[role="tab"]');
     await expect(shapeTabs).toHaveCount(4);
 
     // 3. Default shape is the official safe-zone circle
@@ -278,7 +278,7 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(shapeTabs.first()).toHaveAttribute('aria-selected', 'false');
 
     // 5. Export still succeeds — the mask preview is a non-destructive overlay only
-    await page.locator('button:has-text("导出 ZIP")').click();
+    await page.locator('button:has-text("导出压缩包")').click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.locator('button:has-text("生成并下载")').click(),
@@ -319,7 +319,7 @@ test.describe('MockupApp E2E Tests', () => {
     await page.locator('button:has-text("保存当前方案到历史")').click();
     const historyNameInput = page.locator('#icon-history-name-input');
     await expect(historyNameInput).toBeVisible();
-    await historyNameInput.fill('E2E Scheme');
+    await historyNameInput.fill('测试方案一');
     await page.locator('button:has-text("保存方案")').click();
     
     // Toggle history drawer from header
@@ -335,18 +335,18 @@ test.describe('MockupApp E2E Tests', () => {
 
     // Rename history scheme
     await page.locator('button[title="重命名"]').first().click();
-    const renameInput = page.locator('input[value="E2E Scheme"]');
-    await renameInput.fill('E2E Icon Plan');
+    const renameInput = page.locator('input[value="测试方案一"]');
+    await renameInput.fill('测试图标方案');
     await page.keyboard.press('Enter');
-    await expect(page.locator('span:has-text("E2E Icon Plan")')).toBeVisible();
+    await expect(page.locator('span:has-text("测试图标方案")')).toBeVisible();
 
     // Close drawer via clicking the Close button
     await page.locator('button[title="关闭抽屉"]').click();
     await expect(drawerTitle).not.toBeVisible();
 
     // 5. Test SVG optional export
-    await page.locator('button:has-text("导出 ZIP")').click();
-    const svgCheckbox = page.locator('label:has-text("附带 SVG 容器版") input[type="checkbox"]');
+    await page.locator('button:has-text("导出压缩包")').click();
+    const svgCheckbox = page.locator('label:has-text("附带矢量容器版") input[type="checkbox"]');
     await expect(svgCheckbox).toBeVisible();
     await svgCheckbox.check();
 
@@ -368,27 +368,27 @@ test.describe('MockupApp E2E Tests', () => {
     // 2. Privacy policy is checked by default; fill questionnaire fields
     await expect(page.locator('.compliance-checklist-row').first().locator('input[type="checkbox"]')).toBeChecked();
 
-    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
-    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
-    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+    await page.locator('input[placeholder="例如 极简造物"]').fill('测试应用');
+    await page.locator('input[placeholder="例如 张三"]').fill('张测试');
+    await page.locator('input[placeholder="例如 support@example.com"]').fill('dev@example.com');
 
     // 3. Select data types and third-party services
-    await page.locator('.legal-checkbox-row:has-text("Email address")').click();
-    await page.locator('.legal-checkbox-row:has-text("Usage and log data")').click();
-    await page.locator('.legal-checkbox-row:has-text("Google Analytics (GA4)")').click();
-    await page.locator('.legal-checkbox-row:has-text("适用 GDPR")').click();
+    await page.locator('.legal-checkbox-row:has-text("电子邮箱地址")').click();
+    await page.locator('.legal-checkbox-row:has-text("使用行为与诊断日志数据")').click();
+    await page.locator('.legal-checkbox-row:has-text("谷歌分析第四代服务")').click();
+    await page.locator('.legal-checkbox-row:has-text("适用欧盟通用数据保护条例")').click();
 
     // 4. Live preview renders the generated document with expected sections
     await expect(page.locator('.compliance-output-title:has-text("隐私政策")')).toBeVisible();
-    await expect(page.locator('h4:has-text("Third-Party Services")')).toBeVisible();
-    await expect(page.locator('h4:has-text("Your GDPR Data Protection Rights")')).toBeVisible();
-    await expect(page.locator('h4:has-text("Log Data")')).toBeVisible();
-    await expect(page.locator('h4:has-text("International Data Transfers")')).toBeVisible();
+    await expect(page.locator('h4:has-text("第三方服务与开发工具包")')).toBeVisible();
+    await expect(page.locator('h4:has-text("欧盟与英国用户的数据保护权利")')).toBeVisible();
+    await expect(page.locator('h4:has-text("日志与诊断数据")')).toBeVisible();
+    await expect(page.locator('h4:has-text("跨境数据传输说明")')).toBeVisible();
 
     // 5. Download HTML triggers a file download
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.locator('.compliance-output-section:has-text("隐私政策") button:has-text("下载 HTML")').click(),
+      page.locator('.compliance-output-section:has-text("隐私政策") button:has-text("下载网页文件")').click(),
     ]);
     expect(download.suggestedFilename()).toBe('privacy-policy.html');
   });
@@ -405,37 +405,37 @@ test.describe('MockupApp E2E Tests', () => {
     await expect(page.locator('.compliance-questionnaire')).not.toBeVisible();
 
     // Checking a row reveals the shared questionnaire and output section
-    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]').check();
+    await page.locator('.compliance-checklist-row:has-text("账号与数据注销独立页") input[type="checkbox"]').check();
     await expect(page.locator('.compliance-questionnaire')).toBeVisible();
-    await expect(page.locator('.compliance-output-section:has-text("账号与数据注销页") button:has-text("下载 HTML")')).toBeVisible();
+    await expect(page.locator('.compliance-output-section:has-text("账号与数据注销独立页") button:has-text("下载网页文件")')).toBeVisible();
   });
 
   test('Compliance Toolkit reuses shared questionnaire data for ATT, Nutrition Label, and Custom EULA', async ({ page }) => {
     await page.locator('button:has-text("隐私与条款")').click();
-    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
-    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
-    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+    await page.locator('input[placeholder="例如 极简造物"]').fill('测试应用');
+    await page.locator('input[placeholder="例如 张三"]').fill('张测试');
+    await page.locator('input[placeholder="例如 support@example.com"]').fill('dev@example.com');
 
-    await page.locator('.legal-checkbox-row:has-text("Device identifiers / Advertising ID")').click();
-    await page.locator('.legal-checkbox-row:has-text("AdMob")').click();
+    await page.locator('.legal-checkbox-row:has-text("设备标识符与广告标识")').click();
+    await page.locator('.legal-checkbox-row:has-text("谷歌移动广告联盟")').click();
 
     // 1. ATT row: applicable because device_id + AdMob were selected
-    await page.locator('.compliance-checklist-row:has-text("ATT 与系统权限话术矩阵") input[type="checkbox"]').check();
+    await page.locator('.compliance-checklist-row:has-text("追踪授权与系统权限话术矩阵") input[type="checkbox"]').check();
     await expect(page.locator('.compliance-output-section:has-text("个性化广告体验")')).toBeVisible();
 
     // 2. Nutrition Label row: the selected data type is classified as "tracking" because an ad SDK is present
-    await page.locator('.compliance-checklist-row:has-text("隐私营养标签") input[type="checkbox"]').check();
-    await expect(page.locator('.compliance-output-section:has-text("Data Used to Track You")')).toBeVisible();
+    await page.locator('.compliance-checklist-row:has-text("隐私营养标签填表对照表") input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-output-section:has-text("用于追踪您的数据")')).toBeVisible();
 
-    // 3. Custom EULA row: default high-risk type is "无", switching to UGC injects the zero-tolerance clause
-    await page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]').check();
-    await expect(page.locator('.compliance-output-section:has-text("Zero-Tolerance")')).not.toBeVisible();
-    await page.locator('.compliance-fieldset label:has-text("UGC 社区")').click();
-    await expect(page.locator('.compliance-output-section:has-text("Zero-Tolerance Policy for Objectionable Content")')).toBeVisible();
+    // 3. Custom EULA row: default high-risk type is "无特殊高风险属性", switching to UGC injects the zero-tolerance clause
+    await page.locator('.compliance-checklist-row:has-text("自定义最终用户许可协议") input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-output-section:has-text("不良内容零容忍与社区治理政策")')).not.toBeVisible();
+    await page.locator('.compliance-fieldset label:has-text("用户生成内容与社区类")').click();
+    await expect(page.locator('.compliance-output-section:has-text("不良内容零容忍与社区治理政策")')).toBeVisible();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.locator('.compliance-output-section:has-text("Custom EULA") button:has-text("下载 HTML")').click(),
+      page.locator('.compliance-output-section:has-text("自定义最终用户许可协议") button:has-text("下载网页文件")').click(),
     ]);
     expect(download.suggestedFilename()).toBe('custom-eula.html');
   });
@@ -445,16 +445,16 @@ test.describe('MockupApp E2E Tests', () => {
     // Uncheck default privacy policy first so 0 rows are checked
     await page.locator('.compliance-checklist-row').first().locator('input[type="checkbox"]').uncheck();
 
-    const zipButton = page.locator('button:has-text("打包下载 ZIP")');
+    const zipButton = page.locator('button:has-text("打包下载压缩包")');
     await expect(zipButton).not.toBeVisible();
 
-    await page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]').check();
-    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
-    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
-    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+    await page.locator('.compliance-checklist-row:has-text("自定义最终用户许可协议") input[type="checkbox"]').check();
+    await page.locator('input[placeholder="例如 极简造物"]').fill('测试应用');
+    await page.locator('input[placeholder="例如 张三"]').fill('张测试');
+    await page.locator('input[placeholder="例如 support@example.com"]').fill('dev@example.com');
     await expect(zipButton).not.toBeVisible();
 
-    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]').check();
+    await page.locator('.compliance-checklist-row:has-text("账号与数据注销独立页") input[type="checkbox"]').check();
     await expect(zipButton).toBeVisible();
     await expect(zipButton).toContainText('已选 2 项');
 
@@ -476,18 +476,18 @@ test.describe('MockupApp E2E Tests', () => {
     // Reload restores the same checked rows
     await page.reload();
     await page.locator('button:has-text("隐私与条款")').click();
-    await expect(page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]')).toBeChecked();
-    await expect(page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]')).toBeChecked();
+    await expect(page.locator('.compliance-checklist-row:has-text("自定义最终用户许可协议") input[type="checkbox"]')).toBeChecked();
+    await expect(page.locator('.compliance-checklist-row:has-text("账号与数据注销独立页") input[type="checkbox"]')).toBeChecked();
   });
 
   test('should not crash when undoing page addition while on the newly added page', async ({ page }) => {
     // Initially 2 pages (P1, P2); add P3 -> activePageIndex becomes 2
     await page.locator('button:has-text("添加画幅")').click();
     const titleInput = page.locator('input[placeholder="请输入主标题"]');
-    await expect(titleInput).toHaveValue('New Feature Screen');
+    await expect(titleInput).toHaveValue('全新核心功能展示');
 
     // Undo the page addition -> pages length goes back to 2, activePageIndex must safely clamp to 1 without crashing
     await page.locator('button[aria-label="撤销"]').click();
-    await expect(titleInput).toHaveValue('Absolute Control');
+    await expect(titleInput).toHaveValue('数据安全尽在掌握');
   });
 });

@@ -1,5 +1,5 @@
 // 隐私政策 / 使用条款生成器：数据目录 + 纯前端文档拼装逻辑
-// 所有生成的法律文本均为英文（App Store Connect / Play Console 与终端用户的通用预期语言）
+// 所有界面、选项与生成的合规文档默认使用纯中文表述，并通过 i18n 结构预留多语言扩展能力
 
 export interface DataTypeOption {
   id: string;
@@ -7,23 +7,23 @@ export interface DataTypeOption {
 }
 
 export const DATA_TYPE_CATALOG: DataTypeOption[] = [
-  { id: 'name', label: 'Name' },
-  { id: 'email', label: 'Email address' },
-  { id: 'phone', label: 'Phone number' },
-  { id: 'address', label: 'Address' },
-  { id: 'photos', label: 'Photos and camera access' },
-  { id: 'contacts', label: 'Contacts' },
-  { id: 'precise_location', label: 'Precise location data' },
-  { id: 'approximate_location', label: 'Approximate location data' },
-  { id: 'usage_data', label: 'Usage and log data' },
-  { id: 'device_id', label: 'Device identifiers / Advertising ID' },
-  { id: 'cookies', label: 'Cookies and tracking technologies' },
+  { id: 'name', label: '用户姓名与昵称' },
+  { id: 'email', label: '电子邮箱地址' },
+  { id: 'phone', label: '手机电话号码' },
+  { id: 'address', label: '联系地址或收货地址' },
+  { id: 'photos', label: '相册图片与相机拍摄权限' },
+  { id: 'contacts', label: '通讯录联系人信息' },
+  { id: 'precise_location', label: '精确地理位置数据' },
+  { id: 'approximate_location', label: '粗略地理位置数据' },
+  { id: 'usage_data', label: '使用行为与诊断日志数据' },
+  { id: 'device_id', label: '设备标识符与广告标识' },
+  { id: 'cookies', label: '本地缓存与同源追踪技术' },
 ];
 
 export interface ServiceOption {
   id: string;
   label: string;
-  englishLabel?: string; // 用于英文法律文本的纯英文名称（防止在生成的全英文法律文档中出现“微信支付 (WeChat Pay)”等中文字符）
+  englishLabel?: string;
   policyUrl?: string;
 }
 
@@ -34,101 +34,101 @@ export interface ServiceCategory {
 
 export const SERVICE_CATALOG: ServiceCategory[] = [
   {
-    category: 'Analytics',
+    category: '数据分析与统计',
     services: [
-      { id: 'firebase_analytics', label: 'Google Analytics for Firebase', policyUrl: 'https://firebase.google.com/support/privacy' },
-      { id: 'ga4', label: 'Google Analytics (GA4)', policyUrl: 'https://policies.google.com/privacy' },
-      { id: 'mixpanel', label: 'Mixpanel', policyUrl: 'https://mixpanel.com/legal/privacy-policy/' },
-      { id: 'amplitude', label: 'Amplitude', policyUrl: 'https://amplitude.com/privacy' },
-      { id: 'segment', label: 'Segment', policyUrl: 'https://segment.com/legal/privacy/' },
-      { id: 'umeng', label: '友盟+ (U-MENG)', englishLabel: 'U-MENG', policyUrl: 'https://www.umeng.com/policy' },
-      { id: 'talkingdata', label: 'TalkingData', policyUrl: 'https://www.talkingdata.com/policy.jsp' },
+      { id: 'firebase_analytics', label: '谷歌移动统计分析', policyUrl: 'https://firebase.google.com/support/privacy' },
+      { id: 'ga4', label: '谷歌分析第四代服务', policyUrl: 'https://policies.google.com/privacy' },
+      { id: 'mixpanel', label: '漏斗行为统计服务', policyUrl: 'https://mixpanel.com/legal/privacy-policy/' },
+      { id: 'amplitude', label: '用户增长分析服务', policyUrl: 'https://amplitude.com/privacy' },
+      { id: 'segment', label: '客户数据网关服务', policyUrl: 'https://segment.com/legal/privacy/' },
+      { id: 'umeng', label: '友盟统计分析', policyUrl: 'https://www.umeng.com/policy' },
+      { id: 'talkingdata', label: '腾云天下数据统计', policyUrl: 'https://www.talkingdata.com/policy.jsp' },
     ],
   },
   {
-    category: 'Crash / 性能监控',
+    category: '崩溃异常与性能监控',
     services: [
-      { id: 'crashlytics', label: 'Firebase Crashlytics', policyUrl: 'https://firebase.google.com/support/privacy' },
-      { id: 'sentry', label: 'Sentry', policyUrl: 'https://sentry.io/privacy/' },
-      { id: 'instabug', label: 'Instabug', policyUrl: 'https://www.instabug.com/privacy' },
-      { id: 'bugsnag', label: 'Bugsnag', policyUrl: 'https://www.bugsnag.com/legal/privacy-policy/' },
-      { id: 'bugly', label: '腾讯 Bugly', englishLabel: 'Tencent Bugly', policyUrl: 'https://bugly.qq.com/v2/agreement/privacy' },
+      { id: 'crashlytics', label: '谷歌崩溃分析服务', policyUrl: 'https://firebase.google.com/support/privacy' },
+      { id: 'sentry', label: '实时错误追踪监控', policyUrl: 'https://sentry.io/privacy/' },
+      { id: 'instabug', label: '移动应用反馈与监控', policyUrl: 'https://www.instabug.com/privacy' },
+      { id: 'bugsnag', label: '应用稳定性监控服务', policyUrl: 'https://www.bugsnag.com/legal/privacy-policy/' },
+      { id: 'bugly', label: '腾讯异常上报监控', policyUrl: 'https://bugly.qq.com/v2/agreement/privacy' },
     ],
   },
   {
-    category: '广告 / 归因',
+    category: '广告变现与渠道归因',
     services: [
-      { id: 'admob', label: 'AdMob', policyUrl: 'https://policies.google.com/privacy' },
-      { id: 'meta_audience', label: 'Meta Audience Network', policyUrl: 'https://www.facebook.com/privacy/policy/' },
-      { id: 'applovin', label: 'AppLovin', policyUrl: 'https://www.applovin.com/privacy/' },
-      { id: 'vungle', label: 'Vungle', policyUrl: 'https://vungle.com/privacy/' },
-      { id: 'startapp', label: 'StartApp', policyUrl: 'https://www.startapp.com/privacy/' },
-      { id: 'appsflyer', label: 'AppsFlyer', policyUrl: 'https://www.appsflyer.com/legal/privacy-policy/' },
-      { id: 'adjust', label: 'Adjust', policyUrl: 'https://www.adjust.com/terms/privacy-policy/' },
-      { id: 'pangle', label: '穿山甲 (Pangle)', englishLabel: 'Pangle', policyUrl: 'https://www.pangleglobal.com/privacy' },
+      { id: 'admob', label: '谷歌移动广告联盟', policyUrl: 'https://policies.google.com/privacy' },
+      { id: 'meta_audience', label: '社交受众广告网络', policyUrl: 'https://www.facebook.com/privacy/policy/' },
+      { id: 'applovin', label: '移动广告聚合平台', policyUrl: 'https://www.applovin.com/privacy/' },
+      { id: 'vungle', label: '激励视频广告网络', policyUrl: 'https://vungle.com/privacy/' },
+      { id: 'startapp', label: '移动原生广告平台', policyUrl: 'https://www.startapp.com/privacy/' },
+      { id: 'appsflyer', label: '移动营销归因分析', policyUrl: 'https://www.appsflyer.com/legal/privacy-policy/' },
+      { id: 'adjust', label: '渠道转化归因监测', policyUrl: 'https://www.adjust.com/terms/privacy-policy/' },
+      { id: 'pangle', label: '穿山甲广告联盟', policyUrl: 'https://www.pangleglobal.com/privacy' },
     ],
   },
   {
-    category: '推送通知',
+    category: '消息推送通知',
     services: [
-      { id: 'fcm', label: 'Firebase Cloud Messaging', policyUrl: 'https://firebase.google.com/support/privacy' },
-      { id: 'onesignal', label: 'OneSignal', policyUrl: 'https://onesignal.com/privacy_policy' },
-      { id: 'jpush', label: '极光推送 (JPush)', englishLabel: 'JPush', policyUrl: 'https://www.jiguang.cn/license/privacy' },
-      { id: 'getui', label: '个推 (Getui)', englishLabel: 'Getui', policyUrl: 'https://www.getui.com/privacy' },
+      { id: 'fcm', label: '谷歌云消息推送', policyUrl: 'https://firebase.google.com/support/privacy' },
+      { id: 'onesignal', label: '跨平台消息推送服务', policyUrl: 'https://onesignal.com/privacy_policy' },
+      { id: 'jpush', label: '极光推送服务', policyUrl: 'https://www.jiguang.cn/license/privacy' },
+      { id: 'getui', label: '个推消息推送服务', policyUrl: 'https://www.getui.com/privacy' },
     ],
   },
   {
-    category: '后端 / 认证',
+    category: '云端后端与身份认证',
     services: [
-      { id: 'firebase', label: 'Firebase', policyUrl: 'https://firebase.google.com/support/privacy' },
-      { id: 'supabase', label: 'Supabase', policyUrl: 'https://supabase.com/privacy' },
-      { id: 'auth0', label: 'Auth0', policyUrl: 'https://auth0.com/privacy' },
-      { id: 'clerk', label: 'Clerk', policyUrl: 'https://clerk.com/privacy' },
-      { id: 'aws_amplify', label: 'AWS Amplify', policyUrl: 'https://aws.amazon.com/privacy/' },
+      { id: 'firebase', label: '谷歌应用云开发平台', policyUrl: 'https://firebase.google.com/support/privacy' },
+      { id: 'supabase', label: '开源后端数据库云服务', policyUrl: 'https://supabase.com/privacy' },
+      { id: 'auth0', label: '统一身份认证服务', policyUrl: 'https://auth0.com/privacy' },
+      { id: 'clerk', label: '用户会话与鉴权服务', policyUrl: 'https://clerk.com/privacy' },
+      { id: 'aws_amplify', label: '亚马逊云应用托管服务', policyUrl: 'https://aws.amazon.com/privacy/' },
     ],
   },
   {
-    category: '登录方式',
+    category: '第三方快捷登录',
     services: [
-      { id: 'google_signin', label: 'Google 登录', englishLabel: 'Google Sign-In', policyUrl: 'https://policies.google.com/privacy' },
-      { id: 'apple_signin', label: 'Apple 登录', englishLabel: 'Sign in with Apple', policyUrl: 'https://www.apple.com/legal/privacy/' },
-      { id: 'facebook_login', label: 'Facebook 登录', englishLabel: 'Facebook Login', policyUrl: 'https://www.facebook.com/privacy/policy/' },
-      { id: 'wechat_login', label: '微信登录', englishLabel: 'WeChat Login', policyUrl: 'https://www.tencent.com/privacy-policy' },
+      { id: 'google_signin', label: '谷歌账号授权登录', policyUrl: 'https://policies.google.com/privacy' },
+      { id: 'apple_signin', label: '苹果账号授权登录', policyUrl: 'https://www.apple.com/legal/privacy/' },
+      { id: 'facebook_login', label: '社交账号授权登录', policyUrl: 'https://www.facebook.com/privacy/policy/' },
+      { id: 'wechat_login', label: '微信账号授权登录', policyUrl: 'https://www.tencent.com/privacy-policy' },
     ],
   },
   {
-    category: '支付 / 订阅',
+    category: '支付结算与内购订阅',
     services: [
-      { id: 'stripe', label: 'Stripe', policyUrl: 'https://stripe.com/privacy' },
-      { id: 'revenuecat', label: 'RevenueCat', policyUrl: 'https://www.revenuecat.com/privacy' },
-      { id: 'adapty', label: 'Adapty', policyUrl: 'https://adapty.io/privacy' },
-      { id: 'iap', label: 'App 内购买 (StoreKit / Google Play Billing)', englishLabel: 'In-App Purchase (StoreKit / Google Play Billing)' },
-      { id: 'paypal', label: 'PayPal', policyUrl: 'https://www.paypal.com/us/webapps/mpp/ua/privacy-full' },
-      { id: 'alipay', label: '支付宝 (Alipay)', englishLabel: 'Alipay', policyUrl: 'https://www.alipay.com' },
-      { id: 'wechat_pay', label: '微信支付 (WeChat Pay)', englishLabel: 'WeChat Pay', policyUrl: 'https://pay.weixin.qq.com' },
+      { id: 'stripe', label: '在线银行卡支付服务', policyUrl: 'https://stripe.com/privacy' },
+      { id: 'revenuecat', label: '应用内订阅管理服务', policyUrl: 'https://www.revenuecat.com/privacy' },
+      { id: 'adapty', label: '内购付费墙分析服务', policyUrl: 'https://adapty.io/privacy' },
+      { id: 'iap', label: '应用商店原生内购结算' },
+      { id: 'paypal', label: '贝宝跨境支付服务', policyUrl: 'https://www.paypal.com/us/webapps/mpp/ua/privacy-full' },
+      { id: 'alipay', label: '支付宝支付服务', policyUrl: 'https://www.alipay.com' },
+      { id: 'wechat_pay', label: '微信支付服务', policyUrl: 'https://pay.weixin.qq.com' },
     ],
   },
   {
-    category: '地图 / 定位',
+    category: '电子地图与位置服务',
     services: [
-      { id: 'google_maps', label: 'Google Maps', policyUrl: 'https://policies.google.com/privacy' },
-      { id: 'amap', label: '高德地图 (AMap)', englishLabel: 'AMap (Gaode Maps)', policyUrl: 'https://www.amap.com/doc/privacy' },
-      { id: 'baidu_map', label: '百度地图 (Baidu Map)', englishLabel: 'Baidu Maps', policyUrl: 'https://map.baidu.com/zt/client/privacy/index.html' },
+      { id: 'google_maps', label: '谷歌电子地图服务', policyUrl: 'https://policies.google.com/privacy' },
+      { id: 'amap', label: '高德地图定位服务', policyUrl: 'https://www.amap.com/doc/privacy' },
+      { id: 'baidu_map', label: '百度地图定位服务', policyUrl: 'https://map.baidu.com/zt/client/privacy/index.html' },
     ],
   },
   {
-    category: '云存储',
+    category: '对象云存储与多媒体分发',
     services: [
-      { id: 'aws_s3', label: 'AWS S3', policyUrl: 'https://aws.amazon.com/privacy/' },
-      { id: 'cloudinary', label: 'Cloudinary', policyUrl: 'https://cloudinary.com/privacy' },
+      { id: 'aws_s3', label: '亚马逊云对象存储', policyUrl: 'https://aws.amazon.com/privacy/' },
+      { id: 'cloudinary', label: '云端图像与音视频托管', policyUrl: 'https://cloudinary.com/privacy' },
     ],
   },
   {
-    category: '开发框架 / 游戏引擎',
+    category: '跨端开发框架与渲染引擎',
     services: [
-      { id: 'godot', label: 'Godot Engine', policyUrl: 'https://godotengine.org/privacy-policy' },
-      { id: 'unity', label: 'Unity', policyUrl: 'https://unity3d.com/legal/privacy-policy' },
-      { id: 'expo', label: 'Expo', policyUrl: 'https://expo.io/privacy' },
+      { id: 'godot', label: '开源游戏渲染引擎', policyUrl: 'https://godotengine.org/privacy-policy' },
+      { id: 'unity', label: '实时三维图形引擎', policyUrl: 'https://unity3d.com/legal/privacy-policy' },
+      { id: 'expo', label: '跨平台移动应用框架', policyUrl: 'https://expo.io/privacy' },
     ],
   },
 ];
@@ -251,10 +251,10 @@ export const DEFAULT_MASTER_DRAFT: MasterDraft = {
 };
 
 export const PLATFORM_LABELS: Record<PrivacyDraft['platform'], string> = {
-  ios: 'iOS app',
-  android: 'Android app',
-  both: 'iOS and Android app',
-  web: 'website',
+  ios: '苹果移动端应用',
+  android: '安卓移动端应用',
+  both: '苹果与安卓双端应用',
+  web: '网页端应用',
 };
 
 export interface DocSection {
@@ -272,33 +272,34 @@ function findService(id: string): ServiceOption | undefined {
 
 function companyOf(draft: { ownerType?: 'individual' | 'company'; appName: string; companyName: string; developerName?: string }): string {
   if (draft.ownerType === 'individual') {
-    return draft.developerName?.trim() || draft.appName.trim() || 'the Developer';
+    return draft.developerName?.trim() || draft.appName.trim() || '本开发者';
   }
-  return draft.companyName.trim() || draft.appName.trim() || 'the Company';
+  return draft.companyName.trim() || draft.appName.trim() || '本公司';
 }
 
 export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
-  const appName = draft.appName.trim() || 'the App';
+  const appName = draft.appName.trim() || '本应用';
   const company = companyOf(draft);
   const sections: DocSection[] = [];
 
   const platformNoun = PLATFORM_LABELS[draft.platform || 'both'];
-  const appTypeNoun = 
-    draft.appType === 'open_source' ? 'an Open Source App' :
-    draft.appType === 'freemium' ? 'a Freemium App (with optional in-app purchases)' :
-    draft.appType === 'ad_supported' ? 'an Ad Supported App' :
-    draft.appType === 'commercial' ? 'a Commercial App' :
-    'a Free App';
+  const appTypeNoun =
+    draft.appType === 'open_source' ? '一款开源软件应用' :
+    draft.appType === 'freemium' ? '一款免费下载并含可选应用内购买的应用' :
+    draft.appType === 'ad_supported' ? '一款由广告支持运营的应用' :
+    draft.appType === 'commercial' ? '一款商业付费应用' :
+    '一款免费应用';
 
-  const costNoun = 
-    draft.appType === 'commercial' ? `provided by ${company} and is intended for use as is.` :
-    `provided by ${company} at no cost and is intended for use as is.`;
+  const costNoun =
+    draft.appType === 'commercial'
+      ? `由${company}提供，并按现状供您使用。`
+      : `由${company}免费提供，并按现状供您使用。`;
 
   sections.push({
-    heading: 'Introduction',
+    heading: '引言与总则',
     paragraphs: [
-      `This Privacy Policy describes ${company}'s policies and procedures on the collection, use, and disclosure of your information when you use ${appName} (the "${platformNoun}", referred to as the "Service"), and tells you about your privacy rights and how the law protects you.`,
-      `We built the ${appName} app as ${appTypeNoun}. This Service is ${costNoun} We use your personal data to provide and improve the Service. By using the Service, you agree to the collection and use of information in accordance with this Privacy Policy.`,
+      `本隐私政策旨在说明当您使用「${appName}」（属于${platformNoun}，以下统称“本服务”）时，${company}关于收集、使用、存储及披露您的个人信息的规则与程序，并向您告知您所享有的隐私权利及适用法律对您的保护。`,
+      `我们将「${appName}」构建为${appTypeNoun}。本服务${costNoun}我们仅在提供与改进本服务所必需的范围内处理您的相关数据。一旦您访问或使用本服务，即表示您同意我们按照本隐私政策收集与使用相关信息。`,
     ],
   });
 
@@ -306,394 +307,389 @@ export function buildPrivacyPolicySections(draft: PrivacyDraft): DocSection[] {
   const dataParas: string[] = [];
   if (selectedDataLabels.length > 0) {
     dataParas.push(
-      `While using our Service, we may ask you to provide us with certain personally identifiable information that can be used to contact or identify you. Personally identifiable information may include, but is not limited to:`
+      `在您使用本服务的过程中，为了实现核心业务功能或与您取得联系，我们可能会请求您提供或自动收集特定类型的个人身份识别信息。此类信息包括但不限于：`
     );
     dataParas.push(selectedDataLabels.map((l) => `• ${l}`).join('\n'));
   } else {
-    dataParas.push('We do not knowingly collect personally identifiable information beyond what is strictly necessary to operate the Service.');
+    dataParas.push('除维持本服务基础运行所严格必需的技术参数外，我们不会主动收集您的个人身份识别信息。');
   }
   if (draft.customDataTypes.trim()) {
-    dataParas.push(`In addition, we may collect: ${draft.customDataTypes.trim()}.`);
+    dataParas.push(`此外，根据具体功能场景，我们还可能收集：${draft.customDataTypes.trim()}。`);
   }
-  sections.push({ heading: 'Information We Collect', paragraphs: dataParas });
+  sections.push({ heading: '我们收集的信息', paragraphs: dataParas });
 
   sections.push({
-    heading: 'Log Data',
+    heading: '日志与诊断数据',
     paragraphs: [
-      `Whenever you use our Service, in the event of an error, we collect data and information (through third-party products) on your device called Log Data. This Log Data may include information such as your device's Internet Protocol ("IP") address, device name, operating system version, the configuration of the app when using our Service, the time and date of your use of the Service, and other statistics.`,
+      `当您使用本服务时，若应用发生运行故障或异常崩溃，我们会通过系统组件或第三方诊断工具在您的设备上收集日志数据。该日志数据可能包含您的设备网络协议地址、设备型号名称、操作系统版本、应用运行配置、使用本服务的日期与时间戳以及其他性能诊断统计信息。`,
     ],
   });
 
   sections.push({
-    heading: 'How We Use Your Information',
+    heading: '信息的使用方式',
     paragraphs: [
-      `${company} may use the information we collect for various purposes, including to: provide and maintain the Service; notify you about changes to the Service; provide customer support; monitor usage of the Service; detect, prevent, and address technical issues; and provide you with news and general information about other services we offer.`,
+      `${company}会将所收集的信息用于以下合规目的：提供与维护本服务的正常运转；向您通知本服务的重大变更；提供客户支持与问题排查；监测服务运行状态并防止技术故障或欺诈行为；以及在征得您同意的前提下向您发送与服务相关的通知。`,
     ],
   });
 
   if (draft.dataTypes.includes('cookies')) {
     sections.push({
-      heading: 'Cookies and Tracking Technologies',
+      heading: '本地缓存与同源追踪技术',
       paragraphs: [
-        `We use cookies and similar tracking technologies to track activity on our Service and store certain information. Cookies are files with a small amount of data that may include an anonymous unique identifier. You can instruct your device to refuse all cookies or to indicate when a cookie is being sent, however if you do not accept cookies, you may not be able to use some portions of our Service.`,
+        `我们使用本地缓存及类似的同源标识符技术来保持您的会话状态并存储必要的偏好设置。您可以在设备或浏览器设置中清除缓存或拒绝此类标识，但禁用后可能导致本服务的部分个性化功能无法正常使用。`,
       ],
     });
   }
 
   if (draft.isLocationTracked) {
     sections.push({
-      heading: 'Location Information',
+      heading: '地理位置信息处理',
       paragraphs: [
-        `This Service may collect and use your device's precise or approximate location data to provide location-based features, improve the Application's performance, and support related geolocation services.`,
-        `By enabling location services on your device, you consent to our collection and use of this data. You can enable or disable location access at any time through your device settings.`,
+        `本服务可能会在获得您授权后收集并使用您设备的精确或粗略地理位置数据，以提供基于位置的服务功能并优化应用体验。`,
+        `在设备上开启位置权限即表示您同意我们按上述目的处理位置数据；您可随时通过设备系统设置撤回或关闭位置访问权限。`,
       ],
     });
   }
 
   if (draft.isAIUsed) {
     sections.push({
-      heading: 'Artificial Intelligence (AI) Technologies',
+      heading: '人工智能技术应用说明',
       paragraphs: [
-        `The Application incorporates Artificial Intelligence (AI) technologies to enhance your user experience and power specific features. The AI components may process user data to deliver personalized content, intelligent recommendations, or automated features within the Service.`,
-        `All AI-powered processing is performed securely and in compliance with this privacy policy and applicable data protection regulations. We do not use your personal data to train external models without your explicit consent.`,
+        `本应用集成了人工智能算法与推理技术，用于提升使用体验并驱动相关智能功能。相关组件可能会在安全合规的前提下处理您输入的上下文数据以生成结果。`,
+        `未经您的明确授权同意，我们不会将您的个人隐私数据用于训练外部公开模型。`,
       ],
     });
   }
 
   sections.push({
-    heading: 'Do Not Track Signals',
+    heading: '禁止追踪信号响应',
     paragraphs: [
-      `We do not support Do Not Track ("DNT"). Do Not Track is a preference you can set in your web browser to inform websites that you do not want to be tracked. You can enable or disable Do Not Track by visiting the preferences or settings page of your browser.`,
+      `目前本服务暂不响应浏览器发出的“禁止追踪”标头信号。您可以通过终端设备或浏览器的隐私偏好设置自行管理追踪权限。`,
     ],
   });
 
   const selectedServices = draft.services.map(findService).filter((s): s is ServiceOption => !!s);
   if (selectedServices.length > 0 || draft.customServices.length > 0) {
     const paras: string[] = [
-      `We may employ third-party companies and individuals to facilitate our Service ("Service Providers"), to provide the Service on our behalf, to perform Service-related services, or to assist us in analyzing how our Service is used. These third parties have access to your personal data only to perform these tasks on our behalf and are obligated not to disclose or use it for any other purpose.`,
+      `我们可能会委托具备合规资质的第三方服务商协助提供基础设施、统计分析或特定业务功能。这些第三方仅在代表我们履行上述职责所必需的范围内接触必要数据，并受保密与数据保护义务约束。`,
     ];
     for (const svc of selectedServices) {
-      const svcName = svc.englishLabel || svc.label;
       paras.push(
         svc.policyUrl
-          ? `We use ${svcName} as part of our Service. For more information on the privacy practices of ${svcName}, please visit their Privacy Policy: ${svc.policyUrl}`
-          : `We use ${svcName} as part of our Service. Please refer to the provider's own privacy policy for details on how they handle your data.`
+          ? `我们在本服务中集成了「${svc.label}」。关于该服务商如何处理数据的详细规则，请参阅其官方隐私政策：${svc.policyUrl}`
+          : `我们在本服务中集成了「${svc.label}」。请参阅该服务商公布的隐私政策了解其数据处理详情。`
       );
     }
     for (const custom of draft.customServices) {
       if (!custom.name.trim()) continue;
       paras.push(
         custom.url.trim()
-          ? `We use ${custom.name.trim()} as part of our Service. For more information on their privacy practices, please visit: ${custom.url.trim()}`
-          : `We use ${custom.name.trim()} as part of our Service. Please refer to the provider's own privacy policy for details on how they handle your data.`
+          ? `我们在本服务中集成了「${custom.name.trim()}」。欲了解其隐私保护措施，请访问：${custom.url.trim()}`
+          : `我们在本服务中集成了「${custom.name.trim()}」。请参阅该服务商自身的隐私政策了解详情。`
       );
     }
-    sections.push({ heading: 'Third-Party Services', paragraphs: paras });
+    sections.push({ heading: '第三方服务与开发工具包', paragraphs: paras });
   }
 
   sections.push({
-    heading: 'International Data Transfers',
+    heading: '跨境数据传输说明',
     paragraphs: [
-      `Your information, including personal data, may be transferred to — and maintained on — computers located outside of your state, province, country, or other governmental jurisdiction where data protection laws may differ from those of your jurisdiction. If you are located outside ${draft.governingLaw.trim() || 'the country in which we operate'} and choose to provide information to us, we transfer your data there and process it there. Your consent to this Privacy Policy followed by your submission of such information represents your agreement to that transfer.`,
+      `您的信息（包括个人数据）可能会被传输至您所在省市、国家或司法管辖区以外的服务器进行处理和存储。若您位于${draft.governingLaw.trim() || '我们运营所在地'}以外的地区并选择向我们提供信息，即视为您知悉并同意按照本隐私政策采取的安全保障措施进行相关数据传输。`,
     ],
   });
 
   sections.push({
-    heading: 'Data Retention',
+    heading: '数据保留期限',
     paragraphs: [
       draft.retention.trim()
         ? draft.retention.trim()
-        : `We will retain your personal data only for as long as is necessary for the purposes set out in this Privacy Policy. We will retain and use your data to the extent necessary to comply with our legal obligations, resolve disputes, and enforce our legal agreements and policies.`,
+        : `我们仅在实现本隐私政策所述目的所必需的最短期限内保留您的个人数据，并在履行法定义务、解决争议及执行协议所需的范围内依法留存。超出保留期限后，我们将对数据进行删除或匿名化处理。`,
     ],
   });
 
   sections.push({
-    heading: 'Account and Data Deletion',
+    heading: '账号与数据注销机制',
     paragraphs: draft.hasUserAccounts
       ? [
           draft.deletionInstructions.trim()
             ? draft.deletionInstructions.trim()
-            : `If you have created an account with us, you may request deletion of your account and associated personal data at any time by contacting us using the details in the "Contact Us" section below. We will respond to your request within a reasonable timeframe and delete your data unless we are required to retain it to comply with a legal obligation.`,
+            : `若您在本服务中注册了用户账号，您可以随时通过应用内提供的注销入口或通过下方“联系我们”章节中的方式申请注销账号并删除关联的个人数据。我们将在核实身份后的合理期限内完成清理（法律法规要求强制留存的除外）。`,
         ]
       : [
-          `Our Service does not require you to create an account, and we do not retain a persistent user profile beyond the data described in this Privacy Policy. If you would like us to delete any data we hold about you, please contact us using the details in the "Contact Us" section below.`,
+          `本服务无需您注册持久化个人账号。若您希望查询、更正或删除我们可能持有的与您相关的任何信息，请随时通过下方“联系我们”章节中的方式与我们联系。`,
         ],
   });
 
   sections.push({
-    heading: "Children's Privacy",
+    heading: '未成年人隐私保护',
     paragraphs: draft.coppa
       ? [
-          `Our Service is directed at, or knowingly collects personal information from, children under the age of 13, in compliance with the Children's Online Privacy Protection Act (COPPA). We obtain verifiable parental consent before collecting personal information from children, limit the collection of children's personal information to what is reasonably necessary, and do not condition a child's participation on the disclosure of more information than is reasonably necessary. Parents or guardians may review, request deletion of, or refuse further collection of their child's information by contacting us using the details below.`,
+          `本服务包含面向十三周岁以下未成年人的功能或内容，并严格遵守儿童在线隐私保护相关法规。我们在收集未成年人个人信息前会依法征得其父母或法定监护人的可验证同意，且仅收集实现功能所严格必需的信息。监护人可随时联系我们查阅、更正或要求删除未成年人的相关信息。`,
         ]
       : [
-          `Our Service does not address anyone under the age of 13. We do not knowingly collect personally identifiable information from anyone under the age of 13. If you are a parent or guardian and you are aware that your child has provided us with personal data, please contact us. If we become aware that we have collected personal data from anyone under the age of 13 without verification of parental consent, we take steps to remove that information from our servers.`,
+          `本服务不面向十三周岁以下的儿童，我们也不会故意收集十三周岁以下未成年人的个人身份识别信息。如果监护人发现未成年人在未获同意的情况下向我们提供了个人数据，请立即联系我们，我们将第一时间采取措施予以删除。`,
         ],
   });
 
   if (draft.gdpr) {
     sections.push({
-      heading: 'Your GDPR Data Protection Rights (EEA / UK Users)',
+      heading: '欧盟与英国用户的数据保护权利',
       paragraphs: [
-        `If you are a resident of the European Economic Area (EEA) or the United Kingdom, you have certain data protection rights under the General Data Protection Regulation (GDPR), including the right to access, correct, erase, restrict, or object to our processing of your personal data, and the right to data portability.`,
-        `We process your personal data on the legal bases of your consent, the performance of a contract with you, and our legitimate interests in operating and improving the Service. You may exercise your rights at any time by contacting us using the details in the "Contact Us" section below. You also have the right to lodge a complaint with a supervisory authority in your country of residence.`,
+        `如果您居住在欧洲经济区或英国，根据通用数据保护条例规定，您对自己的个人数据享有知情访问权、更正权、删除权（被遗忘权）、限制处理权、反对处理权以及数据可携带权。`,
+        `我们基于您的明确同意、履行合同之必要以及合法运营权益处理您的数据。您可随时通过下方联系方式行使上述权利，亦有权向您常住地的数据保护监管机构提出申诉。`,
       ],
     });
   }
 
   if (draft.ccpa) {
     sections.push({
-      heading: 'Your California Privacy Rights (CCPA)',
+      heading: '美国加州居民隐私权利',
       paragraphs: [
-        `If you are a California resident, the California Consumer Privacy Act (CCPA) provides you with the right to know what personal information is collected, used, shared, or sold, the right to delete personal information, and the right to opt out of the sale of your personal information. We do not sell your personal information. To exercise any of these rights, please contact us using the details in the "Contact Us" section below.`,
+        `如果您是美国加利福尼亚州居民，根据加州消费者隐私法案规定，您有权要求披露我们收集、使用或共享的个人信息类别，有权要求删除您的个人信息，并有权拒绝出售个人信息。我们绝不出售用户的个人隐私数据。如需行使上述权利，请通过下方联系方式与我们取得联系。`,
       ],
     });
   }
 
   sections.push({
-    heading: 'Security of Your Data',
+    heading: '数据安全保障措施',
     paragraphs: [
-      `The security of your data is important to us, but remember that no method of transmission over the Internet or method of electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your personal data, we cannot guarantee its absolute security.`,
+      `我们高度重视您的数据安全，并采取符合行业标准的加密与访问控制措施加以保护。但请注意，没有任何互联网传输或电子存储方式能够保证百分之百绝对安全，我们将尽商业上合理之努力持续防范安全风险。`,
     ],
   });
 
   sections.push({
-    heading: 'Links to Other Websites',
+    heading: '外部网站与服务链接',
     paragraphs: [
-      `Our Service may contain links to other websites that are not operated by us. If you click on a third-party link, you will be directed to that third party's site. We strongly advise you to review the Privacy Policy of every site you visit. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party sites or services.`,
+      `本服务可能包含指向非我们运营的第三方网站或外部服务的链接。当您点击第三方链接时，将跳转至该第三方的站点。我们建议您仔细阅读所访问站点的隐私政策，我们对该等第三方站点的内容或隐私实践不承担责任。`,
     ],
   });
 
   sections.push({
-    heading: 'Governing Law',
+    heading: '适用法律与管辖',
     paragraphs: [
       draft.governingLaw.trim()
-        ? `This Privacy Policy and any dispute arising from it shall be governed by and construed in accordance with the laws of ${draft.governingLaw.trim()}, without regard to its conflict of law provisions.`
-        : `This Privacy Policy and any dispute arising from it shall be governed by and construed in accordance with the laws applicable in the jurisdiction in which ${company} is established, without regard to its conflict of law provisions.`,
+        ? `本隐私政策的订立、执行、解释及争议解决均适用${draft.governingLaw.trim()}，并排除冲突法规则的适用。`
+        : `本隐私政策的订立、执行、解释及争议解决均适用${company}设立地所施行的有效法律法规。`,
     ],
   });
 
   sections.push({
-    heading: 'Changes to This Privacy Policy',
+    heading: '隐私政策的变更通知',
     paragraphs: [
-      `We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Effective Date" at the top of this Privacy Policy. You are advised to review this Privacy Policy periodically for any changes.`,
+      `我们可能会适时修订本隐私政策。任何更新一经在本页面发布并更新顶部“生效日期”后即行生效。建议您定期查阅本页面以了解最新的隐私保护措施。`,
     ],
   });
 
-  const contactParts = [`If you have any questions about this Privacy Policy, you can contact us by email: ${draft.contactEmail.trim() || 'N/A'}`];
-  if (draft.websiteUrl.trim()) contactParts.push(`or by visiting our website: ${draft.websiteUrl.trim()}`);
+  const contactParts = [`如果您对本隐私政策有任何疑问或权利请求，请通过电子邮箱联系我们：${draft.contactEmail.trim() || '未填写'}`];
+  if (draft.websiteUrl.trim()) contactParts.push(`或访问我们的官方网站：${draft.websiteUrl.trim()}`);
   if (draft.ownerType === 'company' && draft.businessAddress.trim()) {
-    contactParts.push(`or by post to our registered office: ${draft.businessAddress.trim()}`);
+    contactParts.push(`或寄信至我们的注册办公地址：${draft.businessAddress.trim()}`);
   }
-  sections.push({ heading: 'Contact Us', paragraphs: [contactParts.join(', ') + '.'] });
+  sections.push({ heading: '联系我们', paragraphs: [contactParts.join('，') + '。'] });
 
   return sections;
 }
 
 export function buildTermsOfUseSections(draft: TermsDraft): DocSection[] {
-  const appName = draft.appName.trim() || 'the App';
+  const appName = draft.appName.trim() || '本应用';
   const company = companyOf(draft);
   const sections: DocSection[] = [];
 
   sections.push({
-    heading: 'Agreement to Terms',
+    heading: '条款确认与接受',
     paragraphs: [
-      `These Terms of Use constitute a legally binding agreement made between you and ${company} concerning your access to and use of ${appName} (the "Service"). By accessing or using the Service, you agree that you have read, understood, and agree to be bound by all of these Terms of Use. If you do not agree with all of these terms, you are expressly prohibited from using the Service and must discontinue use immediately.`,
+      `本使用条款构成您与${company}之间就访问和使用「${appName}」（以下统称“本服务”）所达成的具有法律约束力的协议。一旦您下载、安装、访问或使用本服务，即视为您已充分阅读、理解并同意接受本使用条款的全部内容。若您不同意本条款的任何部分，请立即停止使用本服务。`,
     ],
   });
 
   const minAge = draft.minimumAge.trim() || '13';
   sections.push({
-    heading: 'Eligibility',
+    heading: '用户使用资格',
     paragraphs: [
-      `You must be at least ${minAge} years old, or the age of legal majority in your jurisdiction if that is greater, to use the Service. By using the Service, you represent and warrant that you meet this requirement. If you are using the Service on behalf of an organization, you represent that you have the authority to bind that organization to these Terms.`,
+      `您必须年满 ${minAge} 周岁（或达到您所在司法管辖区规定的法定成年年龄）方可使用本服务。若您代表公司或其他组织使用本服务，您声明并保证已获得充分授权使该组织受本条款约束。`,
     ],
   });
 
   sections.push({
-    heading: 'Description of Service',
+    heading: '服务内容说明',
     paragraphs: [
       draft.serviceDescription.trim()
         ? draft.serviceDescription.trim()
-        : `${appName} provides its users with a range of features and functionality described within the Service itself. We reserve the right to change, suspend, or discontinue any part of the Service at any time without notice or liability.`,
+        : `「${appName}」向用户提供应用内所展示的各项功能与数字服务。我们保留在任何时候升级、修改、暂停或终止本服务全部或部分功能的权利。`,
     ],
   });
 
   if (draft.requiresAccount) {
     sections.push({
-      heading: 'User Accounts',
+      heading: '账号注册与保管责任',
       paragraphs: [
-        `When you create an account with us, you must provide information that is accurate, complete, and current at all times. You are responsible for safeguarding the password that you use to access the Service and for any activities or actions under your password. You agree not to disclose your password to any third party.`,
+        `您在创建账号时应提供真实、准确、完整且最新的注册信息。您应对自己的账号凭证及密码安全负全部责任，并对该账号下发生的所有操作行为承担法律责任。如发现任何未经授权的使用行为，请立即通知我们。`,
       ],
     });
   }
 
   if (draft.hasUGC) {
     sections.push({
-      heading: 'User-Generated Content',
+      heading: '用户生成内容规范',
       paragraphs: [
-        `Our Service may allow you to post, link, store, share, and otherwise make available certain information, text, graphics, or other material ("Content"). You are responsible for the Content that you post, including its legality, reliability, and appropriateness. By posting Content, you grant us a non-exclusive, royalty-free license to use, reproduce, and display such Content in connection with providing the Service. We reserve the right to remove any Content that violates these Terms or is otherwise objectionable.`,
+        `本服务允许您发布、上传、存储或分享文字、图片及其他内容。您对所发布的全部内容之合法性、真实性及适当性独立承担责任。通过发布内容，您授予我们一项全球范围内免费、非独占的许可，仅用于在提供本服务的过程中展示与传输该内容。我们有权随时移除违反法律法规或本条款的不当内容。`,
       ],
     });
   }
 
   if (draft.hasSubscriptions) {
     sections.push({
-      heading: 'Subscriptions and Payments',
+      heading: '内购与自动续期订阅',
       paragraphs: [
-        `Some parts of the Service are billed on a subscription basis or offered as one-time in-app purchases, processed through the applicable platform's billing system (e.g., Apple App Store or Google Play Billing). Subscriptions automatically renew unless canceled before the end of the current billing period, in accordance with the policies of the platform through which you purchased. Refunds are subject to the policies of the applicable platform.`,
+        `本服务的部分高级功能需通过一次性应用内购买或周期性订阅解锁，交易由您下载本应用所在的应用商店结算系统处理。除非您在当前计费周期结束前至少二十四小时在系统账户设置中取消订阅，否则订阅将按照平台规则自动续期。退费事宜遵循对应应用商店平台的官方政策。`,
       ],
     });
   }
 
   sections.push({
-    heading: 'Prohibited Uses',
+    heading: '禁止性行为规范',
     paragraphs: [
-      `You agree not to use the Service: in any way that violates any applicable law or regulation; to transmit any advertising or promotional material without our prior written consent; to impersonate or attempt to impersonate the company, an employee, another user, or any other person; to engage in any conduct that restricts or inhibits anyone's use or enjoyment of the Service; or to attempt to gain unauthorized access to, interfere with, damage, or disrupt any part of the Service.`,
+      `您同意在使用本服务时不得从事以下行为：违反任何适用法律法规；未经书面许可发送垃圾广告或促销信息；冒充本公司工作人员或其他用户；从事任何损害、干扰、超负荷加载或破坏本服务正常运行的攻击行为；或未经授权抓取、逆向探测本服务的数据与接口。`,
     ],
   });
 
   sections.push({
-    heading: 'Intellectual Property',
+    heading: '知识产权归属',
     paragraphs: [
-      `The Service and its original content (excluding Content provided by users), features, and functionality are and will remain the exclusive property of ${company} and its licensors. The Service is protected by copyright, trademark, and other laws. Our trademarks may not be used in connection with any product or service without our prior written consent.`,
+      `除用户依法享有著作权的上传内容外，本服务所包含的全部源代码、界面设计、图形、文字、商标及交互逻辑均归${company}及其许可方独占所有，受著作权法、商标法及其他知识产权法律法规保护。`,
     ],
   });
 
   if (draft.appType === 'open_source') {
     sections.push({
-      heading: 'License to use the Application',
+      heading: '软件开源许可授权',
       paragraphs: [
-        `This Application is distributed as open source software under the applicable open source license. Your use, reproduction, and distribution of the Application are governed by the terms of that license.`,
+        `本应用依据所附带的开源软件许可证进行分发。您对本应用的使用、复制、修改与再分发行为均受该开源许可证条款的约束。`,
       ],
     });
   } else {
     sections.push({
-      heading: 'License to use the Application',
+      heading: '软件使用许可授权',
       paragraphs: [
-        `Subject to your compliance with these Terms, ${company} grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Application for personal or internal business purposes. You may not reproduce, distribute, modify, create derivative works from, reverse engineer, decompile, or disassemble the Application, except as and only to the extent that such activity is expressly permitted by applicable law.`,
+        `在您严格遵守本条款的前提下，${company}授予您一项有限的、非排他的、不可转让且可撤销的个人使用许可，允许您在合法拥有的终端设备上安装并使用本应用。除法律明确允许外，您不得对本应用进行复制、反编译、逆向工程、反汇编或试图提取源代码。`,
       ],
     });
   }
 
   if (draft.isAIUsed) {
     sections.push({
-      heading: 'Artificial Intelligence (AI) Technologies',
+      heading: '人工智能服务条款',
       paragraphs: [
-        `The Application incorporates Artificial Intelligence (AI) technologies to provide certain features or services. By using the Application, you acknowledge and agree that AI may be used to process data and deliver functionalities. The Service Provider ensures that all AI usage complies with applicable laws and is designed to benefit the user experience.`,
+        `本应用包含人工智能辅助生成与推荐功能。您理解并知悉人工智能输出内容具有概率性，我们会遵循相关合规要求提供服务，但请您在使用生成结果时结合实际情况审慎判断。`,
       ],
     });
   }
 
   sections.push({
-    heading: 'Feedback',
+    heading: '用户反馈建议授权',
     paragraphs: [
-      `If you send us feedback, suggestions, or ideas about the Service, you agree that we may use them without any restriction or compensation to you, and you hereby irrevocably assign to us all right, title, and interest in such feedback.`,
+      `若您向我们提交关于本服务的任何改进建议、想法或反馈，即表示您同意我们可无偿且不受限制地使用、采纳并实施该等反馈意见，而无需向您支付额外报酬。`,
     ],
   });
 
   sections.push({
-    heading: 'Third-Party Links and Services',
+    heading: '第三方链接与服务免责',
     paragraphs: [
-      `Our Service may contain links to third-party websites or services that are not owned or controlled by us. We have no control over, and assume no responsibility for, the content, privacy policies, or practices of any third-party websites or services. We strongly advise you to read the terms and privacy policy of any third-party website or service that you visit.`,
-    ],
-  });
-
-  // Mobile Device Hardware / Connection Disclaimers (Gap 1 & Gap 2)
-  sections.push({
-    heading: 'Device Security and Connectivity',
-    paragraphs: [
-      `Certain functions of the Service will require an active internet connection. The connection can be Wi-Fi or provided by your mobile network provider, but we cannot take responsibility for the Service not working at full functionality if you do not have access to Wi-Fi, or if you have used up your data allowance.`,
-      `If you are using the Application outside of an area with Wi-Fi, you should remember that the terms of agreement with your mobile network provider will still apply. As a result, you may be charged by your mobile provider for the cost of data for the duration of the connection while accessing the Service, or other third-party charges. By using the Application, you accept responsibility for any such charges, including roaming data charges if you use the Application outside of your home territory without turning off data roaming.`,
-      `Along the same lines, you must not jailbreak or root your device, which is the process of removing software restrictions and limitations imposed by the official operating system of your device. It could make your device vulnerable to malware, viruses, and malicious programs, compromise its security features, and cause the Application to not work properly or at all.`,
-      `Furthermore, you acknowledge that the Application may consume your device's battery resources. ${company} accepts no liability for any battery depletion, hardware degradation, or charging malfunctions resulting from the use of the Application.`,
+      `本服务可能包含指向第三方网站或服务的链接。我们不对任何第三方网站或服务的内容、隐私政策或运营行为进行控制或背书，亦不承担由此产生的任何直接或间接责任。`,
     ],
   });
 
   sections.push({
-    heading: 'Termination',
+    heading: '设备安全与网络连接责任',
     paragraphs: [
-      `We may terminate or suspend your access to the Service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms of Use. Upon termination, your right to use the Service will cease immediately.`,
+      `本服务的部分功能依赖稳定的互联网连接。若因无线网络未连接或移动数据流量耗尽导致本服务无法正常运作，我们不承担相关责任。您在非无线网络环境下使用本服务所产生的移动数据流量费用或漫游资费，由您自行向移动通信运营商承担。`,
+      `您不得对运行本应用的终端设备进行越狱或获取最高系统权限的操作，此类操作可能导致设备暴露于恶意软件风险之中并致使本应用无法正常工作。同时，${company}不对设备电池自然损耗或硬件老化承担责任。`,
     ],
   });
 
   sections.push({
-    heading: 'Disclaimer of Warranties',
+    heading: '服务中止与协议终止',
     paragraphs: [
-      `The Service is provided on an "AS IS" and "AS AVAILABLE" basis, without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, non-infringement, or course of performance. We do not warrant that the Service will function uninterrupted, secure, or available at any particular time or location, or that any errors or defects will be corrected.`,
+      `若您违反本使用条款的任何规定，我们有权在不预先通知的情况下立即暂停或终止您对本服务的访问权限。协议终止后，您使用本服务的权利即刻失效。`,
     ],
   });
 
   sections.push({
-    heading: 'Limitation of Liability',
+    heading: '免责声明',
     paragraphs: [
-      `To the maximum extent permitted by applicable law, in no event shall ${company}, its directors, employees, partners, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of, or inability to access or use, the Service.`,
+      `本服务系按“现状”与“现有”基础提供，不附带任何明示或暗示的担保，包括但不限于对适销性、特定用途适用性及不侵权的默示保证。我们不担保本服务在任何时间均不间断、完全无误或免于一切网络威胁。`,
     ],
   });
 
   sections.push({
-    heading: 'Indemnification',
+    heading: '责任限制',
     paragraphs: [
-      `You agree to defend, indemnify, and hold harmless ${company} and its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses, including reasonable attorneys' fees, arising out of or in any way connected with your access to or use of the Service or your violation of these Terms.`,
+      `在适用法律允许的最大范围内，${company}及其关联方、管理人员或员工均不对因您使用或无法使用本服务而产生的任何间接性、附带性、特殊性、惩罚性或后果性损害（包括但不限于利润损失、数据丢失或业务中断）承担赔偿责任。`,
     ],
   });
 
   sections.push({
-    heading: 'Governing Law',
+    heading: '违约赔偿责任',
+    paragraphs: [
+      `若因您违反本使用条款或不当使用本服务而导致任何第三方提出索赔、诉讼或损失，您同意全额赔偿并使${company}及其工作人员免受损害。`,
+    ],
+  });
+
+  sections.push({
+    heading: '适用法律与争议解决',
     paragraphs: [
       draft.governingLaw.trim()
-        ? `These Terms shall be governed and construed in accordance with the laws of ${draft.governingLaw.trim()}, without regard to its conflict of law provisions. Any disputes arising from these Terms shall be resolved in the courts of that jurisdiction.`
-        : `These Terms shall be governed and construed in accordance with the laws applicable in the jurisdiction in which ${company} is established, without regard to its conflict of law provisions.`,
+        ? `本条款的解释、效力及争议解决均适用${draft.governingLaw.trim()}。因本条款引起的任何争议应提交该管辖区有管辖权的人民法院或法院裁决。`
+        : `本条款的解释、效力及争议解决均适用${company}设立地现行有效的法律法规。`,
     ],
   });
 
   if (draft.isDsa) {
     const euRepText = draft.euRepresentative.trim()
-      ? `Where the Service Provider is established outside the European Union, we have designated our EU Legal Representative: ${draft.euRepresentative.trim()} in accordance with Article 13 of the DSA.`
-      : `The Service Provider maintains a single point of contact for direct communication with EU authorities and recipients of the service, reachable at ${draft.contactEmail || 'our support email'}.`;
+      ? `如服务提供方设立于欧盟境外，我们已依据数字服务法案指定欧盟法定授权代表：${draft.euRepresentative.trim()}。`
+      : `我们设立了直接联系窗口以配合监管机构及服务接收方的沟通，联系邮箱为：${draft.contactEmail || '官方支持邮箱'}。`;
 
     sections.push({
-      heading: 'DSA Compliance (EU Digital Services Act)',
+      heading: '欧盟数字服务法案合规条款',
       paragraphs: [
-        `If the Application is an intermediary service as defined under the Digital Services Act (Regulation (EU) 2022/2065, "DSA"), the following provisions apply in addition to these Terms.`,
-        `Point of Contact and Representative: ${euRepText}`,
-        `Content Moderation and Account Restrictions: When we restrict access to user-submitted content, or suspend or terminate an account due to policy violations, we will provide the affected user with a clear and specific statement of reasons in accordance with Article 17 of the DSA. This will outline the nature of the restriction, the factual or legal basis, and available redress options.`,
-        `Notice and Action: If you believe any content within the Service violates applicable law or these Terms, you may submit a detailed notice via ${draft.contactEmail || 'our support email'}. We will review and process all reports promptly, diligently, and with human oversight where appropriate, notifying you of our decision without undue delay (Article 16 of the DSA).`,
-        `Out-of-Court Dispute Settlement: Any content moderation disputes may be submitted to a certified out-of-court dispute settlement body in the EU under Article 21 of the DSA, without prejudice to your right to seek judicial remedy in a court of competent jurisdiction.`,
+        `若本应用涉及欧盟数字服务法案所界定的中介服务，则除本条款一般规定外，同时适用以下合规机制：`,
+        `联络点与授权代表：${euRepText}`,
+        `内容治理与申诉说明：当因违反法律法规或社区准则需要对用户提交的内容采取限制措施或封禁账号时，我们将向受影响用户提供清晰的决定理由说明及救济申诉渠道。`,
+        `违规举报与处理机制：若您发现服务内存在违法或违规内容，可通过 ${draft.contactEmail || '官方支持邮箱'} 提交详细举报通知，我们将依法及时审核并反馈处理结果。`,
       ],
     });
   }
 
   sections.push({
-    heading: 'Severability',
+    heading: '条款可分割性',
     paragraphs: [
-      `If any provision of these Terms is held to be unlawful, void, or unenforceable, that provision shall be deemed severable and shall not affect the validity and enforceability of the remaining provisions.`,
+      `若本条款的任何规定被有管辖权的法院或仲裁机构认定为无效或不可执行，该规定应在最小必要范围内予以调整或分割，且不影响其余条款的法律效力。`,
     ],
   });
 
   sections.push({
-    heading: 'Entire Agreement',
+    heading: '完整协议',
     paragraphs: [
-      `These Terms, together with our Privacy Policy, constitute the entire agreement between you and ${company} regarding the Service and supersede any prior agreements, whether oral or written, relating to the subject matter herein.`,
+      `本使用条款连同我们的隐私政策共同构成您与${company}之间关于使用本服务的完整协议，并取代双方此前就同一事项达成的任何口头或书面约定。`,
     ],
   });
 
   sections.push({
-    heading: 'Changes to These Terms',
+    heading: '条款修订与通知',
     paragraphs: [
-      `We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days' notice prior to any new terms taking effect by posting the updated Terms on this page and updating the "Effective Date" above.`,
+      `我们保留根据业务发展或法规变化适时修订本使用条款的权利。重大变更将在本页面公示并更新顶部生效日期，您在变更生效后继续使用本服务即视为接受修订后的条款。`,
     ],
   });
 
-  const contactParts = [`If you have any questions about these Terms of Use, you can contact us by email: ${draft.contactEmail.trim() || 'N/A'}`];
-  if (draft.websiteUrl.trim()) contactParts.push(`or by visiting our website: ${draft.websiteUrl.trim()}`);
-  sections.push({ heading: 'Contact Us', paragraphs: [contactParts.join(', ') + '.'] });
+  const contactParts = [`如果您对本使用条款有任何疑问，请通过电子邮箱联系我们：${draft.contactEmail.trim() || '未填写'}`];
+  if (draft.websiteUrl.trim()) contactParts.push(`或访问我们的官方网站：${draft.websiteUrl.trim()}`);
+  sections.push({ heading: '联系我们', paragraphs: [contactParts.join('，') + '。'] });
 
   return sections;
 }
 
 const LEGAL_DISCLAIMER =
-  'This document was generated by a template tool and is provided for informational purposes only. It does not constitute legal advice. Please review it (and verify any third-party links) with a qualified professional before publishing.';
+  '本文件由合规文档模板工具自动生成，仅供上架参考使用，不构成正式法律意见。在正式发布或提交应用商店审核前，请结合实际业务情况并咨询专业法务人员进行核验。';
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -711,12 +707,12 @@ export function renderSectionsToHtml(title: string, effectiveDate: string, secti
     .join('\n');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
 <title>${escapeHtml(title)}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; color: #1a1a1a; max-width: 720px; margin: 0 auto; padding: 48px 24px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.7; color: #1a1a1a; max-width: 720px; margin: 0 auto; padding: 48px 24px; }
   h1 { font-size: 28px; margin-bottom: 4px; }
   .effective-date { color: #666; font-size: 14px; margin-bottom: 32px; }
   h2 { font-size: 18px; margin-top: 32px; border-bottom: 1px solid #e5e5e5; padding-bottom: 6px; }
@@ -726,7 +722,7 @@ export function renderSectionsToHtml(title: string, effectiveDate: string, secti
 </head>
 <body>
   <h1>${escapeHtml(title)}</h1>
-  <div class="effective-date">Effective date: ${escapeHtml(effectiveDate)}</div>
+  <div class="effective-date">生效日期：${escapeHtml(effectiveDate)}</div>
   ${body}
   <div class="disclaimer">${escapeHtml(LEGAL_DISCLAIMER)}</div>
 </body>
@@ -734,10 +730,10 @@ export function renderSectionsToHtml(title: string, effectiveDate: string, secti
 }
 
 export function renderSectionsToPlainText(title: string, effectiveDate: string, sections: DocSection[]): string {
-  const parts = [title, `Effective date: ${effectiveDate}`, ''];
+  const parts = [title, `生效日期：${effectiveDate}`, ''];
   for (const s of sections) {
-    parts.push(s.heading.toUpperCase());
-    parts.push('-'.repeat(s.heading.length));
+    parts.push(s.heading);
+    parts.push('-'.repeat(Math.max(4, s.heading.length * 2)));
     for (const p of s.paragraphs) {
       parts.push(p);
       parts.push('');
@@ -749,7 +745,7 @@ export function renderSectionsToPlainText(title: string, effectiveDate: string, 
 }
 
 export function renderSectionsToMarkdown(title: string, effectiveDate: string, sections: DocSection[]): string {
-  const parts = [`# ${title}`, '', `_Effective date: ${effectiveDate}_`, ''];
+  const parts = [`# ${title}`, '', `_生效日期：${effectiveDate}_`, ''];
   for (const s of sections) {
     parts.push(`## ${s.heading}`);
     parts.push('');
@@ -763,21 +759,15 @@ export function renderSectionsToMarkdown(title: string, effectiveDate: string, s
   return parts.join('\n');
 }
 
-// ============================================================================
-// Compliance Toolkit: Custom EULA, Nutrition Label Cheat Sheet, Account
-// Deletion Page, ATT & Permission Copy Kit, Google Play Data Safety CSV
-// ============================================================================
-
 export type HighRiskType = 'none' | 'ai_generated' | 'health_medical' | 'ugc_community';
 
 export const HIGH_RISK_TYPE_LABELS: Record<HighRiskType, string> = {
-  none: '无',
-  ai_generated: 'AI 生成类',
-  health_medical: '健康/医疗类',
-  ugc_community: 'UGC 社区',
+  none: '无特殊高风险属性',
+  ai_generated: '人工智能生成内容类',
+  health_medical: '健康与医疗辅助类',
+  ugc_community: '用户生成内容与社区类',
 };
 
-/** Custom EULA = the standard Terms of Use baseline + one mandatory clause inserted before "Contact Us". */
 export function buildCustomEulaSections(draft: TermsDraft, highRiskType: HighRiskType): DocSection[] {
   const baseline = buildTermsOfUseSections(draft);
   if (highRiskType === 'none') return baseline;
@@ -785,61 +775,59 @@ export function buildCustomEulaSections(draft: TermsDraft, highRiskType: HighRis
   let clause: DocSection;
   if (highRiskType === 'ai_generated') {
     clause = {
-      heading: 'AI-Generated Content Disclaimer',
+      heading: '人工智能生成内容免责条款',
       paragraphs: [
-        `The Application uses artificial intelligence to generate content, recommendations, or other outputs presented to you. We do not guarantee the accuracy, completeness, reliability, or appropriateness of any AI-generated content, and we expressly disclaim liability for any decisions or actions you take in reliance on it.`,
-        `You are solely responsible for independently verifying any AI-generated output before relying on it for any purpose.`,
+        `本应用使用人工智能模型生成内容、建议或其他输出结果。我们不对任何由人工智能生成内容的准确性、完整性、可靠性或适用性作出保证，亦不对您依赖该等内容所作出的任何决定或行动承担法律责任。`,
+        `您在将任何人工智能生成结果用于实际决策前，应自行独立核实其真实性与妥当性。`,
       ],
     };
   } else if (highRiskType === 'health_medical') {
     clause = {
-      heading: 'Medical Disclaimer',
+      heading: '医疗与健康信息免责声明',
       paragraphs: [
-        `The Application is provided for general informational and reference purposes only and does not constitute professional medical advice, diagnosis, or treatment. It is not a substitute for consultation with a qualified physician or other licensed healthcare provider.`,
-        `Always seek the advice of a qualified healthcare professional with any questions you may have regarding a medical condition, and never disregard professional medical advice or delay seeking it because of information provided by the Application.`,
+        `本应用所提供的全部数据与建议仅供日常健康信息参考，绝不构成专业的医疗诊断、治疗方案或医嘱，亦不能替代执业医师或其他具备资质的医疗卫生专业人员的面诊咨询。`,
+        `如您有任何身体不适或医疗健康疑问，请务必及时咨询专业医生，切勿因本应用提供的信息而延误就医或擅自更改诊疗计划。`,
       ],
     };
   } else {
     clause = {
-      heading: 'Zero-Tolerance Policy for Objectionable Content',
+      heading: '不良内容零容忍与社区治理政策',
       paragraphs: [
-        `We maintain a zero-tolerance policy toward abusive, harassing, hateful, or sexually explicit user-generated content. We provide the following mechanisms to enforce this policy: (1) a content filtering mechanism that screens submitted content; (2) an in-app mechanism allowing any user to block another user from interacting with them; (3) an in-app mechanism allowing any user to report objectionable content or behavior directly within the Service; and (4) a moderation process that promptly reviews reports, removes violating content, and, where warranted, suspends or permanently bans the account responsible.`,
-        `We act on reports of objectionable content and abusive users within a reasonable timeframe. Users who repeatedly violate this policy will have their access to the Service terminated.`,
+        `我们对任何辱骂、骚扰、仇恨言论、暴力或色情低俗等违规用户生成内容采取严格的“零容忍”政策。为贯彻该政策，我们在服务内提供以下强制保障机制：（1）对用户提交内容进行自动化与规则过滤筛查；（2）提供便捷的拉黑屏蔽功能，允许任何用户即时屏蔽特定用户的互动；（3）提供应用内一键举报通道，支持用户直接举报违规内容或不良行为；（4）建立快速响应审核机制，收到举报后将在二十四小时内完成核查，立即移除违规内容并对违规账号予以封禁处罚。`,
+        `屡次违反社区内容规范的用户将被永久终止访问权限。`,
       ],
     };
   }
 
-  const contactIndex = baseline.findIndex((s) => s.heading === 'Contact Us');
+  const contactIndex = baseline.findIndex((s) => s.heading === '联系我们');
   if (contactIndex === -1) return [...baseline, clause];
   return [...baseline.slice(0, contactIndex), clause, ...baseline.slice(contactIndex)];
 }
 
-// ---- Apple Privacy Nutrition Label Cheat Sheet ----
-
 export type NutritionLabelCategory = 'tracking' | 'linked' | 'not_linked';
 
 export const NUTRITION_LABEL_CATEGORY_LABELS: Record<NutritionLabelCategory, string> = {
-  tracking: '用于追踪你的数据 (Data Used to Track You)',
-  linked: '与你关联的数据 (Data Linked to You)',
-  not_linked: '未与你关联的数据 (Data Not Linked to You)',
+  tracking: '用于追踪您的数据',
+  linked: '与您身份关联的数据',
+  not_linked: '未与您身份关联的数据',
 };
 
 const AD_ATTRIBUTION_SERVICE_IDS = new Set(
-  SERVICE_CATALOG.find((g) => g.category === '广告 / 归因')?.services.map((s) => s.id) ?? []
+  SERVICE_CATALOG.find((g) => g.category === '广告变现与渠道归因')?.services.map((s) => s.id) ?? []
 );
 
 const DEFAULT_PURPOSES: Record<string, string[]> = {
-  name: ['App Functionality'],
-  email: ['App Functionality', "Developer's Advertising or Marketing"],
-  phone: ['App Functionality'],
-  address: ['App Functionality'],
-  photos: ['App Functionality'],
-  contacts: ['App Functionality'],
-  precise_location: ['App Functionality', 'Analytics'],
-  approximate_location: ['App Functionality', 'Analytics'],
-  usage_data: ['Analytics', 'App Functionality'],
-  device_id: ['Third-Party Advertising', 'Analytics'],
-  cookies: ['Analytics', 'Third-Party Advertising'],
+  name: ['基础应用功能'],
+  email: ['基础应用功能', '开发者通知与营销沟通'],
+  phone: ['基础应用功能'],
+  address: ['基础应用功能'],
+  photos: ['基础应用功能'],
+  contacts: ['基础应用功能'],
+  precise_location: ['基础应用功能', '统计分析'],
+  approximate_location: ['基础应用功能', '统计分析'],
+  usage_data: ['统计分析', '基础应用功能'],
+  device_id: ['第三方广告与归因', '统计分析'],
+  cookies: ['统计分析', '第三方广告与归因'],
 };
 
 export interface NutritionLabelRow {
@@ -857,48 +845,46 @@ export function buildNutritionLabelRows(draft: PrivacyDraft): NutritionLabelRow[
       dataTypeId: d.id,
       dataTypeLabel: d.label,
       category,
-      purposes: DEFAULT_PURPOSES[d.id] ?? ['App Functionality'],
+      purposes: DEFAULT_PURPOSES[d.id] ?? ['基础应用功能'],
     };
   });
 }
 
 export function renderNutritionLabelRowsToText(rows: NutritionLabelRow[]): string {
-  const lines = ['Data Type | Apple Category | Suggested Purpose(s)', '--- | --- | ---'];
+  const lines = ['数据类型 | 苹果隐私标签分类 | 建议勾选用途', '--- | --- | ---'];
   for (const r of rows) {
-    lines.push(`${r.dataTypeLabel} | ${NUTRITION_LABEL_CATEGORY_LABELS[r.category]} | ${r.purposes.join(', ')}`);
+    lines.push(`${r.dataTypeLabel} | ${NUTRITION_LABEL_CATEGORY_LABELS[r.category]} | ${r.purposes.join('、')}`);
   }
   return lines.join('\n');
 }
 
 export function renderNutritionLabelRowsToMarkdown(rows: NutritionLabelRow[]): string {
   const parts = [
-    '# Apple Privacy Nutrition Label — Fill-in Cheat Sheet',
+    '# 苹果应用商店隐私营养标签 — 填表对照表',
     '',
-    "_Apple's own App Store Connect questionnaire UI is the source of truth; cross-check this table against its current wording before submitting._",
+    '_请以苹果开发者后台最新问卷界面表述为准，在提交审核前逐项核对下表。_',
     '',
-    '| Data Type | Apple Category | Suggested Purpose(s) |',
+    '| 数据类型 | 苹果隐私标签分类 | 建议勾选用途 |',
     '| --- | --- | --- |',
   ];
   for (const r of rows) {
-    parts.push(`| ${r.dataTypeLabel} | ${NUTRITION_LABEL_CATEGORY_LABELS[r.category]} | ${r.purposes.join(', ')} |`);
+    parts.push(`| ${r.dataTypeLabel} | ${NUTRITION_LABEL_CATEGORY_LABELS[r.category]} | ${r.purposes.join('、')} |`);
   }
   return parts.join('\n');
 }
 
-// ---- Standalone Account and Data Deletion Page ----
-
 export function buildAccountDeletionSections(draft: PrivacyDraft): DocSection[] {
-  const appName = draft.appName.trim() || 'the App';
-  const contactLine = `Contact: ${draft.contactEmail.trim() || 'N/A'}`;
+  const appName = draft.appName.trim() || '本应用';
+  const contactLine = `受理联系邮箱：${draft.contactEmail.trim() || '未填写'}`;
 
   if (draft.hasUserAccounts) {
     return [
       {
-        heading: 'Account and Data Deletion',
+        heading: '账号与数据注销指南',
         paragraphs: [
           draft.deletionInstructions.trim()
             ? draft.deletionInstructions.trim()
-            : `You may request deletion of your ${appName} account and all associated personal data at any time by contacting us using the details below. We will process your request and delete your data within a reasonable timeframe, unless we are required to retain it to comply with a legal obligation.`,
+            : `您可以随时通过「${appName}」应用内的账号设置入口或发送请求至下方联系邮箱，申请永久注销您的账号并清除全部关联个人数据。我们将在核实身份后的合理期限内完成数据删除（法律法规另有强制留存规定的除外）。`,
           contactLine,
         ],
       },
@@ -907,16 +893,14 @@ export function buildAccountDeletionSections(draft: PrivacyDraft): DocSection[] 
 
   return [
     {
-      heading: 'Account and Data Deletion',
+      heading: '账号与数据注销指南',
       paragraphs: [
-        `${appName} does not require you to create a persistent account. If you would like us to delete any data we may hold about you, please contact us using the details below.`,
+        `「${appName}」无需注册持久化个人账号即可使用。若您希望删除我们在提供服务过程中可能留存的与您相关的任何记录，请通过下方联系邮箱与我们取得联系。`,
         contactLine,
       ],
     },
   ];
 }
-
-// ---- ATT Tracking Prompt & System Permission Copy Kit ----
 
 export interface PermissionCopyEntry {
   dataTypeId: string;
@@ -929,47 +913,45 @@ export interface PermissionCopyEntry {
 const PERMISSION_COPY_MATRIX: Record<string, PermissionCopyEntry> = {
   photos: {
     dataTypeId: 'photos',
-    iosKey: 'NSPhotoLibraryUsageDescription',
-    androidPermission: 'READ_MEDIA_IMAGES',
-    zh: '我们需要访问您的相册，以便您选择照片用于【具体功能，例如：设置头像 / 编辑图片】。',
-    en: 'We access your photo library so you can select a photo to use for [specific feature, e.g. your profile picture / image editing].',
+    iosKey: '相册读取权限标识 (NSPhotoLibraryUsageDescription)',
+    androidPermission: '读取媒体图片权限 (READ_MEDIA_IMAGES)',
+    zh: '我们需要访问您的相册，以便您选择照片用于设置头像或编辑保存图片。',
+    en: '我们需要访问您的相册，以便您选择照片用于设置头像或编辑保存图片。',
   },
   contacts: {
     dataTypeId: 'contacts',
-    iosKey: 'NSContactsUsageDescription',
-    androidPermission: 'READ_CONTACTS',
-    zh: '我们需要访问您的联系人，以便您邀请好友或查找已使用本应用的联系人。',
-    en: 'We access your contacts so you can invite friends or find contacts who already use the app.',
+    iosKey: '通讯录权限标识 (NSContactsUsageDescription)',
+    androidPermission: '读取联系人权限 (READ_CONTACTS)',
+    zh: '我们需要访问您的通讯录联系人，以便帮您快速查找或邀请好友。',
+    en: '我们需要访问您的通讯录联系人，以便帮您快速查找或邀请好友。',
   },
   precise_location: {
     dataTypeId: 'precise_location',
-    iosKey: 'NSLocationWhenInUseUsageDescription',
-    androidPermission: 'ACCESS_FINE_LOCATION',
-    zh: '我们需要获取您的精确位置，以便为您提供【具体功能，例如：附近推荐 / 导航】服务。',
-    en: 'We use your precise location to provide [specific feature, e.g. nearby recommendations / navigation].',
+    iosKey: '使用期间位置权限标识 (NSLocationWhenInUseUsageDescription)',
+    androidPermission: '精确位置权限 (ACCESS_FINE_LOCATION)',
+    zh: '我们需要获取您的精确地理位置，以便为您提供附近地点推荐与位置导航服务。',
+    en: '我们需要获取您的精确地理位置，以便为您提供附近地点推荐与位置导航服务。',
   },
   approximate_location: {
     dataTypeId: 'approximate_location',
-    androidPermission: 'ACCESS_COARSE_LOCATION',
-    zh: '我们需要获取您的大致位置，以便为您提供【具体功能，例如：本地化内容】服务。',
-    en: 'We use your approximate location to provide [specific feature, e.g. localized content].',
+    androidPermission: '粗略位置权限 (ACCESS_COARSE_LOCATION)',
+    zh: '我们需要获取您的大致位置信息，以便为您展示本地化的服务内容。',
+    en: '我们需要获取您的大致位置信息，以便为您展示本地化的服务内容。',
   },
   device_id: {
     dataTypeId: 'device_id',
-    iosKey: 'NSUserTrackingUsageDescription',
-    zh: '我们需要获取您的设备标识符，仅用于为您提供更相关的个性化广告体验。',
-    en: 'We need your device identifier only to provide you with a more relevant, personalized advertising experience.',
+    iosKey: '跨应用追踪权限标识 (NSUserTrackingUsageDescription)',
+    zh: '我们需要获取您的设备标识符，仅用于为您提供更契合兴趣的个性化广告体验与效果评估。',
+    en: '我们需要获取您的设备标识符，仅用于为您提供更契合兴趣的个性化广告体验与效果评估。',
   },
 };
 
-// Camera is bundled with "photos" in DATA_TYPE_CATALOG, but iOS/Android each require a
-// distinct camera usage-description key, so expose it as a supplemental entry.
 const CAMERA_SUPPLEMENTAL_ENTRY: PermissionCopyEntry = {
   dataTypeId: 'camera',
-  iosKey: 'NSCameraUsageDescription',
-  androidPermission: 'CAMERA',
-  zh: '我们需要访问您的相机，以便您拍摄照片用于【具体功能，例如：扫码 / 拍摄头像】。',
-  en: 'We access your camera so you can take a photo to use for [specific feature, e.g. barcode scanning / profile picture].',
+  iosKey: '相机拍摄权限标识 (NSCameraUsageDescription)',
+  androidPermission: '相机硬件权限 (CAMERA)',
+  zh: '我们需要访问您的相机，以便您拍摄照片用于扫码识别或上传头像图片。',
+  en: '我们需要访问您的相机，以便您拍摄照片用于扫码识别或上传头像图片。',
 };
 
 export function buildPermissionMatrix(draft: PrivacyDraft): PermissionCopyEntry[] {
@@ -982,31 +964,28 @@ export function buildPermissionMatrix(draft: PrivacyDraft): PermissionCopyEntry[
   return entries;
 }
 
-/** ATT prompt copy is only relevant when the device identifier is collected AND an advertising/attribution SDK is in use. */
 export function shouldShowAttPrompt(draft: PrivacyDraft): boolean {
   return draft.dataTypes.includes('device_id') && draft.services.some((id) => AD_ATTRIBUTION_SERVICE_IDS.has(id));
 }
 
 export const ATT_PROMPT_COPY = {
-  zh: '我们需要获取您的设备标识符，仅用于为您提供更相关的个性化广告体验。',
-  en: 'We need your device identifier only to provide you with a more relevant, personalized advertising experience.',
+  zh: '我们需要获取您的设备标识符，仅用于为您提供更契合兴趣的个性化广告体验与效果评估。',
+  en: '我们需要获取您的设备标识符，仅用于为您提供更契合兴趣的个性化广告体验与效果评估。',
 };
 
 export function renderInfoPlistSnippet(entries: PermissionCopyEntry[]): string {
   return entries
     .filter((e) => e.iosKey)
-    .map((e) => `<key>${e.iosKey}</key>\n<string>${e.en}</string>`)
+    .map((e) => `<key>${e.iosKey}</key>\n<string>${e.zh}</string>`)
     .join('\n');
 }
 
 export function renderAndroidPermissionSnippet(entries: PermissionCopyEntry[]): string {
   return entries
     .filter((e) => e.androidPermission)
-    .map((e) => `<!-- ${e.en} -->\n<uses-permission android:name="android.permission.${e.androidPermission}" />`)
+    .map((e) => `<!-- ${e.zh} -->\n<uses-permission android:name="android.permission.${e.androidPermission}" />`)
     .join('\n');
 }
-
-// ---- Google Play Data Safety Form CSV ----
 
 export interface DataSafetyRow {
   dataType: string;
@@ -1016,17 +995,12 @@ export interface DataSafetyRow {
   optional: boolean;
 }
 
-/**
- * Column structure is a best-effort mapping and may drift from Google Play Console's
- * current bulk-import template; cross-check against the live template before relying on it
- * (see openspec/changes/app-store-compliance-toolkit/design.md Open Questions).
- */
 const DATA_SAFETY_CSV_COLUMNS: Array<{ key: keyof DataSafetyRow; label: string }> = [
-  { key: 'dataType', label: 'Data type' },
-  { key: 'collected', label: 'Collected' },
-  { key: 'shared', label: 'Shared' },
-  { key: 'purpose', label: 'Purpose' },
-  { key: 'optional', label: 'Optional' },
+  { key: 'dataType', label: '数据类型' },
+  { key: 'collected', label: '是否收集' },
+  { key: 'shared', label: '是否共享给第三方' },
+  { key: 'purpose', label: '处理用途' },
+  { key: 'optional', label: '用户是否可选' },
 ];
 
 export function buildDataSafetyRows(draft: PrivacyDraft): DataSafetyRow[] {
@@ -1035,7 +1009,7 @@ export function buildDataSafetyRows(draft: PrivacyDraft): DataSafetyRow[] {
     dataType: d.label,
     collected: true,
     shared: hasThirdParty,
-    purpose: (DEFAULT_PURPOSES[d.id] ?? ['App Functionality']).join('; '),
+    purpose: (DEFAULT_PURPOSES[d.id] ?? ['基础应用功能']).join('；'),
     optional: false,
   }));
 }
@@ -1049,7 +1023,7 @@ export function toDataSafetyCsv(rows: DataSafetyRow[]): string {
   const lines = rows.map((r) =>
     DATA_SAFETY_CSV_COLUMNS.map((c) => {
       const val = r[c.key];
-      return escapeCsvValue(typeof val === 'boolean' ? (val ? 'Yes' : 'No') : String(val));
+      return escapeCsvValue(typeof val === 'boolean' ? (val ? '是' : '否') : String(val));
     }).join(',')
   );
   return [header, ...lines].join('\n');

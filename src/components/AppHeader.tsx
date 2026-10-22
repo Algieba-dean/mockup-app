@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Sun, Moon, Download, Layers, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Undo2, Redo2, History, Check, HelpCircle } from 'lucide-react';
+import { getMessages, formatMessage } from '../i18n';
+
+const m = getMessages().app;
 
 interface AppHeaderProps {
   activeTool: string;
@@ -38,12 +41,16 @@ const SaveStatusIndicator: React.FC<{ lastSavedAt?: number | null }> = ({ lastSa
   if (!lastSavedAt) return null;
 
   const seconds = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000));
-  const relative = seconds < 5 ? '刚刚' : seconds < 60 ? `${seconds} 秒前` : `${Math.floor(seconds / 60)} 分钟前`;
+  const relative = seconds < 5
+    ? m.header.savedJustNow
+    : seconds < 60
+      ? formatMessage(m.header.savedSecondsAgo, { n: seconds })
+      : formatMessage(m.header.savedMinutesAgo, { n: Math.floor(seconds / 60) });
   const absolute = new Date(lastSavedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
     <span
-      title={`已自动保存到本机浏览器 · ${absolute}`}
+      title={formatMessage(m.header.savedTooltip, { time: absolute })}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -55,7 +62,7 @@ const SaveStatusIndicator: React.FC<{ lastSavedAt?: number | null }> = ({ lastSa
       }}
     >
       <Check size={12} strokeWidth={2} />
-      已保存 {relative}
+      {formatMessage(m.header.savedLabel, { time: relative })}
     </span>
   );
 };
@@ -86,14 +93,14 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
             className="ds-btn ds-btn-icon-only"
             style={{ border: 'none' }}
             onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-            title={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
-            aria-label={leftSidebarCollapsed ? "展开左边栏" : "折叠左边栏"}
+            title={leftSidebarCollapsed ? m.header.expandLeftSidebar : m.header.collapseLeftSidebar}
+            aria-label={leftSidebarCollapsed ? m.header.expandLeftSidebar : m.header.collapseLeftSidebar}
           >
             {leftSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
           </button>
         )}
         <Layers size={18} strokeWidth={1.5} style={{ marginLeft: activeTool !== 'privacy' ? '8px' : '0' }} />
-        <h1 style={{ fontSize: '15px' }}>MockupApp</h1>
+        <h1 style={{ fontSize: '15px' }}>{m.brandName}</h1>
         {activeTool !== 'privacy' && <SaveStatusIndicator lastSavedAt={lastSavedAt} />}
       </div>
 
@@ -102,25 +109,19 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
           className={`ds-btn ${activeTool === 'screenshots' ? 'ds-btn-active' : ''}`}
           onClick={() => setActiveTool('screenshots')}
         >
-          商店截图
+          {m.nav.screenshots}
         </button>
         <button
           className={`ds-btn ${activeTool === 'icons' ? 'ds-btn-active' : ''}`}
           onClick={() => setActiveTool('icons')}
         >
-          图标生成
-        </button>
-        <button
-          className={`ds-btn ${activeTool === 'copywriter' ? 'ds-btn-active' : ''}`}
-          onClick={() => setActiveTool('copywriter')}
-        >
-          文案助手
+          {m.nav.icons}
         </button>
         <button
           className={`ds-btn ${activeTool === 'privacy' ? 'ds-btn-active' : ''}`}
           onClick={() => setActiveTool('privacy')}
         >
-          隐私与条款
+          {m.nav.privacy}
         </button>
       </nav>
 
@@ -131,8 +132,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
               className="ds-btn ds-btn-icon-only"
               onClick={onUndo}
               disabled={!canUndo}
-              title="撤销 (Ctrl+Z)"
-              aria-label="撤销"
+              title={m.header.undoShortcut}
+              aria-label={m.header.undo}
             >
               <Undo2 size={16} />
             </button>
@@ -140,8 +141,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
               className="ds-btn ds-btn-icon-only"
               onClick={onRedo}
               disabled={!canRedo}
-              title="重做 (Ctrl+Shift+Z)"
-              aria-label="重做"
+              title={m.header.redoShortcut}
+              aria-label={m.header.redo}
             >
               <Redo2 size={16} />
             </button>
@@ -152,8 +153,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
           <button
             className="ds-btn ds-btn-icon-only"
             onClick={onShowHelp}
-            title="帮助与快捷键"
-            aria-label="帮助与快捷键"
+            title={m.header.help}
+            aria-label={m.header.help}
           >
             <HelpCircle size={18} />
           </button>
@@ -161,8 +162,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
         <button
           className="ds-btn ds-btn-icon-only"
           onClick={toggleTheme}
-          title={theme === 'dark' ? '切换为亮色模式' : '切换为暗色模式'}
-          aria-label={theme === 'dark' ? '切换为亮色模式' : '切换为暗色模式'}
+          title={theme === 'dark' ? m.header.switchToLight : m.header.switchToDark}
+          aria-label={theme === 'dark' ? m.header.switchToLight : m.header.switchToDark}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
@@ -170,8 +171,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
           <button
             className="ds-btn ds-btn-icon-only"
             onClick={onToggleHistory}
-            title="查看历史方案"
-            aria-label="查看历史方案"
+            title={m.header.iconHistory}
+            aria-label={m.header.iconHistory}
           >
             <History size={16} />
           </button>
@@ -180,10 +181,10 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
           <button
             className="ds-btn"
             onClick={onExport}
-            title="导出 ZIP 压缩包"
+            title={m.header.exportZipTitle}
           >
             <Download size={16} />
-            <span>导出 ZIP</span>
+            <span>{m.header.exportZip}</span>
           </button>
         )}
         {activeTool !== 'privacy' && (
@@ -193,8 +194,8 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
               className="ds-btn ds-btn-icon-only"
               style={{ border: 'none' }}
               onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
-              title={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
-              aria-label={rightSidebarCollapsed ? "展开右边栏" : "折叠右边栏"}
+              title={rightSidebarCollapsed ? m.header.expandRightSidebar : m.header.collapseRightSidebar}
+              aria-label={rightSidebarCollapsed ? m.header.expandRightSidebar : m.header.collapseRightSidebar}
             >
               {rightSidebarCollapsed ? <PanelRight size={16} /> : <PanelRightClose size={16} />}
             </button>

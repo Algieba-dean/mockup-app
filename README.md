@@ -1,32 +1,72 @@
-# React + TypeScript + Vite
+# 极简造物 (MockupApp)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**极简造物** 是一款纯前端、离线优先的应用商店视觉资产与上架合规交付工具。采用 **「社论策展人 (The Editorial Curator)」** 黑白单色极简设计系统，帮助独立开发者与产品团队在一分钟内生成符合苹果 App Store 与安卓 Google Play 规范的多尺寸加壳宣传图、全规格应用图标包以及全套上架合规法律文档。
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 一、 核心能力模块
 
-## React Compiler
+1. **商店截图加壳与叙事编排 (`screenshots`)**
+   - **25 款多机型外壳与同画幅混搭**：内置 17 款真机高保真边框（苹果 17/16 系列、12.9 寸专业平板、三星与谷歌旗舰）与 8 款手绘经典矢量外壳，支持单机居中、双机左右、倾斜悬浮及任意多设备叠加。
+   - **多尺寸画幅比例实时预览**：画布底部支持在 `标准 9:16 (1242×2208)`、`全面屏 6.9" (1290×2796)` 与 `平板 4:3 (2048×2732)` 之间实时切换画布物理尺寸，导出前即可实现跨规格“所见即所得”。
+   - **社论级微排版与智能配色**：支持中日韩与西文智能分词断行（绝不生硬劈断英文单词）、大标题紧凑字间距与行高优化、左/中/右对齐、自适应对比色与自定义品牌文字色；内置 48×48 分区域色彩量化提取算法，一键从内屏截图生成柔和耐看的杂志感渐变背景。
+   - **跨画幅全景连图 (`panoramic`)**：单张超宽底图按画幅序号自动横向切片，轻松制作跨页无缝衔接的商店叙事长图。
+2. **多平台应用图标生成器 (`icons`)**
+   - **双平台独立参数微调**：支持苹果与安卓平台各自独立保存水平/垂直内边距、X/Y 偏移与内容缩放比例。
+   - **安卓厂商遮罩安全区预览**：内置圆形（官方 66dp 安全区）、圆润方形、水滴形、方形 4 种主流厂商启动器遮罩叠加层。
+   - **全规格打包与历史方案对比**：一键导出包含苹果 `AppIcon.appiconset`（含完整 `Contents.json`）、安卓传统 `mipmap-*`、自适应前后景图层、`512px` 商店大图及可选 `1024×1024` 矢量容器版的压缩包，并提供具名历史方案快照抽屉。
+3. **上架合规工具箱 (`privacy`)**
+   - **一次填写，七项交付**：共享唯一一份开发者与数据收集问卷，实时生成并支持单独或批量打包下载：**隐私政策**、**使用条款**、**自定义最终用户许可协议（含高风险行业强制免责条款）**、**跨应用追踪与系统权限话术矩阵（含配置片段）**、**苹果隐私营养标签填表对照表**、**账号与数据注销独立网页**、**安卓数据安全表单批量导入表格**。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 二、 架构、设计与交互铁律（Engineering & Design Rules）
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+在后续迭代或扩展本项目时，必须严格遵守以下设计、交互与工程规范（同步收录于 `openspec/specs/`）：
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+### 1. 多语言（i18n）与文案纯粹性规范
+- **统一字典管理**：所有界面字符串、提示语、弹窗文案、默认画幅模板标题及合规选项文案均统一维护在 `src/i18n/index.ts` 中，通过 `getMessages()` 与 `formatMessage(template, params)` 读取，预留 `Locale` 接口以便后续无缝扩展多语言。
+- **严禁中英混杂**：在当前默认的纯中文语言包（`zh-CN`）下，界面按钮、分类标题、默认画幅文字与生成的合规文档必须保持纯粹、地道的中文表述，禁止在中文词句中夹杂未翻译的英文单词或半截英文术语。
+
+### 2. 「社论策展人」单色设计系统红线（Monochrome Editorial System）
+- **绝对单色守则**：工作区界面（除用户画布作品与颜色选择器色块外）禁止出现红、黄、蓝、绿等彩色高亮或 Emoji 装饰。状态区分与视觉层级仅依靠黑白反色、灰度阶梯、`1px` 实体边框与字重对比实现。
+- **排版角色分离**：界面导航栏 Logo、表单小节标题、按钮与控制面板统一使用现代无衬线体（`--font-sans`）；衬线展示体（`--font-serif`）仅用于画布海报标题与弹窗主标题。
+- **单色画布交互手柄**：Fabric.js 画布内的选中框、缩放角标与中心磁吸辅助线统一使用黑白高对比方形控制点（`MONOCHROME_CONTROL_PROPS`），禁止回退为 Fabric.js 默认的亮蓝色控制框。
+
+### 3. 画布渲染与交互体验规范
+- **智能分词断行**：画布 `Textbox` 必须通过 `containsCjkCharacters()` 动态决定 `splitByGrapheme`——纯西文使用按词断行（`false`）以保护单词完整性，含中日韩字符时启用按字素断行（`true`）。
+- **异步重绘并发守卫**：`updateCanvas` 必须通过递增的 `renderGeneration` 令牌校验异步图像加载（`FabricImage.fromURL`）后的时效性，防止高频切换或大图加载期间发生并发重绘叠加（鬼影）。
+- **画布与面板双向同步**：
+  - 在画布中点击或拖拽任意设备，右侧面板的“活动设备”页签必须同步切换至该设备；
+  - 在画布中双击内联编辑标题/副标题退出后，必须通过 `text:editing:exited` 同步写回页面状态；
+  - 拖拽设备或文字靠近画布水平中心（`±18px`）时自动触发中心磁吸并展示中心对齐辅助线；
+  - 所有滑块（`<input type="range">`）均支持**双击滑块一键恢复默认值**。
+
+### 4. 状态管理、撤销历史与本地存储规范
+- **安全的索引边界**：任何读取 `pages[activePageIndex]` 或 `devices[activeDeviceIndex]` 的逻辑必须经过边界收敛（`safePageIndex`），确保在尾页删除或执行 `Ctrl+Z` 撤销新增页时绝不发生越界崩溃。
+- **撤销/重做（`useHistory`）精准控制**：
+  - 全局 `Ctrl/Cmd + Z` 监听器必须跳过处于焦点状态的 `<input>`、`<textarea>`、`<select>` 与 `contentEditable` 元素，保护原生文本输入撤销；
+  - 仅在 `screenshots` 模块激活画布撤销快捷键与顶部撤销/重做按钮；
+  - 高频连续变更（如拖动滑块、取色器）必须传入 `coalesceKey` 在 600ms 窗口内合并历史快照，防止单次拖拽冲垮历史栈。
+- **去重式本地持久化**：写入 `localStorage` 时，`mockup_app_pages` 中的设备截图必须通过 `dehydratePagesForStorage` 替换为指向 `mockup_app_screenshots` 的轻量索引引用（`__ss_ref__:N`），严禁将同一张 Base64 大图在多个存储键中重复序列化。
+
+---
+
+## 三、 开发与验证命令
+
+```bash
+# 启动本地开发服务器
+npm run dev
+
+# 静态代码规范检查 (要求 0 warnings, 0 errors)
+npx oxlint src
+
+# Design System 反模式与质量扫描 (要求输出 [])
+node .devin/skills/impeccable/scripts/detect.mjs --json src
+
+# TypeScript 类型检查与生产构建
+npm run build
+
+# 运行 Playwright 端到端测试套件 (16 项全流程验证)
+npm run test:e2e
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

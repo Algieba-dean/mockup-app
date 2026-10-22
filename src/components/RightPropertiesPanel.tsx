@@ -4,6 +4,10 @@ import marbleBg from '../assets/white_marble_bg.jpg';
 import grainBg from '../assets/minimal_grain_bg.jpg';
 import type { DeviceInstance } from '../utils/canvasManager';
 import { extractPaletteFromImage } from '../utils/canvasManager';
+import { getMessages, formatMessage } from '../i18n';
+
+const m = getMessages().rightPanel;
+const appMsg = getMessages().app;
 
 // 画布基准分辨率为 1242x2208 (见 canvasManager.ts 中 updateCanvas 的 canvasWidth/canvasHeight)，
 // 标题/副标题文本框宽度分别为 canvasWidth - 160 与 canvasWidth - 240。
@@ -149,6 +153,10 @@ interface RightPropertiesPanelProps {
   setTitleFontFamily: (font: string) => void;
   subtitleFontFamily: string;
   setSubtitleFontFamily: (font: string) => void;
+  textAlign?: 'left' | 'center' | 'right';
+  setTextAlign?: (align: 'left' | 'center' | 'right') => void;
+  customTextColor?: string;
+  setCustomTextColor?: (color: string | undefined) => void;
   textOnTop?: boolean;
   setTextOnTop?: (onTop: boolean) => void;
   hasTextTransform?: boolean;
@@ -220,6 +228,10 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   setTitleFontFamily,
   subtitleFontFamily,
   setSubtitleFontFamily,
+  textAlign = 'center',
+  setTextAlign,
+  customTextColor,
+  setCustomTextColor,
   textOnTop = true,
   setTextOnTop,
   hasTextTransform = false,
@@ -257,10 +269,10 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   const bgPresets = ['#ffffff', '#f5f5f4', '#e5e5e4', '#dcdcdc', '#8a8a8a', '#4a4a4a', '#1e1e1e', '#0a0a0a'];
   
   const gradientPresets = [
-    { name: '石墨渐变 (Charcoal)', colors: ['#1c1c1c', '#0a0a0a'] },
-    { name: '沙褐渐变 (Sand)', colors: ['#f5f5f4', '#e5e5e4'] },
-    { name: '银丝渐变 (Silk)', colors: ['#ffffff', '#d4d4d8'] },
-    { name: '晨雾渐变 (Mist)', colors: ['#fafaf9', '#e7e5e4'] },
+    { name: m.gradientPresets.charcoal, colors: ['#1c1c1c', '#0a0a0a'] },
+    { name: m.gradientPresets.sand, colors: ['#f5f5f4', '#e5e5e4'] },
+    { name: m.gradientPresets.silk, colors: ['#ffffff', '#d4d4d8'] },
+    { name: m.gradientPresets.mist, colors: ['#fafaf9', '#e7e5e4'] },
   ];
 
   const imageFileInputRef = useRef<HTMLInputElement>(null);
@@ -418,54 +430,39 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       {activeTool === 'screenshots' ? (
         <>
-          {/* 快速核心控制区：机型、主副标题、置顶开关，无需展开折叠面板即可直接操作 */}
-          <div className="sidebar-title">核心编排</div>
+          {/* 快速核心控制区：版式与置顶开关，无需展开折叠面板即可直接操作 */}
+          <div className="sidebar-title">{m.coreArrangement}</div>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-primary)' }}>
-            {activeDevice && (
-              <div className="ds-input-group" style={{ marginBottom: '2px' }}>
-                <label className="ds-label" htmlFor="quick-device-model">设备机型</label>
-                <select
-                  id="quick-device-model"
-                  className="ds-select"
-                  value={activeDevice.deviceModel}
-                  onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
+            <div className="ds-input-group" style={{ marginBottom: '2px' }}>
+              <label className="ds-label">{m.templateLayout}</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <button
+                  className={`ds-btn ${layout === 'text-top' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setLayout?.('text-top')}
                 >
-                  <optgroup label="真机边框 (fastlane/frameit-frames)">
-                    <option value="iphone_17_pro_max_silver">iPhone 17 Pro Max (银色)</option>
-                    <option value="iphone_17_pro_max_deep_blue">iPhone 17 Pro Max (深蓝色)</option>
-                    <option value="iphone_17_pro_max_cosmic_orange">iPhone 17 Pro Max (橙色)</option>
-                    <option value="iphone_17_pro_silver">iPhone 17 Pro (银色)</option>
-                    <option value="iphone_17_pro_deep_blue">iPhone 17 Pro (深蓝色)</option>
-                    <option value="iphone_16_pro_max_black_titanium">iPhone 16 Pro Max (黑色钛金属)</option>
-                    <option value="iphone_16_pro_max_natural_titanium">iPhone 16 Pro Max (原色钛金属)</option>
-                    <option value="iphone_16_pro_max_white_titanium">iPhone 16 Pro Max (白色钛金属)</option>
-                    <option value="iphone_16_black">iPhone 16 (黑色)</option>
-                    <option value="iphone_16_white">iPhone 16 (白色)</option>
-                    <option value="iphone_16_ultramarine">iPhone 16 (蓝色)</option>
-                    <option value="ipad_pro_12_9_space_gray">iPad Pro 12.9" (深空灰)</option>
-                    <option value="ipad_pro_12_9_silver">iPad Pro 12.9" (银色)</option>
-                    <option value="galaxy_s21_ultra_black">Samsung Galaxy S21 Ultra (黑色)</option>
-                    <option value="galaxy_s21_ultra_silver">Samsung Galaxy S21 Ultra (银色)</option>
-                    <option value="pixel_5_black">Google Pixel 5 (黑色)</option>
-                    <option value="pixel_5_sage">Google Pixel 5 (鼠尾草绿)</option>
-                  </optgroup>
-                  <optgroup label="手绘矢量外壳 (经典款)">
-                    <option value="iphone_16_pro">iPhone 16 Pro (深空黑)</option>
-                    <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
-                    <option value="iphone_16_pro_gold">iPhone 16 Pro (金色)</option>
-                    <option value="iphone_16_pro_rose_gold">iPhone 16 Pro (玫瑰金)</option>
-                    <option value="ipad_pro">iPad Pro (银色)</option>
-                    <option value="ipad_pro_dark">iPad Pro (深空黑)</option>
-                    <option value="google_pixel">Google Pixel (深色)</option>
-                    <option value="google_pixel_light">Google Pixel (银色)</option>
-                  </optgroup>
-                </select>
+                  {m.textTop}
+                </button>
+                <button
+                  className={`ds-btn ${layout === 'text-bottom' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setLayout?.('text-bottom')}
+                >
+                  {m.textBottom}
+                </button>
+                <button
+                  className={`ds-btn ${layout === 'full-device' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setLayout?.('full-device')}
+                >
+                  {m.fullDevice}
+                </button>
               </div>
-            )}
+            </div>
 
             <div className="ds-input-group" style={{ marginBottom: '2px' }}>
               <label className="ds-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0, cursor: 'pointer' }} htmlFor="text-on-top-toggle">
-                <span>文字置于设备上方</span>
+                <span>{m.textOnTop}</span>
                 <input
                   id="text-on-top-toggle"
                   type="checkbox"
@@ -677,8 +674,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="bg-image-scale" title="放大底图以填满画布边缘，避免留白，不影响标题与设备的位置">
-                    背景图缩放<HintIcon /> ({Math.round(bgImageScale * 100)}%)
+                  <label className="ds-label" htmlFor="bg-image-scale" title="放大底图以填满画布边缘，避免留白，不影响标题与设备的位置（双击滑块可恢复 100%）">
+                    {m.bgImageScale}<HintIcon /> ({Math.round(bgImageScale * 100)}%)
                   </label>
                   <input
                     id="bg-image-scale"
@@ -688,6 +685,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     step="5"
                     value={Math.round(bgImageScale * 100)}
                     onChange={(e) => setBgImageScale?.(parseInt(e.target.value) / 100)}
+                    onDoubleClick={() => setBgImageScale?.(1)}
+                    title={m.doubleClickResetHint}
                     style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
                   />
                 </div>
@@ -697,11 +696,11 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           </SectionAccordion>
 
           {/* 渲染特效设置 */}
-          <SectionAccordion title="视觉特效">
+          <SectionAccordion title={m.visualEffects}>
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {(bgType === 'image' || bgType === 'panoramic') && (
               <div className="ds-input-group">
-                <label className="ds-label" htmlFor="bg-blur" title="模糊底图细节，让前景的标题与设备更突出，数值越大越模糊">背景高斯模糊<HintIcon /> ({bgBlur}px)</label>
+                <label className="ds-label" htmlFor="bg-blur" title="模糊底图细节，让前景的标题与设备更突出，数值越大越模糊（双击滑块可归零）">{m.bgGaussianBlur}<HintIcon /> ({bgBlur}px)</label>
                 <input
                   id="bg-blur"
                   type="range"
@@ -709,6 +708,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                   max="30"
                   value={bgBlur}
                   onChange={(e) => setBgBlur(parseInt(e.target.value))}
+                  onDoubleClick={() => setBgBlur(0)}
+                  title={m.doubleClickResetHint}
                   style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
                 />
               </div>
@@ -716,7 +717,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
             <div className="ds-input-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <label className="ds-label" style={{ marginBottom: 0, cursor: 'pointer' }} htmlFor="frosted-glass-toggle">
-                加装毛玻璃背板
+                {m.frostedGlassBacking}
               </label>
               <input
                 id="frosted-glass-toggle"
@@ -734,7 +735,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
             <div className="ds-input-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <label className="ds-label" style={{ marginBottom: 0, cursor: 'pointer' }} htmlFor="glass-reflection-toggle">
-                仿真屏幕玻璃反射
+                {m.screenGlassReflection}
               </label>
               <input
                 id="glass-reflection-toggle"
@@ -752,7 +753,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
             <div className="ds-input-group" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <label className="ds-label" style={{ marginBottom: 0, cursor: 'pointer' }} htmlFor="status-bar-toggle">
-                显示极简智能状态栏
+                {m.smartStatusBar}
               </label>
               <input
                 id="status-bar-toggle"
@@ -769,28 +770,28 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label">设备投影效果</label>
+              <label className="ds-label">{m.deviceShadow}</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                 <button
                   className={`ds-btn ${shadowPreset === 'none' ? 'ds-btn-active' : ''}`}
                   style={{ fontSize: '10px', padding: '6px 0' }}
                   onClick={() => setShadowPreset?.('none')}
                 >
-                  无阴影
+                  {m.shadowNone}
                 </button>
                 <button
                   className={`ds-btn ${shadowPreset === 'soft' ? 'ds-btn-active' : ''}`}
                   style={{ fontSize: '10px', padding: '6px 0' }}
                   onClick={() => setShadowPreset?.('soft')}
                 >
-                  柔和平面
+                  {m.shadowSoft}
                 </button>
                 <button
                   className={`ds-btn ${shadowPreset === 'premium' ? 'ds-btn-active' : ''}`}
                   style={{ fontSize: '10px', padding: '6px 0' }}
                   onClick={() => setShadowPreset?.('premium')}
                 >
-                  3D 悬浮
+                  {m.shadowPremium}
                 </button>
               </div>
             </div>
@@ -799,7 +800,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
           {/* 设备与布局设置 */}
           <SectionAccordion
-            title="设备布局与变换"
+            title={m.deviceLayoutAndTransform}
             defaultOpen={true}
             headerAction={
               activeDevice ? (
@@ -815,55 +816,28 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       screenshotScale: 1,
                       screenshotOffsetY: 0,
                     });
-                    showToast?.('已恢复默认变换');
+                    showToast?.(appMsg.toasts.resetDeviceDone);
                   }}
                   title="恢复当前设备的默认位置与变换"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-tertiary)', fontSize: '11px', textTransform: 'none', letterSpacing: 'normal', padding: 0 }}
                 >
-                  恢复默认
+                  {m.resetDefault}
                 </button>
               ) : undefined
             }
           >
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
-              <label className="ds-label">快捷布局</label>
+              <label className="ds-label">{m.quickLayout}</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('single')}>单机居中</button>
-                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('double')}>双机左右</button>
-                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('skew')}>倾斜悬浮</button>
-              </div>
-            </div>
-
-            <div className="ds-input-group">
-              <label className="ds-label">版式模板 (文字与设备布局)</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                <button
-                  className={`ds-btn ${layout === 'text-top' ? 'ds-btn-active' : ''}`}
-                  style={{ fontSize: '10px', padding: '6px 0' }}
-                  onClick={() => setLayout?.('text-top')}
-                >
-                  顶部文本
-                </button>
-                <button
-                  className={`ds-btn ${layout === 'text-bottom' ? 'ds-btn-active' : ''}`}
-                  style={{ fontSize: '10px', padding: '6px 0' }}
-                  onClick={() => setLayout?.('text-bottom')}
-                >
-                  底部文本
-                </button>
-                <button
-                  className={`ds-btn ${layout === 'full-device' ? 'ds-btn-active' : ''}`}
-                  style={{ fontSize: '10px', padding: '6px 0' }}
-                  onClick={() => setLayout?.('full-device')}
-                >
-                  纯机无文
-                </button>
+                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('single')}>{m.layoutSingle}</button>
+                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('double')}>{m.layoutDouble}</button>
+                <button className="ds-btn" style={{ fontSize: '10px', padding: '6px 0' }} onClick={() => applyPresetLayout('skew')}>{m.layoutSkew}</button>
               </div>
             </div>
             {/* 设备选择页签 */}
             <div className="ds-input-group">
-              <label className="ds-label">活动设备调整</label>
+              <label className="ds-label">{m.activeDeviceAdjust}</label>
               <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px' }}>
                 {devices.map((dev, idx) => (
                   <button
@@ -872,7 +846,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}
                     onClick={() => setActiveDeviceIndex(idx)}
                   >
-                    设备 {idx + 1}
+                    {formatMessage(m.deviceTab, { n: idx + 1 })}
                   </button>
                 ))}
                 <button
@@ -880,7 +854,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                   style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0, borderStyle: 'dashed' }}
                   onClick={addDevice}
                 >
-                  + 新增
+                  {m.addDevice}
                 </button>
               </div>
             </div>
@@ -888,55 +862,55 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
             {activeDevice && (
               <>
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="device-model">设备机型</label>
+                  <label className="ds-label" htmlFor="device-model">{m.deviceModel}</label>
                   <select
                     id="device-model"
                     className="ds-select"
                     value={activeDevice.deviceModel}
                     onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
                   >
-                    <optgroup label="真机边框 (fastlane/frameit-frames)">
-                      <option value="iphone_17_pro_max_silver">iPhone 17 Pro Max (银色)</option>
-                      <option value="iphone_17_pro_max_deep_blue">iPhone 17 Pro Max (深蓝色)</option>
-                      <option value="iphone_17_pro_max_cosmic_orange">iPhone 17 Pro Max (橙色)</option>
-                      <option value="iphone_17_pro_silver">iPhone 17 Pro (银色)</option>
-                      <option value="iphone_17_pro_deep_blue">iPhone 17 Pro (深蓝色)</option>
-                      <option value="iphone_16_pro_max_black_titanium">iPhone 16 Pro Max (黑色钛金属)</option>
-                      <option value="iphone_16_pro_max_natural_titanium">iPhone 16 Pro Max (原色钛金属)</option>
-                      <option value="iphone_16_pro_max_white_titanium">iPhone 16 Pro Max (白色钛金属)</option>
-                      <option value="iphone_16_black">iPhone 16 (黑色)</option>
-                      <option value="iphone_16_white">iPhone 16 (白色)</option>
-                      <option value="iphone_16_ultramarine">iPhone 16 (蓝色)</option>
-                      <option value="ipad_pro_12_9_space_gray">iPad Pro 12.9" (深空灰)</option>
-                      <option value="ipad_pro_12_9_silver">iPad Pro 12.9" (银色)</option>
-                      <option value="galaxy_s21_ultra_black">Samsung Galaxy S21 Ultra (黑色)</option>
-                      <option value="galaxy_s21_ultra_silver">Samsung Galaxy S21 Ultra (银色)</option>
-                      <option value="pixel_5_black">Google Pixel 5 (黑色)</option>
-                      <option value="pixel_5_sage">Google Pixel 5 (鼠尾草绿)</option>
+                    <optgroup label={m.realFrameGroup}>
+                      <option value="iphone_17_pro_max_silver">苹果 17 旗舰版 (银色)</option>
+                      <option value="iphone_17_pro_max_deep_blue">苹果 17 旗舰版 (深蓝色)</option>
+                      <option value="iphone_17_pro_max_cosmic_orange">苹果 17 旗舰版 (熔岩橙)</option>
+                      <option value="iphone_17_pro_silver">苹果 17 专业版 (银色)</option>
+                      <option value="iphone_17_pro_deep_blue">苹果 17 专业版 (深蓝色)</option>
+                      <option value="iphone_16_pro_max_black_titanium">苹果 16 旗舰版 (黑色钛金属)</option>
+                      <option value="iphone_16_pro_max_natural_titanium">苹果 16 旗舰版 (原色钛金属)</option>
+                      <option value="iphone_16_pro_max_white_titanium">苹果 16 旗舰版 (白色钛金属)</option>
+                      <option value="iphone_16_black">苹果 16 标准版 (黑色)</option>
+                      <option value="iphone_16_white">苹果 16 标准版 (白色)</option>
+                      <option value="iphone_16_ultramarine">苹果 16 标准版 (群青蓝)</option>
+                      <option value="ipad_pro_12_9_space_gray">苹果专业平板 12.9 寸 (深空灰)</option>
+                      <option value="ipad_pro_12_9_silver">苹果专业平板 12.9 寸 (银色)</option>
+                      <option value="galaxy_s21_ultra_black">三星旗舰手机 (幻影黑)</option>
+                      <option value="galaxy_s21_ultra_silver">三星旗舰手机 (幻影银)</option>
+                      <option value="pixel_5_black">谷歌原生旗舰手机 (纯黑)</option>
+                      <option value="pixel_5_sage">谷歌原生旗舰手机 (鼠尾草绿)</option>
                     </optgroup>
-                    <optgroup label="手绘矢量外壳 (经典款)">
-                      <option value="iphone_16_pro">iPhone 16 Pro (深空黑)</option>
-                      <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
-                      <option value="iphone_16_pro_gold">iPhone 16 Pro (金色)</option>
-                      <option value="iphone_16_pro_rose_gold">iPhone 16 Pro (玫瑰金)</option>
-                      <option value="ipad_pro">iPad Pro (银色)</option>
-                      <option value="ipad_pro_dark">iPad Pro (深空黑)</option>
-                      <option value="google_pixel">Google Pixel (深色)</option>
-                      <option value="google_pixel_light">Google Pixel (银色)</option>
+                    <optgroup label={m.vectorFrameGroup}>
+                      <option value="iphone_16_pro">经典矢量手机 (深空黑)</option>
+                      <option value="iphone_16_pro_light">经典矢量手机 (典雅银)</option>
+                      <option value="iphone_16_pro_gold">经典矢量手机 (香槟金)</option>
+                      <option value="iphone_16_pro_rose_gold">经典矢量手机 (玫瑰金)</option>
+                      <option value="ipad_pro">经典矢量平板 (典雅银)</option>
+                      <option value="ipad_pro_dark">经典矢量平板 (深空黑)</option>
+                      <option value="google_pixel">经典安卓挖孔屏 (深空黑)</option>
+                      <option value="google_pixel_light">经典安卓挖孔屏 (典雅银)</option>
                     </optgroup>
                   </select>
                 </div>
 
                 {/* 截图联动选择 */}
                 <div className="ds-input-group">
-                  <label className="ds-label">绑定内屏截图</label>
+                  <label className="ds-label">{m.bindScreenshot}</label>
                   <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 0' }}>
                     <button
                       className={`ds-btn ${!activeDevice.screenshotSrc ? 'ds-btn-active' : ''}`}
                       style={{ padding: '4px 8px', fontSize: '11px', flexShrink: 0 }}
                       onClick={() => updateActiveDevice({ screenshotSrc: undefined })}
                     >
-                      无截图
+                      {m.noScreenshot}
                     </button>
                     {screenshots.map((src, sIdx) => (
                       <button
@@ -960,7 +934,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
                 {/* 2.5D Sliders */}
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-angle" title="围绕平面中心旋转整个设备外壳，用于制造轻微倾斜的展示视角">旋转角度<HintIcon /> ({activeDevice.angle || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-angle" title="围绕平面中心旋转整个设备外壳，用于制造轻微倾斜的展示视角（双击滑块可归零）">{m.rotationAngle}<HintIcon /> ({activeDevice.angle || 0}°)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-angle"
@@ -969,6 +943,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="45"
                       value={activeDevice.angle || 0}
                       onChange={(e) => updateActiveDevice({ angle: parseInt(e.target.value) })}
+                      onDoubleClick={() => updateActiveDevice({ angle: 0 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -989,7 +965,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-skew" title="沿垂直轴错切外壳边缘，制造透视/立体感，模拟设备侧向倾斜展示的效果">三维错切<HintIcon /> ({activeDevice.skewX || 0}°)</label>
+                  <label className="ds-label" htmlFor="dev-skew" title="沿垂直轴倾斜外壳边缘，制造立体视角（双击滑块可归零）">{m.perspectiveSkew}<HintIcon /> ({activeDevice.skewX || 0}°)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-skew"
@@ -998,6 +974,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="20"
                       value={activeDevice.skewX || 0}
                       onChange={(e) => updateActiveDevice({ skewX: parseInt(e.target.value) })}
+                      onDoubleClick={() => updateActiveDevice({ skewX: 0 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -1018,7 +996,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-scale" title="整体放大或缩小设备外壳尺寸">缩放大小<HintIcon /> ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-scale" title="整体放大或缩小设备外壳尺寸（双击滑块可恢复 100%）">{m.scaleSize}<HintIcon /> ({Math.round((activeDevice.scale || 1) * 100)}%)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-scale"
@@ -1027,6 +1005,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="150"
                       value={Math.round((activeDevice.scale || 1) * 100)}
                       onChange={(e) => updateActiveDevice({ scale: parseInt(e.target.value) / 100 })}
+                      onDoubleClick={() => updateActiveDevice({ scale: 1 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -1047,7 +1027,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-offset-x" title="沿水平方向移动整个设备外壳在画布中的位置">水平偏移<HintIcon /> ({activeDevice.offsetX || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-x" title="沿水平方向移动整个设备外壳在画布中的位置（双击滑块可居中归零）">{m.offsetX}<HintIcon /> ({activeDevice.offsetX || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-offset-x"
@@ -1056,6 +1036,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="500"
                       value={activeDevice.offsetX || 0}
                       onChange={(e) => updateActiveDevice({ offsetX: parseInt(e.target.value) })}
+                      onDoubleClick={() => updateActiveDevice({ offsetX: 0 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -1076,7 +1058,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-offset-y" title="沿垂直方向移动整个设备外壳在画布中的位置">垂直偏移<HintIcon /> ({activeDevice.offsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-offset-y" title="沿垂直方向移动整个设备外壳在画布中的位置（双击滑块可归零）">{m.offsetY}<HintIcon /> ({activeDevice.offsetY || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-offset-y"
@@ -1085,6 +1067,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="600"
                       value={activeDevice.offsetY || 0}
                       onChange={(e) => updateActiveDevice({ offsetY: parseInt(e.target.value) })}
+                      onDoubleClick={() => updateActiveDevice({ offsetY: 0 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -1105,7 +1089,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-ss-scale" title="仅缩放设备屏幕内的截图内容本身，不影响外壳大小">截图缩放<HintIcon /> ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
+                  <label className="ds-label" htmlFor="dev-ss-scale" title="仅缩放设备屏幕内的截图内容本身，不影响外壳大小（双击滑块可恢复 100%）">{m.screenshotScale}<HintIcon /> ({Math.round((activeDevice.screenshotScale || 1.0) * 100)}%)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-ss-scale"
@@ -1114,6 +1098,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="150"
                       value={Math.round((activeDevice.screenshotScale || 1.0) * 100)}
                       onChange={(e) => updateActiveDevice({ screenshotScale: parseInt(e.target.value) / 100 })}
+                      onDoubleClick={() => updateActiveDevice({ screenshotScale: 1.0 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -1134,7 +1120,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 </div>
 
                 <div className="ds-input-group">
-                  <label className="ds-label" htmlFor="dev-ss-offset-y" title="仅上下移动屏幕内的截图内容，用于对齐状态栏或裁掉截图顶部/底部的多余留白 (与上方“垂直偏移”移动整个外壳不同)">截图垂直偏移<HintIcon /> ({activeDevice.screenshotOffsetY || 0}px)</label>
+                  <label className="ds-label" htmlFor="dev-ss-offset-y" title="仅上下移动屏幕内的截图内容，用于对齐状态栏或裁掉截图顶部/底部的多余留白（双击滑块可归零）">{m.screenshotOffsetY}<HintIcon /> ({activeDevice.screenshotOffsetY || 0}px)</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       id="dev-ss-offset-y"
@@ -1143,6 +1129,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                       max="100"
                       value={activeDevice.screenshotOffsetY || 0}
                       onChange={(e) => updateActiveDevice({ screenshotOffsetY: parseInt(e.target.value) })}
+                      onDoubleClick={() => updateActiveDevice({ screenshotOffsetY: 0 })}
+                      title={m.doubleClickResetHint}
                       style={{ flex: 1, accentColor: 'var(--ink-primary)' }}
                     />
                     <input
@@ -1168,7 +1156,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     style={{ width: '100%' }}
                     onClick={() => deleteDevice(activeDeviceIndex)}
                   >
-                    删除当前选中的设备
+                    {m.deleteActiveDevice}
                   </button>
                 )}
               </>
@@ -1178,7 +1166,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
 
           {/* 文案与排版 */}
           <SectionAccordion
-            title="文案与排版"
+            title={m.copyAndTypography}
             defaultOpen={true}
             headerAction={
               hasTextTransform && onResetTextTransform ? (
@@ -1186,69 +1174,144 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     onResetTextTransform();
-                    showToast?.('已恢复默认文案位置');
+                    showToast?.(appMsg.toasts.resetTextDone);
                   }}
                   title="恢复主副标题的默认排版位置与角度"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-tertiary)', fontSize: '11px', textTransform: 'none', letterSpacing: 'normal', padding: 0 }}
                 >
-                  恢复默认位置
+                  {m.resetPosition}
                 </button>
               ) : undefined
             }
           >
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
-              <label className="ds-label" htmlFor="title-font">标题字体</label>
+              <label className="ds-label" htmlFor="title-font">{m.titleFont}</label>
               <select
                 id="title-font"
                 className="ds-select"
+                style={{ fontFamily: `"${titleFontFamily}", var(--font-sans)` }}
                 value={titleFontFamily}
                 onChange={(e) => setTitleFontFamily(e.target.value)}
               >
-                <option value="Geist">Geist Sans (科技极简)</option>
-                <option value="Playfair Display">Playfair Display (雅致衬线)</option>
-                <option value="Lora">Lora (清秀衬线)</option>
-                <option value="Cormorant Garamond">Cormorant Garamond (古典衬线)</option>
-                <option value="Inter">Inter (通用设计)</option>
-                <option value="Outfit">Outfit (圆润现代)</option>
+                <option value="Geist">{m.fonts.geist}</option>
+                <option value="Playfair Display">{m.fonts.playfair}</option>
+                <option value="Lora">{m.fonts.lora}</option>
+                <option value="Cormorant Garamond">{m.fonts.cormorant}</option>
+                <option value="Inter">{m.fonts.inter}</option>
+                <option value="Outfit">{m.fonts.outfit}</option>
               </select>
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label" htmlFor="subtitle-font">副标题字体</label>
+              <label className="ds-label" htmlFor="subtitle-font">{m.subtitleFont}</label>
               <select
                 id="subtitle-font"
                 className="ds-select"
+                style={{ fontFamily: `"${subtitleFontFamily}", var(--font-sans)` }}
                 value={subtitleFontFamily}
                 onChange={(e) => setSubtitleFontFamily(e.target.value)}
               >
-                <option value="Geist">Geist Sans (科技极简)</option>
-                <option value="Inter">Inter (通用设计)</option>
-                <option value="Playfair Display">Playfair Display (雅致衬线)</option>
-                <option value="Outfit">Outfit (圆润现代)</option>
+                <option value="Geist">{m.fonts.geist}</option>
+                <option value="Inter">{m.fonts.inter}</option>
+                <option value="Playfair Display">{m.fonts.playfair}</option>
+                <option value="Outfit">{m.fonts.outfit}</option>
               </select>
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label" htmlFor="title-text">主标题内容</label>
+              <label className="ds-label">{m.textAlign}</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <button
+                  className={`ds-btn ${textAlign === 'left' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setTextAlign?.('left')}
+                >
+                  {m.alignLeft}
+                </button>
+                <button
+                  className={`ds-btn ${textAlign === 'center' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setTextAlign?.('center')}
+                >
+                  {m.alignCenter}
+                </button>
+                <button
+                  className={`ds-btn ${textAlign === 'right' ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setTextAlign?.('right')}
+                >
+                  {m.alignRight}
+                </button>
+              </div>
+            </div>
+
+            <div className="ds-input-group">
+              <label className="ds-label">{m.textColor}</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', marginBottom: customTextColor ? '8px' : '0' }}>
+                <button
+                  className={`ds-btn ${!customTextColor ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setCustomTextColor?.(undefined)}
+                >
+                  {m.textColorAuto}
+                </button>
+                <button
+                  className={`ds-btn ${customTextColor ? 'ds-btn-active' : ''}`}
+                  style={{ fontSize: '10px', padding: '6px 0' }}
+                  onClick={() => setCustomTextColor?.(customTextColor || '#121212')}
+                >
+                  {m.textColorCustom}
+                </button>
+              </div>
+              {customTextColor && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="color"
+                    value={customTextColor.startsWith('#') && customTextColor.length === 7 ? customTextColor : '#121212'}
+                    onChange={(e) => setCustomTextColor?.(e.target.value)}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      padding: 0,
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="ds-input"
+                    style={{ fontSize: '0.8125rem', height: '32px' }}
+                    value={customTextColor}
+                    onChange={(e) => setCustomTextColor?.(e.target.value)}
+                    placeholder="#121212"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="ds-input-group">
+              <label className="ds-label" htmlFor="title-text">{m.titleContent}</label>
               <input
                 id="title-text"
                 type="text"
                 className="ds-input"
                 value={titleText}
                 onChange={(e) => setTitleText(e.target.value)}
-                placeholder="请输入主标题"
+                placeholder={m.titlePlaceholder}
                 aria-describedby={titleOverLimit ? 'title-text-hint' : undefined}
               />
               {titleOverLimit && (
                 <p id="title-text-hint" role="status" style={{ fontSize: '11px', color: 'var(--ink-secondary)', borderLeft: '1px solid var(--border-focus)', paddingLeft: '8px', marginTop: '4px', lineHeight: 1.4 }}>
-                  文案较长（{titleText.length} 字），当前字号下可能自动换行过多甚至超出画布，建议精简文案或调低字号
+                  {formatMessage(m.overLimitHint, { count: titleText.length })}
                 </p>
               )}
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label" htmlFor="title-size">主标题字号 ({titleFontSize}px)</label>
+              <label className="ds-label" htmlFor="title-size">{m.titleSize} ({titleFontSize}px)</label>
               <input
                 id="title-size"
                 type="range"
@@ -1256,30 +1319,32 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 max="320"
                 value={titleFontSize}
                 onChange={(e) => setTitleFontSize(parseInt(e.target.value))}
+                onDoubleClick={() => setTitleFontSize(92)}
+                title={m.doubleClickResetHint}
                 style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
               />
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label" htmlFor="subtitle-text">副标题内容</label>
+              <label className="ds-label" htmlFor="subtitle-text">{m.subtitleContent}</label>
               <input
                 id="subtitle-text"
                 type="text"
                 className="ds-input"
                 value={subtitleText}
                 onChange={(e) => setSubtitleText(e.target.value)}
-                placeholder="请输入副标题"
+                placeholder={m.subtitlePlaceholder}
                 aria-describedby={subtitleOverLimit ? 'subtitle-text-hint' : undefined}
               />
               {subtitleOverLimit && (
                 <p id="subtitle-text-hint" role="status" style={{ fontSize: '11px', color: 'var(--ink-secondary)', borderLeft: '1px solid var(--border-focus)', paddingLeft: '8px', marginTop: '4px', lineHeight: 1.4 }}>
-                  文案较长（{subtitleText.length} 字），当前字号下可能自动换行过多甚至超出画布，建议精简文案或调低字号
+                  {formatMessage(m.overLimitHint, { count: subtitleText.length })}
                 </p>
               )}
             </div>
 
             <div className="ds-input-group">
-              <label className="ds-label" htmlFor="subtitle-size">副标题字号 ({subtitleFontSize}px)</label>
+              <label className="ds-label" htmlFor="subtitle-size">{m.subtitleSize} ({subtitleFontSize}px)</label>
               <input
                 id="subtitle-size"
                 type="range"
@@ -1287,6 +1352,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 max="144"
                 value={subtitleFontSize}
                 onChange={(e) => setSubtitleFontSize(parseInt(e.target.value))}
+                onDoubleClick={() => setSubtitleFontSize(44)}
+                title={m.doubleClickResetHint}
                 style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
               />
             </div>
@@ -1498,7 +1565,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
               {iconHasAlpha && (
                 <div className="ds-input-group">
                   <label className="ds-label" htmlFor="icon-fg-scale">
-                    Android 前景缩放 ({Math.round(iconForegroundScale * 100)}%)
+                    {m.androidFgScale} ({Math.round(iconForegroundScale * 100)}%)
                   </label>
                   <input
                     id="icon-fg-scale"
@@ -1507,6 +1574,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                     max="100"
                     value={Math.round(iconForegroundScale * 100)}
                     onChange={(e) => setIconForegroundScale?.(parseInt(e.target.value) / 100)}
+                    onDoubleClick={() => setIconForegroundScale?.(0.8)}
+                    title={m.doubleClickResetHint}
                     style={{ width: '100%', accentColor: 'var(--ink-primary)' }}
                   />
                 </div>

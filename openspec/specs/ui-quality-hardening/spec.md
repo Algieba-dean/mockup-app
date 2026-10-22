@@ -165,3 +165,24 @@ The system SHALL pass a re-run of `/impeccable audit` with score ≥ 16/20.
 - [x] `/impeccable detect` returns 0 findings
 - [x] All prior phase acceptance criteria still pass
 - [x] `npm run build` passes
+
+---
+
+## Phase 6: Editorial Craft, i18n Pure-Locale & Interaction Architecture Rules
+
+### Requirement 1: Centralized i18n & Pure-Locale Consistency
+The system SHALL manage all user-facing strings via `src/i18n/index.ts` (`getMessages`, `formatMessage`, `Locale`) and prohibit mixed-language strings within a single locale.
+- Under `zh-CN`, all navigation items, buttons, modal labels, device model names, default slide titles/subtitles, and generated compliance documents MUST be written in pure Chinese without untranslated English fragments.
+
+### Requirement 2: Editorial Output Craft & Canvas Concurrency Safety
+- **CJK-Aware Wrapping**: Canvas `Textbox` instances MUST enable `splitByGrapheme` only when CJK characters are present (`containsCjkCharacters`), preserving whole-word wrapping for Latin text.
+- **Micro-Typography & Alignment**: Display titles SHALL use tightened line-height (`1.08`) and letter-spacing (`charSpacing: -15`), and support left/center/right alignment as well as auto-contrast or custom text color.
+- **Region-Quantized Smart Palette**: `extractPaletteFromImage` SHALL sample top/middle/bottom regional means and soften excessive saturation for editorial backgrounds instead of sampling 3 fixed pixels.
+- **Monochrome Selection Handles & Center Snapping**: Fabric.js objects SHALL use high-contrast black/white rectangular handles (`MONOCHROME_CONTROL_PROPS`) and snap to the horizontal canvas center (`±18px`) with a visible center guide line.
+- **Concurrency Guard**: `updateCanvas` MUST guard async image loading with a monotonically increasing `renderGeneration` counter and validate CSS color strings before passing them to Canvas gradients.
+
+### Requirement 3: Workspace Synchronization, History Coalescing & Deduplicated Storage
+- **Multi-Aspect Preview Switcher**: The viewport zoom bar SHALL allow switching preview dimensions (`1242×2208`, `1290×2796`, `2048×2732`) for true WYSIWYG before export.
+- **Bidirectional Canvas-Panel Sync**: Selecting/modifying a device on the canvas MUST sync `activeDeviceIndex` in `RightPropertiesPanel`; exiting inline text editing on the canvas MUST sync back to `title`/`subtitle`; double-clicking any range slider MUST reset it to its default value.
+- **Safe History & Input Protection**: `useHistory` MUST ignore `Ctrl/Cmd+Z` when focus is inside `<input>`, `<textarea>`, `<select>`, or `contentEditable`, coalesce rapid slider updates via `coalesceKey`, and clamp `activePageIndex` (`safePageIndex`) to prevent out-of-bounds crashes.
+- **Storage Deduplication**: `mockup_app_pages` persisted in `localStorage` MUST dehydrate `screenshotSrc` into index references (`__ss_ref__:N`) pointing to `mockup_app_screenshots` to avoid duplicate Base64 storage.

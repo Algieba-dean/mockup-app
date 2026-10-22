@@ -1,5 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut, Maximize, Upload, AlertTriangle } from 'lucide-react';
+import { getMessages, formatMessage } from '../i18n';
+import { CANVAS_PREVIEW_SPECS } from '../utils/canvasManager';
+import type { CanvasPreviewSpecId } from '../utils/canvasManager';
+
+const m = getMessages().viewport;
+const appMsg = getMessages().app;
+
+const PREVIEW_SPEC_LABELS: Record<CanvasPreviewSpecId, string> = {
+  standard: appMsg.canvasPreviewSpecs.standard,
+  tall: appMsg.canvasPreviewSpecs.tall,
+  tablet: appMsg.canvasPreviewSpecs.tablet,
+};
 
 export interface IconSizeWarning {
   width: number;
@@ -11,12 +23,17 @@ interface CanvasViewportProps {
   zoom: number;
   setZoom: (z: number) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  previewSpecId?: CanvasPreviewSpecId;
+  onChangePreviewSpec?: (specId: CanvasPreviewSpecId) => void;
+  isCenterSnapped?: boolean;
   onFileDrop: (file: File) => void;
   // 可选：一次性导入多张截图 (拖入/多选文件时)，用于批量新建画幅。未提供时回退为
   // 逐个调用 onFileDrop，仅处理第一张，保持向后兼容。
   onFilesDrop?: (files: File[]) => void;
   hasScreenshots?: boolean;
-  // 首个设备在画布坐标系 (设计分辨率 1242x2208) 下的矩形范围，用于将"导入应用截图"
+  // 首个设备在画布坐标系下的矩形范围，用于将"导入应用截图"
   // 空状态提示精确定位在设备屏幕区域内，使其随缩放比例/设备拖拽缩放同步跟随
   deviceOverlayRect?: { left: number; top: number; width: number; height: number } | null;
 
@@ -77,25 +94,25 @@ interface AndroidMaskShape {
 const ANDROID_MASK_SHAPES: AndroidMaskShape[] = [
   {
     id: 'circle',
-    label: '圆形（官方安全区）',
+    label: m.maskCircle,
     // r = 33, centered at (50,50) -> 17% inset, matches Android's 66dp/108dp safe zone
     path: 'M50,17 A33,33 0 1 0 50,83 A33,33 0 1 0 50,17 Z',
   },
   {
     id: 'squircle',
-    label: '圆润方形',
+    label: m.maskSquircle,
     // Inset 12%, corner radius 22 (rounded-square, e.g. Samsung One UI style)
     path: 'M34,12 H66 A22,22 0 0 1 88,34 V66 A22,22 0 0 1 66,88 H34 A22,22 0 0 1 12,66 V34 A22,22 0 0 1 34,12 Z',
   },
   {
     id: 'drop',
-    label: '水滴形',
+    label: m.maskDrop,
     // Same bounds as squircle, but one sharp corner (bottom-right) — some OEM skins
     path: 'M34,12 H66 A22,22 0 0 1 88,34 V88 H34 A22,22 0 0 1 12,66 V34 A22,22 0 0 1 34,12 Z',
   },
   {
     id: 'square',
-    label: '方形（宽松遮罩）',
+    label: m.maskSquare,
     // Inset 8%, minimal corner rounding — the most lenient common OEM mask
     path: 'M14,8 H86 A6,6 0 0 1 92,14 V86 A6,6 0 0 1 86,92 H14 A6,6 0 0 1 8,86 V14 A6,6 0 0 1 14,8 Z',
   },
@@ -106,6 +123,11 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   zoom,
   setZoom,
   canvasRef,
+  canvasWidth = EDITOR_CANVAS_WIDTH,
+  canvasHeight = EDITOR_CANVAS_HEIGHT,
+  previewSpecId = 'standard',
+  onChangePreviewSpec,
+  isCenterSnapped = false,
   onFileDrop,
   onFilesDrop,
   hasScreenshots = false,
@@ -132,10 +154,6 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   const iconFileRef = useRef<HTMLInputElement>(null);
   const iconFileEmptyRef = useRef<HTMLInputElement>(null);
 
-  // 自适应视口缩放：容器可用空间会随窗口/侧边栏宽度变化，硬编码固定百分比 (如之前的
-  // 30%) 在较小视口下会导致画布顶部/底部被裁到滚动区域之外，看起来像"文字消失了"。
-  // 这里改为测量滚动容器实际尺寸，自动算出刚好完整显示整张画布的缩放比例。
-  // 仅在用户尚未手动调整过缩放时才自动纠正，避免打断用户主动缩放的操作。
   const screenshotScrollRef = useRef<HTMLDivElement>(null);
   const userAdjustedZoomRef = useRef(false);
 
@@ -148,7 +166,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
       const availableWidth = container.clientWidth - VIEWPORT_PADDING_X;
       const availableHeight = container.clientHeight - VIEWPORT_PADDING_Y;
       if (availableWidth <= 0 || availableHeight <= 0) return;
-      const fitRatio = Math.min(availableWidth / EDITOR_CANVAS_WIDTH, availableHeight / EDITOR_CANVAS_HEIGHT);
+      const fitRatio = Math.min(availableWidth / canvasWidth, availableHeight / canvasHeight);
       const fitPercent = Math.max(10, Math.min(200, Math.floor(fitRatio * 100)));
       setZoom(fitPercent);
     };
@@ -158,7 +176,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
     observer.observe(container);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTool]);
+  }, [activeTool, canvasWidth, canvasHeight]);
 
   const markZoomAdjustedByUser = () => {
     userAdjustedZoomRef.current = true;
@@ -371,15 +389,15 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               (视觉上表现为被顶部工具栏遮挡)。改用子元素 margin:auto：内容小于容器
               时依旧居中，一旦超出容器则自动退化为贴靠起始边、可完整滚动查看全部内容。 */}
           <div style={{
-            width: `${EDITOR_CANVAS_WIDTH * (zoom / 100)}px`,
-            height: `${EDITOR_CANVAS_HEIGHT * (zoom / 100)}px`,
+            width: `${canvasWidth * (zoom / 100)}px`,
+            height: `${canvasHeight * (zoom / 100)}px`,
             position: 'relative',
             flexShrink: 0,
             margin: 'auto',
           }}>
             <div style={{
-              width: `${EDITOR_CANVAS_WIDTH}px`,
-              height: `${EDITOR_CANVAS_HEIGHT}px`,
+              width: `${canvasWidth}px`,
+              height: `${canvasHeight}px`,
               position: 'absolute',
               left: '50%',
               top: '50%',
@@ -389,6 +407,25 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               transition: 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             }}>
               <canvas ref={canvasRef} aria-label="应用商店截图实时预览，呈现您配置的设备外壳及主副标题排版" role="img" />
+
+              {/* 中心磁吸辅助线 (当拖拽元素吸附到水平中心时显示) */}
+              {isCenterSnapped && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: '50%',
+                    width: '2px',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#121212',
+                    borderLeft: '2px dashed #ffffff',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                  }}
+                />
+              )}
 
               {/* 空状态提示：直接叠加在设备屏幕矩形范围内 (画布设计坐标)，随该容器的
                   zoom 缩放同步缩放/跟随设备拖拽位置，而不是固定悬浮在视口中央——
@@ -565,14 +602,34 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
         )}
 
         <div className="viewport-zoom-bar">
-          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomOut} title="缩小" aria-label="缩小">
+          {onChangePreviewSpec && (
+            <>
+              <select
+                className="ds-select"
+                aria-label={appMsg.canvasPreviewSpecs.label}
+                title={appMsg.canvasPreviewSpecs.label}
+                value={previewSpecId}
+                onChange={(e) => {
+                  userAdjustedZoomRef.current = false;
+                  onChangePreviewSpec(e.target.value as CanvasPreviewSpecId);
+                }}
+                style={{ width: 'auto', minWidth: '150px', height: '28px', padding: '2px 26px 2px 8px', fontSize: '11px' }}
+              >
+                {CANVAS_PREVIEW_SPECS.map((spec) => (
+                  <option key={spec.id} value={spec.id}>{PREVIEW_SPEC_LABELS[spec.id]}</option>
+                ))}
+              </select>
+              <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-primary)' }} />
+            </>
+          )}
+          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomOut} title={m.zoomOut} aria-label={m.zoomOut}>
             <ZoomOut size={14} />
           </button>
           <span className="viewport-zoom-value" title="按住 Ctrl/Cmd 滚轮或触控板双指缩放手势也可直接缩放画布">{zoom}%</span>
-          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomIn} title="放大" aria-label="放大">
+          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomIn} title={m.zoomIn} aria-label={m.zoomIn}>
             <ZoomIn size={14} />
           </button>
-          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomReset} title="重置 100%" aria-label="重置缩放比例">
+          <button className="ds-btn ds-btn-icon-only" onClick={handleZoomReset} title={m.zoomReset} aria-label="重置缩放比例">
             <Maximize size={14} />
           </button>
         </div>
@@ -601,11 +658,6 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          // Top-aligned (not centered): with `overflow: auto` + `justifyContent:
-          // 'center'`, content taller than the container overflows above the
-          // scrollable origin and becomes unreachable (can't scroll negative),
-          // clipping/hiding the platform toggle tabs at the top. Top-aligning
-          // keeps the tabs always visible right below the top padding.
           justifyContent: hasIconImage ? 'flex-start' : 'center',
           gap: '20px',
           padding: hasIconImage ? '40px 40px 100px 40px' : '40px',
@@ -613,7 +665,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
           {hasIconImage ? (
             <>
               {/* 平台切换分段控件 */}
-              <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} role="tablist" aria-label="平台预览切换">
+              <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} role="tablist" aria-label={m.platformSwitchAria}>
                 <button
                   role="tab"
                   aria-selected={iconPlatformPreview === 'ios'}
@@ -621,7 +673,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                   style={{ padding: '6px 20px', fontSize: '12px' }}
                   onClick={() => setIconPlatformPreview?.('ios')}
                 >
-                  iOS
+                  {m.iosPlatform}
                 </button>
                 <button
                   role="tab"
@@ -630,7 +682,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                   style={{ padding: '6px 20px', fontSize: '12px' }}
                   onClick={() => setIconPlatformPreview?.('android')}
                 >
-                  Android
+                  {m.androidPlatform}
                 </button>
               </div>
 
@@ -651,7 +703,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 }}>
                   <AlertTriangle size={16} strokeWidth={1.5} aria-hidden="true" style={{ flexShrink: 0, color: 'var(--ink-primary)' }} />
                   <span style={{ flex: 1 }}>
-                    建议原图 ≥1024×1024 正方形，当前 {iconWarning.width}×{iconWarning.height}（已自动居中裁剪为正方形预览）。
+                    {formatMessage(m.iconSizeWarning, { w: iconWarning.width, h: iconWarning.height })}
                   </span>
                   <input
                     ref={iconFileRef}
@@ -665,7 +717,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                     style={{ fontSize: '11px', padding: '4px 10px', flexShrink: 0 }}
                     onClick={() => iconFileRef.current?.click()}
                   >
-                    重新上传
+                    {m.reupload}
                   </button>
                 </div>
               )}
@@ -679,7 +731,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 onPointerCancel={handlePointerUp}
                 onWheel={handleWheel}
                 onKeyDown={handleKeyDown}
-                aria-label="图标编辑器预览画布。支持拖拽平移、滚轮缩放、方向键微调"
+                aria-label={m.iconCanvasAria}
                 style={{
                   width: `${ICON_DISPLAY_SIZE}px`,
                   height: `${ICON_DISPLAY_SIZE}px`,
@@ -716,8 +768,6 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                         <path d={activeAndroidMaskShape.path} fill="black" />
                       </mask>
                     </defs>
-                    {/* Dims everything outside the selected mask shape, so content
-                        at risk of being cropped by that shape is clearly visible. */}
                     <rect width="100" height="100" fill="rgba(0,0,0,0.5)" mask="url(#android-mask-cutout)" />
                     <path d={activeAndroidMaskShape.path} fill="none" stroke="var(--border-focus)" strokeWidth="1" strokeDasharray="2,1.5" vectorEffect="non-scaling-stroke" />
                   </svg>
@@ -725,7 +775,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               </div>
 
               {iconPlatformPreview === 'android' && (
-                <div role="tablist" aria-label="Android 厂商遮罩形状预览" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', flexShrink: 0 }}>
+                <div role="tablist" aria-label={m.androidMaskShapesAria} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', flexShrink: 0 }}>
                   {ANDROID_MASK_SHAPES.map((shape) => (
                     <button
                       key={shape.id}
@@ -742,9 +792,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               )}
 
               <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', flexShrink: 0, maxWidth: '420px', textAlign: 'center' }}>
-                {iconPlatformPreview === 'ios'
-                  ? '按住画布拖动/滚轮缩放，虚线为系统圆角遮罩区域，不影响导出像素'
-                  : '按住画布拖动/滚轮缩放；不同安卓厂商启动器会应用不同形状的遮罩，阴影覆盖区域为该形状下可能被裁切的部分，圆形为官方保证的最小安全区'}
+                {iconPlatformPreview === 'ios' ? m.iosMaskHint : m.androidMaskHint}
               </span>
             </>
           ) : (
@@ -770,13 +818,13 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 ))}
               </div>
               <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--ink-primary)' }}>
-                拖拽或点击上传应用图标原图
+                {m.uploadIconEmptyTitle}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', textAlign: 'center' }}>
-                建议 ≥1024×1024 正方形 PNG，将自动生成 iOS / Android 全尺寸图标
+                {m.uploadIconEmptySubtitle}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--ink-secondary)', opacity: 0.8, borderTop: '1px solid var(--border-primary)', paddingTop: '8px', width: '100%', textAlign: 'center' }}>
-                全部处理在本地浏览器完成，图片不会上传到任何服务器
+                {appMsg.modals.localProcessNotice}
               </span>
               <input
                 ref={iconFileEmptyRef}
@@ -791,7 +839,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
                 onClick={() => iconFileEmptyRef.current?.click()}
               >
                 <Upload size={14} />
-                <span>选择文件上传</span>
+                <span>{m.chooseFileUpload}</span>
               </button>
             </div>
           )}
@@ -799,7 +847,7 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
 
         {hasIconImage && (
           <div className="viewport-zoom-bar">
-            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomOut} title="缩小图像" aria-label="缩小图像">
+            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomOut} title={m.zoomOutImage} aria-label={m.zoomOutImage}>
               <ZoomOut size={14} />
             </button>
             <input
@@ -816,10 +864,10 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               style={{ width: '100px', accentColor: 'var(--ink-primary)' }}
             />
             <span className="viewport-zoom-value">{zoomPercent}%</span>
-            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomIn} title="放大图像" aria-label="放大图像">
+            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomIn} title={m.zoomInImage} aria-label={m.zoomInImage}>
               <ZoomIn size={14} />
             </button>
-            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomReset} title="重置" aria-label="重置图像位置与缩放">
+            <button className="ds-btn ds-btn-icon-only" onClick={handleIconZoomReset} title={m.resetImageTransform} aria-label={m.resetImageTransform}>
               <Maximize size={14} />
             </button>
           </div>

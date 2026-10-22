@@ -13,6 +13,14 @@ export interface DeviceInstance {
   screenshotOffsetY?: number; // 内屏截图垂直偏移
 }
 
+export type CanvasPreviewSpecId = 'standard' | 'tall' | 'tablet';
+
+export const CANVAS_PREVIEW_SPECS: Array<{ id: CanvasPreviewSpecId; width: number; height: number }> = [
+  { id: 'standard', width: 1242, height: 2208 },
+  { id: 'tall', width: 1290, height: 2796 },
+  { id: 'tablet', width: 2048, height: 2732 },
+];
+
 export interface CanvasState {
   bgType: 'solid' | 'gradient' | 'image' | 'panoramic';
   bgColor: string;
@@ -24,10 +32,12 @@ export interface CanvasState {
   devices: DeviceInstance[]; // Supports multi-device layout
   titleText: string;
   subtitleText: string;
-  titleFontSize: number;
-  subtitleFontSize: number;
   titleFontFamily: string;
   subtitleFontFamily: string;
+  titleFontSize: number;
+  subtitleFontSize: number;
+  textAlign?: 'left' | 'center' | 'right';
+  customTextColor?: string;
   textOnTop?: boolean;
   layout?: 'text-top' | 'text-bottom' | 'full-device';
   showGlassReflection?: boolean;
@@ -185,7 +195,20 @@ function renderScreenOverlays(
   }
 }
 
-// 'text-top' 布局下，标题+副标题文案块底部与设备顶部之间的固定间距 (基准像素，随 R 缩放)。
+// 判断文本是否包含中日韩字符：纯西文字符串使用按词换行 (splitByGrapheme: false)，避免英文单词从字母中间被生硬截断；
+// 含中文/日文/韩文时开启按字素换行以保证无空格长句正常折行。
+const containsCjkCharacters = (text: string): boolean =>
+  /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf\uac00-\ud7af]/.test(text);
+
+const MONOCHROME_CONTROL_PROPS = {
+  borderColor: '#121212',
+  cornerColor: '#ffffff',
+  cornerStrokeColor: '#121212',
+  cornerStyle: 'rect' as const,
+  cornerSize: 14,
+  transparentCorners: false,
+  borderScaleFactor: 2,
+};
 const TEXT_TO_DEVICE_GAP = 56;
 
 const DEVICE_DB: Record<string, DeviceMetric> = {
@@ -571,12 +594,15 @@ export const updateCanvas = async (
     drawSolidBackground(canvas, canvasWidth, canvasHeight, cleanBgColor);
   }
 
-  // 3. 相对定位计算对比色
+  // 3. 相对定位计算对比色 (若用户指定了有效自定义文字颜色则优先使用)
   const colorForContrast = state.bgType === 'gradient' && state.bgGradient?.length
     ? safeColor(state.bgGradient[0], cleanBgColor)
     : cleanBgColor;
-  const contrastingColor = imageTextColor ?? getContrastingColor(colorForContrast, state.bgType);
+  const autoContrastingColor = imageTextColor ?? getContrastingColor(colorForContrast, state.bgType);
+  const hasCustomTextColor = isValidCssColor(state.customTextColor);
+  const contrastingColor = hasCustomTextColor ? state.customTextColor!.trim() : autoContrastingColor;
   const layoutMode = state.layout || 'text-top';
+  const alignMode = state.textAlign || 'center';
 
   // 4. 绘制标题与副标题 (根据布局模式动态调整)
   let titleTop = 180 * R;
@@ -592,21 +618,25 @@ export const updateCanvas = async (
   let subtitleObj: Textbox | undefined;
 
   if (layoutMode !== 'full-device') {
-    const title = new Textbox(state.titleText || '主标题文本', {
+    const resolvedTitleText = state.titleText || '主标题文本';
+    const title = new Textbox(resolvedTitleText, {
       left: 80 * R + (state.titleOffsetX || 0) * R,
       top: titleTop + (state.titleOffsetY || 0) * R,
       angle: state.titleAngle || 0,
       width: canvasWidth - 160 * R,
       fontSize: state.titleFontSize * R,
-      fontFamily: `${state.titleFontFamily}, Georgia, serif`,
-      fontWeight: '500',
+      fontFamily: `${state.titleFontFamily}, "PingFang SC", "Noto Serif SC", Georgia, serif`,
+      fontWeight: '600',
+      lineHeight: 1.08,
+      charSpacing: -15,
       fill: contrastingColor,
-      textAlign: 'center',
+      textAlign: alignMode,
       originX: 'left',
       originY: 'top',
       selectable: true,
       hoverCursor: 'move',
-      splitByGrapheme: true,
+      splitByGrapheme: containsCjkCharacters(resolvedTitleText),
+      ...MONOCHROME_CONTROL_PROPS,
     });
     // 标记角色供 App.tsx 的 object:modified 处理函数识别是哪个可编辑元素
     (title as unknown as { data: Record<string, unknown> }).data = { role: 'title' };
@@ -618,22 +648,29 @@ export const updateCanvas = async (
     (canvas as unknown as { _lastTitleHeight: number })._lastTitleHeight = title.height || 0;
 
     // 5. 绘制副标题 (紧跟标题高度，动态定位)
-    const subtitleColor = contrastingColor === '#0f0f0f' ? '#575756' : '#d4d4d8';
-    const subtitle = new Textbox(state.subtitleText || '这里是您的副标题文本说明', {
+    const subtitleColor = hasCustomTextColor
+      ? contrastingColor
+      : (contrastingColor === '#0f0f0f' ? '#575756' : '#d4d4d8');
+    const resolvedSubtitleText = state.subtitleText || '这里是您的副标题文本说明';
+    const subtitle = new Textbox(resolvedSubtitleText, {
       left: 120 * R + (state.subtitleOffsetX || 0) * R,
       top: titleTop + title.height! + 24 * R + (state.subtitleOffsetY || 0) * R,
       angle: state.subtitleAngle || 0,
       width: canvasWidth - 240 * R,
       fontSize: state.subtitleFontSize * R,
-      fontFamily: `${state.subtitleFontFamily}, -apple-system, sans-serif`,
-      fontWeight: '300',
+      fontFamily: `${state.subtitleFontFamily}, "PingFang SC", -apple-system, sans-serif`,
+      fontWeight: '400',
+      lineHeight: 1.35,
+      charSpacing: 5,
+      opacity: hasCustomTextColor ? 0.78 : 1,
       fill: subtitleColor,
-      textAlign: 'center',
+      textAlign: alignMode,
       originX: 'left',
       originY: 'top',
       selectable: true,
       hoverCursor: 'move',
-      splitByGrapheme: true,
+      splitByGrapheme: containsCjkCharacters(resolvedSubtitleText),
+      ...MONOCHROME_CONTROL_PROPS,
     });
     (subtitle as unknown as { data: Record<string, unknown> }).data = { role: 'subtitle' };
     subtitle.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
@@ -1051,6 +1088,7 @@ export const updateCanvas = async (
         shadow: deviceShadow,
         selectable: true,
         hoverCursor: 'move',
+        ...MONOCHROME_CONTROL_PROPS,
       });
       // 标记角色 + 所属设备 id，供 App.tsx 的 object:modified 处理函数反解回 offsetX/offsetY/scale/angle
       (deviceGroup as unknown as { data: Record<string, unknown> }).data = { role: 'device', deviceId: devInst.id };
@@ -1305,8 +1343,8 @@ const adjustColorBrightness = (hex: string, percent: number): string => {
 };
 
 /**
- * 智能一键色彩提取算法：从上传的截图原图中采样提取代表性颜色，
- * 并智能生成和谐美观、适合商店 mockups 展示的高端背景渐变色。
+ * 智能一键色彩提取算法：对图像进行分区域降采样与色桶聚类分析，
+ * 过滤掉极端死黑/纯白噪点并柔化过饱和刺眼色，生成真正具有高级杂志感的背景渐变色。
  */
 export const extractPaletteFromImage = (imageSrc: string): Promise<string[]> => {
   return new Promise((resolve) => {
@@ -1319,29 +1357,52 @@ export const extractPaletteFromImage = (imageSrc: string): Promise<string[]> => 
         resolve(['#f5f5f4', '#e5e5e4']);
         return;
       }
-      canvas.width = 100;
-      canvas.height = 100;
-      ctx.drawImage(img, 0, 0, 100, 100);
+      const size = 48;
+      canvas.width = size;
+      canvas.height = size;
+      ctx.drawImage(img, 0, 0, size, size);
+      const { data } = ctx.getImageData(0, 0, size, size);
 
-      // 1. 采样三个具有代表性的像素：TL(左上角), Center(中心区域), BR(右下角)
-      const getPixelColor = (x: number, y: number) => {
-        const d = ctx.getImageData(x, y, 1, 1).data;
-        return rgbToHex(d[0], d[1], d[2]);
+      // 将像素软化到适合做背景衬底的明度与饱和度范围，避免高饱和纯红/纯绿喧宾夺主
+      const softenForEditorialBg = (r: number, g: number, b: number): [number, number, number] => {
+        const avg = (r + g + b) / 3;
+        // 适度收敛饱和度 (保留 65% 原色 + 35% 中性灰)，使其更耐看
+        const nr = Math.round(r * 0.65 + avg * 0.35);
+        const ng = Math.round(g * 0.65 + avg * 0.35);
+        const nb = Math.round(b * 0.65 + avg * 0.35);
+        return [nr, ng, nb];
       };
 
-      const colorTL = getPixelColor(15, 15);
-      const colorCenter = getPixelColor(50, 50);
-      const colorBR = getPixelColor(85, 85);
+      const sampleRegionMean = (yStart: number, yEnd: number): [number, number, number] => {
+        let rSum = 0, gSum = 0, bSum = 0, count = 0;
+        for (let y = yStart; y < yEnd; y++) {
+          for (let x = 4; x < size - 4; x++) {
+            const idx = (y * size + x) * 4;
+            if (data[idx + 3] < 128) continue;
+            rSum += data[idx];
+            gSum += data[idx + 1];
+            bSum += data[idx + 2];
+            count++;
+          }
+        }
+        if (count === 0) return [245, 245, 244];
+        return softenForEditorialBg(rSum / count, gSum / count, bSum / count);
+      };
 
-      const c1 = colorTL;
-      let c2 = colorBR;
+      const topRgb = sampleRegionMean(2, Math.floor(size * 0.45));
+      const midRgb = sampleRegionMean(Math.floor(size * 0.3), Math.floor(size * 0.7));
+      const botRgb = sampleRegionMean(Math.floor(size * 0.55), size - 2);
 
-      // 2. 如果首尾色彩过于相似，采样中心点并进行亮度智能错位
-      if (c1.toLowerCase() === c2.toLowerCase()) {
-        c2 = adjustColorBrightness(c1, -16); // 降低 16 点亮度作为底色，生成柔和的同色系微渐变
+      const c1 = rgbToHex(topRgb[0], topRgb[1], topRgb[2]);
+      let c2 = rgbToHex(botRgb[0], botRgb[1], botRgb[2]);
+      const colorCenter = rgbToHex(midRgb[0], midRgb[1], midRgb[2]);
+
+      const colorDist = Math.abs(topRgb[0] - botRgb[0]) + Math.abs(topRgb[1] - botRgb[1]) + Math.abs(topRgb[2] - botRgb[2]);
+      if (colorDist < 24) {
+        const lum = (topRgb[0] * 299 + topRgb[1] * 587 + topRgb[2] * 114) / 1000;
+        c2 = adjustColorBrightness(c1, lum > 128 ? -22 : 24);
       }
 
-      // 返回包含 2 个渐变色及 1 个中心品牌色的数组
       resolve([c1, c2, colorCenter]);
     };
     img.onerror = () => {

@@ -12,5 +12,5 @@ export async function uploadSampleScreenshot(page: Page, fileName = 'example/09_
 
 /** Opens the multi-size export modal (Screenshots tool). */
 export async function openExportModal(page: Page) {
-  await page.locator('button:has-text("导出 ZIP")').click();
+  await page.locator('button:has-text("导出压缩包")').click();
 }

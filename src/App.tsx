@@ -1,21 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas } from 'fabric';
 import JSZip from 'jszip';
-import { Layers, Info, Search } from 'lucide-react';
+import { Info, Search } from 'lucide-react';
 import { AppHeader } from './components/AppHeader';
 import { LeftSidebar } from './components/LeftSidebar';
 import type { CustomPreset } from './components/LeftSidebar';
 import { RightPropertiesPanel } from './components/RightPropertiesPanel';
 import { CanvasViewport } from './components/CanvasViewport';
 import { FocusTrap } from './components/FocusTrap';
-import { updateCanvas, computeDeviceTransformUpdate, computeTextTransformUpdate, computeDeviceRect } from './utils/canvasManager';
-import type { DeviceInstance, ObjectTransformSnapshot } from './utils/canvasManager';
+import { updateCanvas, computeDeviceTransformUpdate, computeTextTransformUpdate, computeDeviceRect, CANVAS_PREVIEW_SPECS } from './utils/canvasManager';
+import type { DeviceInstance, ObjectTransformSnapshot, CanvasPreviewSpecId } from './utils/canvasManager';
 import { useHistory } from './utils/useHistory';
 import { cropImageToSquare, detectAlphaChannel, detectEdgeColor, renderIconFrame, buildIconZip, ICON_MASTER_SIZE, ICON_SIZE_PREVIEW_SPECS } from './utils/iconManager';
 import type { IconBgMode } from './utils/iconManager';
 import { IconHistoryDrawer } from './components/IconHistoryDrawer';
 import type { IconHistoryEntry } from './components/IconHistoryDrawer';
 import { PrivacyToolWorkspace } from './components/PrivacyToolWorkspace';
+import { getMessages, formatMessage } from './i18n';
+
+const appMsg = getMessages().app;
 
 interface MockupPage {
   id: string;
@@ -33,6 +36,8 @@ interface MockupPage {
   subtitleFontFamily: string;
   titleFontSize: number;
   subtitleFontSize: number;
+  textAlign?: 'left' | 'center' | 'right';
+  customTextColor?: string;
   textOnTop?: boolean;
   layout?: 'text-top' | 'text-bottom' | 'full-device';
   showGlassReflection?: boolean;
@@ -48,18 +53,18 @@ interface MockupPage {
 }
 
 const EXPORT_PRESETS = [
-  { id: 'ios-6.9', name: 'iPhone 16 Pro Max (6.9" - 1290x2796)', width: 1290, height: 2796, folder: 'ios/iphone_6.9' },
-  { id: 'ios-6.5', name: 'iPhone XS/11 Pro Max (6.5" - 1242x2688)', width: 1242, height: 2688, folder: 'ios/iphone_6.5' },
-  { id: 'ios-5.5', name: 'iPhone 8 Plus (5.5" - 1242x2208)', width: 1242, height: 2208, folder: 'ios/iphone_5.5' },
-  { id: 'ios-ipad', name: 'iPad Pro 12.9" (2048x2732)', width: 2048, height: 2732, folder: 'ios/ipad_12.9' },
-  { id: 'android-phone', name: 'Android Phone (1242x2208)', width: 1242, height: 2208, folder: 'android/phone' },
+  { id: 'ios-6.9', name: appMsg.exportPresets.ios69, width: 1290, height: 2796, folder: 'ios/iphone_6.9' },
+  { id: 'ios-6.5', name: appMsg.exportPresets.ios65, width: 1242, height: 2688, folder: 'ios/iphone_6.5' },
+  { id: 'ios-5.5', name: appMsg.exportPresets.ios55, width: 1242, height: 2208, folder: 'ios/iphone_5.5' },
+  { id: 'ios-ipad', name: appMsg.exportPresets.iosIpad, width: 2048, height: 2732, folder: 'ios/ipad_12.9' },
+  { id: 'android-phone', name: appMsg.exportPresets.androidPhone, width: 1242, height: 2208, folder: 'android/phone' },
 ];
 
 const DEFAULT_PAGES: MockupPage[] = [
   {
     id: 'page-1',
-    title: 'Manage Everything',
-    subtitle: 'A beautiful minimal workspace',
+    title: appMsg.defaults.page1Title,
+    subtitle: appMsg.defaults.page1Subtitle,
     bgType: 'solid',
     bgColor: '#f5f5f4',
     bgGradient: ['#f5f5f4', '#e5e5e4'],
@@ -81,8 +86,8 @@ const DEFAULT_PAGES: MockupPage[] = [
   },
   {
     id: 'page-2',
-    title: 'Absolute Control',
-    subtitle: 'Track your assets offline',
+    title: appMsg.defaults.page2Title,
+    subtitle: appMsg.defaults.page2Subtitle,
     bgType: 'solid',
     bgColor: '#e5e5e4',
     bgGradient: ['#ffffff', '#d4d4d8'],
@@ -108,12 +113,12 @@ const DEFAULT_PAGES: MockupPage[] = [
 // 只有在完全无法判断原因时才回退到"查看控制台日志"的兜底文案。
 function describeExportError(error: unknown): string {
   if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-    return '导出失败：设备存储空间不足，请清理浏览器存储后重试。';
+    return appMsg.toasts.quotaExceededExport;
   }
   if (error instanceof Error && error.message) {
-    return `导出失败：${error.message}`;
+    return formatMessage(appMsg.toasts.exportFailedWithMsg, { msg: error.message });
   }
-  return '导出失败，请查看控制台错误日志。';
+  return appMsg.toasts.exportFailedFallback;
 }
 
 function loadSavedState<T>(key: string, fallback: T): T {
@@ -125,8 +130,6 @@ function loadSavedState<T>(key: string, fallback: T): T {
   }
 }
 
-// 帮助面板的内容源：按模块分类、可搜索。四个顶部导航模块 (商店截图/图标生成/
-// 文案助手/隐私与条款) 都要有对应条目，而不是只覆盖当前默认打开的模块。
 interface HelpEntry {
   category: string;
   keys?: string;
@@ -134,26 +137,23 @@ interface HelpEntry {
 }
 
 const HELP_ENTRIES: HelpEntry[] = [
-  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + Z', desc: '撤销上一步操作' },
-  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + Shift + Z', desc: '重做' },
-  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + D', desc: '复制当前画幅' },
-  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + 滚轮 / 双指手势', desc: '缩放画布' },
-  { category: '商店截图 · 快捷键', keys: 'Ctrl / Cmd + ＋ / －', desc: '缩放画布' },
-  { category: '商店截图 · 使用提示', desc: '拖拽底部的画幅缩略图可调整先后顺序' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl + Z', desc: '撤销上一步操作' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl + Shift + Z', desc: '重做' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl + D', desc: '复制当前画幅' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl + 滚轮 / 双指手势', desc: '缩放画布' },
+  { category: '商店截图 · 快捷键', keys: 'Ctrl + ＋ / －', desc: '缩放画布' },
+  { category: '商店截图 · 使用提示', desc: '拖拽左侧画幅缩略图可调整先后顺序，双击任意滑块可快速归零默认值' },
   { category: '商店截图 · 使用提示', desc: '一次选择或拖入多张截图，除第一张外都会自动新建一个画幅' },
-  { category: '商店截图 · 使用提示', desc: '标签旁带说明图标的选项，鼠标悬停即可查看具体解释' },
-  { category: '商店截图 · 使用提示', desc: '主标题、副标题字数超出建议长度时会出现提醒，避免文案在画布中被截断或溢出' },
-  { category: '商店截图 · 使用提示', desc: '"画布背景"与"设备布局与变换"区块标题旁的"恢复默认"可一键复原对应设置' },
-  { category: '商店截图 · 使用提示', desc: '所有编辑都会实时自动保存在当前浏览器本地，无需手动保存，关闭标签页也不会丢失' },
-  { category: '商店截图 · 使用提示', desc: '删除画幅或设备是可撤销操作，误删后点击提示中的"撤销"或按 Ctrl+Z 即可恢复' },
-  { category: '图标生成 · 使用提示', desc: '上传正方形、分辨率越高越好的原始图标图，可分别设置 iOS / Android 的内边距、偏移、缩放与纯色/渐变背景' },
-  { category: '图标生成 · 使用提示', desc: '"智能提取色彩一键渐变配色"会从图标或截图中提取主色，一键生成契合的 135° 渐变背景' },
-  { category: '图标生成 · 使用提示', desc: '每次修改都可在"历史记录"抽屉里保存为具名方案，方便对比与回滚' },
-  { category: '图标生成 · 使用提示', desc: '导出前可选择只导出 iOS、只导出 Android 或两者都导出，一次性打包为 ZIP' },
-  { category: '文案助手 · 说明', desc: '该模块仍在开发中，敬请期待' },
-  { category: '隐私与条款 · 使用提示', desc: '先在清单中勾选需要生成的文档（隐私政策/使用条款/EULA/ATT 话术/隐私标签/账号注销页等），所有文档共享同一份问卷，只需填写一次' },
-  { category: '隐私与条款 · 使用提示', desc: '填写完成后可分别下载单个文档的 HTML / Markdown，或一次性打包为 ZIP' },
-  { category: '隐私与条款 · 使用提示', desc: '高风险 App 类型（如金融、医疗、儿童向）会自动在 EULA 中插入 Apple 要求的强制性条款' },
+  { category: '商店截图 · 使用提示', desc: '画布底部缩放栏可随时切换 9:16 标准屏、6.9 寸全面屏与 4:3 平板预览比例' },
+  { category: '商店截图 · 使用提示', desc: '在画布上拖拽设备或文字靠近中心线时会自动磁吸居中对齐' },
+  { category: '商店截图 · 使用提示', desc: '所有编辑都会实时自动保存在当前浏览器本地，关闭标签页也不会丢失' },
+  { category: '商店截图 · 使用提示', desc: '删除画幅或设备是可撤销操作，误删后点击提示中的“撤销”即可恢复' },
+  { category: '图标生成 · 使用提示', desc: '上传正方形原始图标图，可分别设置苹果与安卓平台的内边距、偏移、缩放与渐变背景' },
+  { category: '图标生成 · 使用提示', desc: '“智能提取色彩一键渐变配色”会从图标或截图中提取主色，生成和谐的 135° 渐变背景' },
+  { category: '图标生成 · 使用提示', desc: '每次修改都可在“历史方案”抽屉里保存为具名方案，方便对比与回滚' },
+  { category: '图标生成 · 使用提示', desc: '导出前可选择只导出苹果、只导出安卓或两者都导出，一次性打包下载' },
+  { category: '隐私与条款 · 使用提示', desc: '先在清单中勾选需要生成的合规文档（隐私政策、使用条款、许可协议、权限话术、隐私标签、注销页等），共享同一份问卷' },
+  { category: '隐私与条款 · 使用提示', desc: '填写完成后可分别下载单个文档的网页或文档格式，或一次性打包下载' },
 ];
 
 function dehydratePagesForStorage(pages: MockupPage[], screenshots: string[]): MockupPage[] {
@@ -636,6 +636,8 @@ function App() {
         subtitleFontSize,
         titleFontFamily,
         subtitleFontFamily,
+        textAlign,
+        customTextColor,
         textOnTop,
         layout,
         showGlassReflection,
@@ -692,6 +694,8 @@ function App() {
       subtitleFontSize: preset.state.subtitleFontSize,
       titleFontFamily: preset.state.titleFontFamily,
       subtitleFontFamily: preset.state.subtitleFontFamily,
+      textAlign: preset.state.textAlign || 'center',
+      customTextColor: preset.state.customTextColor,
       textOnTop: preset.state.textOnTop !== false,
       layout: preset.state.layout || 'text-top',
       showGlassReflection: preset.state.showGlassReflection !== false,
@@ -743,6 +747,8 @@ function App() {
   const subtitleFontSize = activePage.subtitleFontSize;
   const titleFontFamily = activePage.titleFontFamily;
   const subtitleFontFamily = activePage.subtitleFontFamily;
+  const textAlign = activePage.textAlign || 'center';
+  const customTextColor = activePage.customTextColor;
   const textOnTop = activePage.textOnTop !== false;
   const layout = activePage.layout || 'text-top';
   const showGlassReflection = activePage.showGlassReflection !== false;
@@ -812,19 +818,22 @@ function App() {
   const setSubtitleFontSize = (v: number) => updateActivePage({ subtitleFontSize: v }, { coalesceKey: 'subtitleFontSize' });
   const setTitleFontFamily = (v: string) => updateActivePage({ titleFontFamily: v });
   const setSubtitleFontFamily = (v: string) => updateActivePage({ subtitleFontFamily: v });
+  const setTextAlign = (v: 'left' | 'center' | 'right') => updateActivePage({ textAlign: v });
+  const setCustomTextColor = (v: string | undefined) => updateActivePage({ customTextColor: v }, { coalesceKey: 'customTextColor' });
   const setTextOnTop = (v: boolean) => updateActivePage({ textOnTop: v });
 
-  // Viewport Zoom
-  // 初始值仅为 ResizeObserver 首次测量完成前的占位；CanvasViewport 会在挂载后
-  // 立即依据实际容器尺寸计算"完整显示画布"的缩放比例并覆盖此值，避免小视口下
-  // 画布顶部/底部被裁到滚动区域之外（表现为"看不到标题文字"）。
+  // Viewport Zoom & Preview Aspect Ratio Spec
   const [zoom, setZoom] = useState<number>(30);
+  const [previewSpecId, setPreviewSpecId] = useState<CanvasPreviewSpecId>('standard');
+  const [isCenterSnapped, setIsCenterSnapped] = useState<boolean>(false);
+  const activePreviewSpec = useMemo(
+    () => CANVAS_PREVIEW_SPECS.find((s) => s.id === previewSpecId) ?? CANVAS_PREVIEW_SPECS[0],
+    [previewSpecId]
+  );
 
   // Canvas References
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [fabricCanvas, setFabricCanvas] = useState<Canvas | null>(null);
-  // 首个设备在画布坐标系下的矩形范围 (每次重绘后同步计算)，供无截图时的
-  // "导入应用截图" 空状态提示定位——使其随缩放/设备拖拽同步跟随，而非固定悬浮。
   const [deviceOverlayRect, setDeviceOverlayRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   // Sync state between global theme and DOM element class
@@ -856,6 +865,12 @@ function App() {
       };
     }
   }, []);
+
+  // Update Fabric.js Canvas dimensions when preview aspect-ratio spec changes
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    fabricCanvas.setDimensions({ width: activePreviewSpec.width, height: activePreviewSpec.height });
+  }, [fabricCanvas, activePreviewSpec]);
 
   // 画布上直接拖拽/缩放/旋转标题、副标题与机型的手柄交互：
   // updateCanvas 每次都会 canvas.clear() 后整体重建，所以不能在事件回调里直接
@@ -904,7 +919,40 @@ function App() {
       }
     };
 
+    const handleObjectMoving = (e: { target?: unknown }) => {
+      const target = e.target as {
+        left?: number;
+        width?: number;
+        scaleX?: number;
+        originX?: string;
+        set?: (props: Record<string, unknown>) => void;
+        data?: { role?: string };
+      } | undefined;
+      if (!target || !target.data?.role || typeof target.left !== 'number') return;
+
+      const canvasCenterX = fabricCanvas.getWidth() / 2;
+      const SNAP_THRESHOLD = 18;
+      if (target.data.role === 'device') {
+        if (Math.abs(target.left - canvasCenterX) < SNAP_THRESHOLD) {
+          target.set?.({ left: canvasCenterX });
+          setIsCenterSnapped(true);
+        } else {
+          setIsCenterSnapped(false);
+        }
+      } else if (target.data.role === 'title' || target.data.role === 'subtitle') {
+        const objWidth = (target.width || 0) * (target.scaleX || 1);
+        const objCenterX = target.left + objWidth / 2;
+        if (Math.abs(objCenterX - canvasCenterX) < SNAP_THRESHOLD) {
+          target.set?.({ left: canvasCenterX - objWidth / 2 });
+          setIsCenterSnapped(true);
+        } else {
+          setIsCenterSnapped(false);
+        }
+      }
+    };
+
     const handleObjectModified = (e: { target?: unknown }) => {
+      setIsCenterSnapped(false);
       const target = e.target as (Record<string, unknown> & {
         left: number; top: number; scaleX: number; scaleY: number; angle: number;
         data?: { role?: string; deviceId?: string };
@@ -959,12 +1007,17 @@ function App() {
       }
     };
 
+    const clearSnap = () => setIsCenterSnapped(false);
+    fabricCanvas.on('object:moving', handleObjectMoving);
     fabricCanvas.on('object:modified', handleObjectModified);
+    fabricCanvas.on('mouse:up', clearSnap);
     fabricCanvas.on('selection:created', handleObjectSelected);
     fabricCanvas.on('selection:updated', handleObjectSelected);
     fabricCanvas.on('text:editing:exited', handleTextEditingExited);
     return () => {
+      fabricCanvas.off('object:moving', handleObjectMoving);
       fabricCanvas.off('object:modified', handleObjectModified);
+      fabricCanvas.off('mouse:up', clearSnap);
       fabricCanvas.off('selection:created', handleObjectSelected);
       fabricCanvas.off('selection:updated', handleObjectSelected);
       fabricCanvas.off('text:editing:exited', handleTextEditingExited);
@@ -1027,6 +1080,8 @@ function App() {
             subtitleFontSize,
             titleFontFamily,
             subtitleFontFamily,
+            textAlign,
+            customTextColor,
             textOnTop,
             layout,
             showGlassReflection,
@@ -1067,6 +1122,7 @@ function App() {
     return () => clearTimeout(drawTimerRef.current);
   }, [
     fabricCanvas,
+    activePreviewSpec,
     safePageIndex,
     bgType,
     bgColor,
@@ -1082,6 +1138,8 @@ function App() {
     subtitleFontSize,
     titleFontFamily,
     subtitleFontFamily,
+    textAlign,
+    customTextColor,
     textOnTop,
     layout,
     showGlassReflection,
@@ -1213,8 +1271,8 @@ function App() {
     const newId = `page-${Date.now()}`;
     const newPage: MockupPage = {
       id: newId,
-      title: 'New Feature Screen',
-      subtitle: 'Write an descriptive subline here',
+      title: appMsg.defaults.newPageTitle,
+      subtitle: appMsg.defaults.newPageSubtitle,
       bgType: bgType,
       bgColor: bgColor,
       bgGradient: bgGradient,
@@ -1227,6 +1285,8 @@ function App() {
       subtitleFontFamily: subtitleFontFamily,
       titleFontSize: titleFontSize,
       subtitleFontSize: subtitleFontSize,
+      textAlign: textAlign,
+      customTextColor: customTextColor,
       textOnTop: textOnTop,
       layout: layout,
       showGlassReflection: showGlassReflection,
@@ -1241,7 +1301,7 @@ function App() {
   // 而是直接执行 + 附带"撤销"操作的 toast，减少一次多余的点击确认。
   const handleDeletePage = useCallback((index: number) => {
     if (pages.length <= 1) {
-      showToast('至少保留一个画幅');
+      showToast(appMsg.toasts.keepAtLeastOnePage);
       return;
     }
     setPages((prev) => prev.filter((_, i) => i !== index));
@@ -1251,8 +1311,8 @@ function App() {
       if (prevIdx === index) return Math.max(0, index - 1);
       return prevIdx;
     });
-    showToast(`已删除画幅 P${index + 1}`, {
-      label: '撤销',
+    showToast(formatMessage(appMsg.toasts.deletedPage, { n: index + 1 }), {
+      label: appMsg.header.undo,
       onClick: () => {
         undo();
         setActivePageIndex(previousActiveIndex);
@@ -1392,6 +1452,8 @@ function App() {
               subtitleFontSize: page.subtitleFontSize || 44,
               titleFontFamily: page.titleFontFamily || 'Playfair Display',
               subtitleFontFamily: page.subtitleFontFamily || 'Geist',
+              textAlign: page.textAlign || 'center',
+              customTextColor: page.customTextColor,
               textOnTop: page.textOnTop !== false,
               layout: page.layout || 'text-top',
               showGlassReflection: page.showGlassReflection !== false,
@@ -1501,12 +1563,17 @@ function App() {
               zoom={zoom}
               setZoom={setZoom}
               canvasRef={canvasRef}
+              canvasWidth={activePreviewSpec.width}
+              canvasHeight={activePreviewSpec.height}
+              previewSpecId={previewSpecId}
+              onChangePreviewSpec={setPreviewSpecId}
+              isCenterSnapped={isCenterSnapped}
               onFileDrop={handleUploadScreenshot}
               onFilesDrop={handleUploadScreenshots}
               hasScreenshots={devices.some(d => d.screenshotSrc)}
               deviceOverlayRect={deviceOverlayRect}
             />
-          ) : activeTool === 'icons' ? (
+          ) : (
             <CanvasViewport
               activeTool="icons"
               zoom={zoom}
@@ -1530,30 +1597,6 @@ function App() {
               iconContentScale={iconContentScale}
               setIconContentScale={setIconContentScale}
             />
-          ) : (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              backgroundColor: 'var(--bg-primary)',
-              color: 'var(--ink-secondary)',
-              gap: '16px',
-              padding: '40px',
-              textAlign: 'center'
-            }}>
-              <Layers size={48} strokeWidth={1} style={{ color: 'var(--ink-tertiary)' }} />
-              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '24px', color: 'var(--ink-primary)' }}>
-                文案助手 (ASO Copywriter)
-              </h2>
-              <p style={{ maxWidth: '400px', fontSize: '13px', lineHeight: 1.6 }}>
-                本模块正在进行纯前端商店长描述 HTML 标签排版检验开发。
-              </p>
-              <button className="ds-btn" onClick={() => setActiveTool('screenshots')}>
-                返回截图加壳工具
-              </button>
-            </div>
           )}
         </main>
 
@@ -1590,6 +1633,10 @@ function App() {
           setTitleFontFamily={setTitleFontFamily}
           subtitleFontFamily={subtitleFontFamily}
           setSubtitleFontFamily={setSubtitleFontFamily}
+          textAlign={textAlign}
+          setTextAlign={setTextAlign}
+          customTextColor={customTextColor}
+          setCustomTextColor={setCustomTextColor}
           textOnTop={textOnTop}
           setTextOnTop={setTextOnTop}
           hasTextTransform={hasTextTransform}
@@ -1828,7 +1875,7 @@ function App() {
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span className="ds-label">选择要包含在 ZIP 中的平台图标集</span>
+              <span className="ds-label">{appMsg.modals.iconExportLabel}</span>
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1840,7 +1887,7 @@ function App() {
                 cursor: 'pointer',
                 userSelect: 'none',
               }}>
-                <span style={{ color: 'var(--ink-primary)' }}>App Store 图标（iOS 全尺寸 + Contents.json）</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{appMsg.modals.iconExportIos}</span>
                 <input
                   type="checkbox"
                   checked={iconExportPlatforms.ios}
@@ -1859,7 +1906,7 @@ function App() {
                 cursor: 'pointer',
                 userSelect: 'none',
               }}>
-                <span style={{ color: 'var(--ink-primary)' }}>Google Play 图标（Legacy + Adaptive + 512px）</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{appMsg.modals.iconExportAndroid}</span>
                 <input
                   type="checkbox"
                   checked={iconExportPlatforms.android}
@@ -1878,7 +1925,7 @@ function App() {
                 cursor: 'pointer',
                 userSelect: 'none',
               }}>
-                <span style={{ color: 'var(--ink-primary)' }}>附带 SVG 容器版（1024×1024，内嵌位图）</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{appMsg.modals.iconExportSvg}</span>
                 <input
                   type="checkbox"
                   checked={includeSvgContainer}
@@ -1889,7 +1936,7 @@ function App() {
             </div>
 
             <div style={{ fontSize: '12px', color: 'var(--ink-secondary)', opacity: 0.8, textAlign: 'center', borderTop: '1px solid var(--border-primary)', paddingTop: '8px' }}>
-              全部处理在本地浏览器完成，图片不会上传到任何服务器
+              {appMsg.modals.localProcessNotice}
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -1898,14 +1945,14 @@ function App() {
                 style={{ flex: 1 }}
                 onClick={() => setShowIconExportModal(false)}
               >
-                取消
+                {appMsg.modals.cancel}
               </button>
               <button
                 className="ds-btn ds-btn-active"
                 style={{ flex: 1 }}
                 onClick={runIconZipExport}
               >
-                生成并下载
+                {appMsg.modals.generateAndDownload}
               </button>
             </div>
           </div>
@@ -1942,11 +1989,11 @@ function App() {
             boxShadow: 'var(--shadow-lg)',
           }} onClick={(e) => e.stopPropagation()}>
             <h3 id="export-modal-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0, color: 'var(--ink-primary)' }}>
-              一键多尺寸商店图打包
+              {appMsg.modals.screenshotExportTitle}
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span className="ds-label">选择要包含在 ZIP 中的规格分类</span>
+              <span className="ds-label">{appMsg.modals.screenshotExportLabel}</span>
               {EXPORT_PRESETS.map(preset => (
                 <label
                   key={preset.id}
@@ -1979,14 +2026,14 @@ function App() {
                 style={{ flex: 1 }}
                 onClick={() => setShowExportModal(false)}
               >
-                取消
+                {appMsg.modals.cancel}
               </button>
               <button
                 className="ds-btn ds-btn-active"
                 style={{ flex: 1 }}
                 onClick={runZipExport}
               >
-                开始生成并打包
+                {appMsg.modals.startGenerateAndPack}
               </button>
             </div>
           </div>
@@ -2025,20 +2072,20 @@ function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0 }}>
-                图标包导出成功
+                {appMsg.modals.iconExportSuccessTitle}
               </h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', textAlign: 'left', lineHeight: 1.5 }}>
                 <div style={{ borderBottom: '1px solid var(--border-primary)', paddingBottom: '8px' }}>
-                  <strong style={{ display: 'block', marginBottom: '4px' }}>iOS Xcode 集成指引:</strong>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>{appMsg.modals.iosGuideTitle}</strong>
                   <span style={{ color: 'var(--ink-secondary)' }}>
-                    解压 ZIP，在项目导航栏找到 <code>Assets.xcassets</code>，将解压得到的 <code>ios/AppIcon.appiconset</code> 拖拽拖入其中替换原有 AppIcon。
+                    {appMsg.modals.iosGuideBody}
                   </span>
                 </div>
                 <div>
-                  <strong style={{ display: 'block', marginBottom: '4px' }}>Android Studio 集成指引:</strong>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>{appMsg.modals.androidGuideTitle}</strong>
                   <span style={{ color: 'var(--ink-secondary)' }}>
-                    解压 ZIP，将 <code>android/mipmap-*</code> 文件夹及 <code>play_store_512.png</code> 复制并直接合并替换您 Android 项目的 <code>res</code> 目录。
+                    {appMsg.modals.androidGuideBody}
                   </span>
                 </div>
               </div>
@@ -2052,7 +2099,7 @@ function App() {
                   setIconExportDone(false);
                 }}
               >
-                关闭指引
+                {appMsg.modals.closeGuide}
               </button>
             </div>
           ) : (

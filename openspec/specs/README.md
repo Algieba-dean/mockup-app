@@ -46,8 +46,16 @@
 
 ## 8. 质量与完整性
 
-- **[`ui-quality-hardening`](./ui-quality-hardening/spec.md)** — 响应式适配、无障碍访问、性能优化、设计令牌统一（已完成，审计分 19/20）。
-- **[`screenshot-tool-completeness`](./screenshot-tool-completeness/spec.md)** — 功能完整性核查发现的收尾项：自定义弹窗 E2E 测试对齐、Undo/Redo 可见入口。
+- **[`ui-quality-hardening`](./ui-quality-hardening/spec.md)** — 响应式适配、无障碍访问、性能优化、设计令牌统一、多语言（i18n）纯中文规范、社论级画布微排版与双向状态同步规范（已完成，审计分 19/20）。
+- **[`screenshot-tool-completeness`](./screenshot-tool-completeness/spec.md)** — 功能完整性核查发现的收尾项：自定义弹窗 E2E 测试对齐、Undo/Redo 可见入口与防冲突控制。
+
+## 9. 全局架构、设计与交互红线（必读准则）
+
+任何新增或修改功能的提案，必须遵守以下核心工程与设计准则：
+1. **i18n 集中式管理与零中英混排**：所有 UI 文案、默认模板文字与合规生成文本均须收口于 `src/i18n/index.ts`（或对应的语言目录），在 `zh-CN` 语言下保持纯粹中文，严禁中英混杂。
+2. **「社论策展人」单色系统**：禁止在工作区界面中使用彩色高亮或 Emoji；画布控制手柄统一使用黑白方形控制点（`MONOCHROME_CONTROL_PROPS`）；UI 标题与表单标题统一使用 `--font-sans`，仅海报展示标题与弹窗主标题使用 `--font-serif`。
+3. **画布排版与并发安全**：`Textbox` 必须使用 `containsCjkCharacters()` 动态切换 `splitByGrapheme` 以免劈断英文单词；`updateCanvas` 必须携带 `renderGeneration` 异步并发守卫与色值合法性校验。
+4. **交互双向同步与防呆**：画布选中设备须同步右侧面板设备 Tab、画布双击改字须同步回填状态、拖拽靠近中心线须触发磁吸辅助线、所有滑块须支持双击归零；`useHistory` 必须跳过焦点输入框并对滑块变动做 `coalesceKey` 合并；`localStorage` 持久化必须对截图 Base64 做索引去重（`dehydratePagesForStorage`）。
 
 ## 交叉引用备注
 

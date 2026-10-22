@@ -228,6 +228,40 @@ p, span, label, input, button, textarea, select {
   border-color: var(--border-focus);
 }
 
+/* Custom Range Input (Monochrome Editorial Track & Thumb) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--ink-primary);
+  border: 1px solid var(--bg-secondary);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--ink-primary);
+  border: 1px solid var(--bg-secondary);
+  border-radius: 0;
+  cursor: pointer;
+}
+
 /* Cards & Panel containers */
 .ds-panel {
   background-color: var(--bg-secondary);
