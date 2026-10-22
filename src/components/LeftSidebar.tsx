@@ -18,6 +18,7 @@ export interface CustomPreset {
     bgColor: string;
     bgGradient: string[];
     bgImageSrc: string;
+    bgImageScale?: number;
     bgBlur: number;
     showFrostedGlass: boolean;
     titleText: string;
@@ -26,6 +27,17 @@ export interface CustomPreset {
     subtitleFontSize: number;
     titleFontFamily: string;
     subtitleFontFamily: string;
+    textOnTop?: boolean;
+    layout?: 'text-top' | 'text-bottom' | 'full-device';
+    showGlassReflection?: boolean;
+    showStatusBar?: boolean;
+    shadowPreset?: 'none' | 'soft' | 'premium';
+    titleOffsetX?: number;
+    titleOffsetY?: number;
+    titleAngle?: number;
+    subtitleOffsetX?: number;
+    subtitleOffsetY?: number;
+    subtitleAngle?: number;
     devices: any[];
   }
 }
@@ -36,6 +48,7 @@ interface LeftSidebarProps {
   onUploadScreenshot: (file: File) => void;
   onUploadScreenshots?: (files: File[]) => void;
   onSelectScreenshot: (index: number) => void;
+  onDeleteScreenshot?: (index: number) => void;
   selectedScreenshotIndex: number;
   customPresets: CustomPreset[];
   onSavePreset: (name: string) => void;
@@ -64,6 +77,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onUploadScreenshot,
   onUploadScreenshots,
   onSelectScreenshot,
+  onDeleteScreenshot,
   selectedScreenshotIndex,
   customPresets,
   onSavePreset,
@@ -169,6 +183,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   <div
                     key={index}
                     onClick={() => onSelectScreenshot(index)}
+                    title="点击绑定到当前选中设备"
                     style={{
                       aspectRatio: '9/16',
                       border: '1px solid',
@@ -180,6 +195,35 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     }}
                   >
                     <img src={src} alt={`Screenshot ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {onDeleteScreenshot && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteScreenshot(index);
+                        }}
+                        title="移除此截图素材"
+                        aria-label={`移除截图素材 ${index + 1}`}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          right: '2px',
+                          width: '20px',
+                          height: '20px',
+                          padding: 0,
+                          border: '1px solid var(--border-primary)',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--ink-primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

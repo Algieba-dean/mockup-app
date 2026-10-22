@@ -136,6 +136,15 @@ export interface IconRenderConfig {
   contentScale?: number; // 0.5 - 2.0, independent content zoom (defaults 1)
 }
 
+const isValidCssColor = (color: string | undefined): boolean => {
+  if (!color || typeof color !== 'string') return false;
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color.trim()) ||
+    /^(rgb|rgba|hsl|hsla)\(/.test(color.trim());
+};
+
+const safeIconColor = (color: string | undefined, fallback: string = '#f5f5f4'): string =>
+  isValidCssColor(color) ? color!.trim() : fallback;
+
 /** Fills a size×size canvas region with a solid color or a fixed 135° linear gradient. */
 export const fillIconBackground = (
   ctx: CanvasRenderingContext2D,
@@ -152,11 +161,11 @@ export const fillIconBackground = (
     const cx = size / 2;
     const cy = size / 2;
     const gradient = ctx.createLinearGradient(cx - x, cy - y, cx + x, cy + y);
-    gradient.addColorStop(0, bgGradient[0]);
-    gradient.addColorStop(1, bgGradient[1]);
+    gradient.addColorStop(0, safeIconColor(bgGradient[0], '#f5f5f4'));
+    gradient.addColorStop(1, safeIconColor(bgGradient[1], '#e5e5e4'));
     ctx.fillStyle = gradient;
   } else {
-    ctx.fillStyle = bgColor;
+    ctx.fillStyle = safeIconColor(bgColor, '#f5f5f4');
   }
   ctx.fillRect(0, 0, size, size);
 };

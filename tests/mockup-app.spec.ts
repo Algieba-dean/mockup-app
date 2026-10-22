@@ -93,10 +93,9 @@ test.describe('MockupApp E2E Tests', () => {
     const startExportBtn = page.locator('button:has-text("开始生成并打包")');
     await expect(startExportBtn).toBeVisible();
 
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      startExportBtn.click(),
-    ]);
+    const downloadPromise = page.waitForEvent('download', { timeout: 25000 });
+    await startExportBtn.click();
+    const download = await downloadPromise;
 
     // 3. Verify the file downloaded correctly
     expect(download.suggestedFilename()).toBe('mockup_app_screenshots.zip');
@@ -316,14 +315,12 @@ test.describe('MockupApp E2E Tests', () => {
     await page.locator('button:has-text("135°渐变")').click();
     await expect(page.locator('text=渐变颜色设定')).toBeVisible();
 
-    // Register dialog handler to accept the prompt dialog automatically with a custom name
-    page.once('dialog', async dialog => {
-      expect(dialog.type()).toBe('prompt');
-      await dialog.accept('E2E Scheme');
-    });
-
-    // 4. Test History saving and drawer list
+    // 4. Test History saving via custom naming modal and drawer list
     await page.locator('button:has-text("保存当前方案到历史")').click();
+    const historyNameInput = page.locator('#icon-history-name-input');
+    await expect(historyNameInput).toBeVisible();
+    await historyNameInput.fill('E2E Scheme');
+    await page.locator('button:has-text("保存方案")').click();
     
     // Toggle history drawer from header
     const historyBtn = page.locator('button[aria-label="查看历史方案"]');
@@ -363,128 +360,101 @@ test.describe('MockupApp E2E Tests', () => {
     await page.locator('button:has-text("关闭指引")').click();
   });
 
-  test('should walk through the Privacy Policy wizard and generate a document', async ({ page }) => {
+  test('should walk through the Compliance Toolkit privacy policy questionnaire and generate a document', async ({ page }) => {
     // 1. Switch to the Privacy & Terms tool
     await page.locator('button:has-text("隐私与条款")').click();
-    await expect(page.locator('.legal-workspace')).toBeVisible();
-
-    // 2. Step 1: "下一步" stays disabled until required fields are valid
-    const nextBtn = page.locator('.legal-workspace button:has-text("下一步")').first();
-    await expect(nextBtn).toBeDisabled();
-
-    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
-    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
-    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
-    await expect(nextBtn).toBeEnabled();
-    await nextBtn.click();
-
-    // 3. Step 2: select a couple of data types, then continue
-    await page.locator('.legal-checkbox-row:has-text("Email address")').click();
-    await page.locator('.legal-checkbox-row:has-text("Usage and log data")').click();
-    await page.locator('.legal-workspace button:has-text("下一步")').click();
-
-    // 4. Step 3: select a third-party service
-    await page.locator('.legal-checkbox-row:has-text("Google Analytics (GA4)")').click();
-    await page.locator('.legal-workspace button:has-text("下一步")').click();
-
-    // 5. Step 4: enable GDPR, then generate
-    await page.locator('.legal-checkbox-row:has-text("适用 GDPR")').click();
-    await page.locator('.legal-workspace button:has-text("生成")').click();
-
-    // 6. Result screen renders the generated document with expected sections
-    await expect(page.locator('h2:has-text("Privacy Policy")')).toBeVisible();
-    await expect(page.locator('h3:has-text("Third-Party Services")')).toBeVisible();
-    await expect(page.locator('h3:has-text("Your GDPR Data Protection Rights")')).toBeVisible();
-    await expect(page.locator('h3:has-text("Log Data")')).toBeVisible();
-    await expect(page.locator('h3:has-text("International Data Transfers")')).toBeVisible();
-    await expect(page.locator('h3:has-text("Account and Data Deletion")')).toBeVisible();
-
-    // 7. Download HTML triggers a file download
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.locator('button:has-text("下载 HTML")').click(),
-    ]);
-    expect(download.suggestedFilename()).toBe('privacy-policy.html');
-
-    // 8. Switching to Terms of Use keeps its own independent, untouched step state
-    await page.locator('button[role="tab"]:has-text("使用条款")').click();
-    await expect(page.locator('input[placeholder="例如 MockupApp"]')).toHaveValue('');
-
-    // 9. Switching back to Privacy Policy preserves the generated result (per-mode state)
-    await page.locator('button[role="tab"]:has-text("隐私政策")').click();
-    await expect(page.locator('h2:has-text("Privacy Policy")')).toBeVisible();
-  });
-
-  test('Compliance Toolkit shows empty-state guidance before any wizard data exists', async ({ page }) => {
-    await page.locator('button:has-text("隐私与条款")').click();
-    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
     await expect(page.locator('.compliance-toolkit')).toBeVisible();
 
-    // All five rows unchecked by default
-    const checkboxes = page.locator('.compliance-checklist-header input[type="checkbox"]');
-    await expect(checkboxes).toHaveCount(5);
-    for (let i = 0; i < 5; i++) {
-      await expect(checkboxes.nth(i)).not.toBeChecked();
-    }
+    // 2. Privacy policy is checked by default; fill questionnaire fields
+    await expect(page.locator('.compliance-checklist-row').first().locator('input[type="checkbox"]')).toBeChecked();
 
-    // Checking a row before any Privacy/Terms data exists shows guidance, not a generated document
-    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页")').locator('input[type="checkbox"]').check();
-    await expect(page.locator('.compliance-checklist-panel:has-text("请先完成")')).toBeVisible();
-    await expect(page.locator('.compliance-checklist-panel button:has-text("下载 HTML")')).not.toBeVisible();
+    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
+    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
+    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
+
+    // 3. Select data types and third-party services
+    await page.locator('.legal-checkbox-row:has-text("Email address")').click();
+    await page.locator('.legal-checkbox-row:has-text("Usage and log data")').click();
+    await page.locator('.legal-checkbox-row:has-text("Google Analytics (GA4)")').click();
+    await page.locator('.legal-checkbox-row:has-text("适用 GDPR")').click();
+
+    // 4. Live preview renders the generated document with expected sections
+    await expect(page.locator('.compliance-output-title:has-text("隐私政策")')).toBeVisible();
+    await expect(page.locator('h4:has-text("Third-Party Services")')).toBeVisible();
+    await expect(page.locator('h4:has-text("Your GDPR Data Protection Rights")')).toBeVisible();
+    await expect(page.locator('h4:has-text("Log Data")')).toBeVisible();
+    await expect(page.locator('h4:has-text("International Data Transfers")')).toBeVisible();
+
+    // 5. Download HTML triggers a file download
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('.compliance-output-section:has-text("隐私政策") button:has-text("下载 HTML")').click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('privacy-policy.html');
   });
 
-  test('Compliance Toolkit reuses Privacy/Terms data for ATT, Nutrition Label, and Custom EULA', async ({ page }) => {
-    // 1. Fill Privacy Policy step 1-3 with data that makes ATT applicable (device id + AdMob)
+  test('Compliance Toolkit hides questionnaire when all checklist items are unchecked', async ({ page }) => {
+    await page.locator('button:has-text("隐私与条款")').click();
+    await expect(page.locator('.compliance-toolkit')).toBeVisible();
+
+    const checkboxes = page.locator('.compliance-checklist-header input[type="checkbox"]');
+    await expect(checkboxes).toHaveCount(7);
+
+    // Uncheck default privacy policy item -> questionnaire hides
+    await page.locator('.compliance-checklist-row').first().locator('input[type="checkbox"]').uncheck();
+    await expect(page.locator('.compliance-questionnaire')).not.toBeVisible();
+
+    // Checking a row reveals the shared questionnaire and output section
+    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-questionnaire')).toBeVisible();
+    await expect(page.locator('.compliance-output-section:has-text("账号与数据注销页") button:has-text("下载 HTML")')).toBeVisible();
+  });
+
+  test('Compliance Toolkit reuses shared questionnaire data for ATT, Nutrition Label, and Custom EULA', async ({ page }) => {
     await page.locator('button:has-text("隐私与条款")').click();
     await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
     await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
     await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
-    await page.locator('.legal-workspace button:has-text("下一步")').click();
 
     await page.locator('.legal-checkbox-row:has-text("Device identifiers / Advertising ID")').click();
-    await page.locator('.legal-workspace button:has-text("下一步")').click();
-
     await page.locator('.legal-checkbox-row:has-text("AdMob")').click();
 
-    // 2. Switch to Compliance Toolkit; data types/services persist independently of wizard completion
-    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
+    // 1. ATT row: applicable because device_id + AdMob were selected
+    await page.locator('.compliance-checklist-row:has-text("ATT 与系统权限话术矩阵") input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-output-section:has-text("个性化广告体验")')).toBeVisible();
 
-    // 3. ATT row: applicable because device_id + AdMob were selected
-    await page.locator('.compliance-checklist-row:has-text("ATT 与系统权限话术矩阵")').locator('input[type="checkbox"]').check();
-    await expect(page.locator('.compliance-checklist-panel:has-text("个性化广告体验")')).toBeVisible();
+    // 2. Nutrition Label row: the selected data type is classified as "tracking" because an ad SDK is present
+    await page.locator('.compliance-checklist-row:has-text("隐私营养标签") input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-output-section:has-text("Data Used to Track You")')).toBeVisible();
 
-    // 4. Nutrition Label row: the selected data type is classified as "tracking" because an ad SDK is present
-    await page.locator('.compliance-checklist-row:has-text("隐私营养标签")').locator('input[type="checkbox"]').check();
-    await expect(page.locator('.compliance-checklist-panel:has-text("Data Used to Track You")')).toBeVisible();
-
-    // 5. Custom EULA row: default high-risk type is "无", switching to UGC injects the zero-tolerance clause
-    await page.locator('.compliance-checklist-row:has-text("Custom EULA")').locator('input[type="checkbox"]').check();
-    await expect(page.locator('.compliance-checklist-panel:has-text("Zero-Tolerance")')).not.toBeVisible();
-    await page.locator('.compliance-checklist-panel label:has-text("UGC 社区")').click();
-    await expect(page.locator('.compliance-checklist-panel:has-text("Zero-Tolerance Policy for Objectionable Content")')).toBeVisible();
+    // 3. Custom EULA row: default high-risk type is "无", switching to UGC injects the zero-tolerance clause
+    await page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]').check();
+    await expect(page.locator('.compliance-output-section:has-text("Zero-Tolerance")')).not.toBeVisible();
+    await page.locator('.compliance-fieldset label:has-text("UGC 社区")').click();
+    await expect(page.locator('.compliance-output-section:has-text("Zero-Tolerance Policy for Objectionable Content")')).toBeVisible();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.locator('.compliance-checklist-panel button:has-text("下载 HTML")').click(),
+      page.locator('.compliance-output-section:has-text("Custom EULA") button:has-text("下载 HTML")').click(),
     ]);
     expect(download.suggestedFilename()).toBe('custom-eula.html');
   });
 
   test('Compliance Toolkit shows a bundled ZIP download only once 2+ rows are checked, and persists state on reload', async ({ page }) => {
     await page.locator('button:has-text("隐私与条款")').click();
-    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
-    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
-    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
-
-    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
+    // Uncheck default privacy policy first so 0 rows are checked
+    await page.locator('.compliance-checklist-row').first().locator('input[type="checkbox"]').uncheck();
 
     const zipButton = page.locator('button:has-text("打包下载 ZIP")');
     await expect(zipButton).not.toBeVisible();
 
-    await page.locator('.compliance-checklist-row:has-text("Custom EULA")').locator('input[type="checkbox"]').check();
+    await page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]').check();
+    await page.locator('input[placeholder="例如 MockupApp"]').fill('Test App');
+    await page.locator('input[placeholder="例如 John Doe"]').fill('John Test');
+    await page.locator('input[placeholder="support@example.com"]').fill('dev@example.com');
     await expect(zipButton).not.toBeVisible();
 
-    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页")').locator('input[type="checkbox"]').check();
+    await page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]').check();
     await expect(zipButton).toBeVisible();
     await expect(zipButton).toContainText('已选 2 项');
 
@@ -503,11 +473,21 @@ test.describe('MockupApp E2E Tests', () => {
     // Give the 300ms debounced localStorage write time to settle before reloading
     await page.waitForTimeout(500);
 
-    // Reload restores the same checked/expanded rows
+    // Reload restores the same checked rows
     await page.reload();
     await page.locator('button:has-text("隐私与条款")').click();
-    await page.locator('button[role="tab"]:has-text("合规工具箱")').click();
     await expect(page.locator('.compliance-checklist-row:has-text("Custom EULA") input[type="checkbox"]')).toBeChecked();
     await expect(page.locator('.compliance-checklist-row:has-text("账号与数据注销页") input[type="checkbox"]')).toBeChecked();
+  });
+
+  test('should not crash when undoing page addition while on the newly added page', async ({ page }) => {
+    // Initially 2 pages (P1, P2); add P3 -> activePageIndex becomes 2
+    await page.locator('button:has-text("添加画幅")').click();
+    const titleInput = page.locator('input[placeholder="请输入主标题"]');
+    await expect(titleInput).toHaveValue('New Feature Screen');
+
+    // Undo the page addition -> pages length goes back to 2, activePageIndex must safely clamp to 1 without crashing
+    await page.locator('button[aria-label="撤销"]').click();
+    await expect(titleInput).toHaveValue('Absolute Control');
   });
 });

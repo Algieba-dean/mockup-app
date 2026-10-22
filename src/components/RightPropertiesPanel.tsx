@@ -133,6 +133,8 @@ interface RightPropertiesPanelProps {
   devices: DeviceInstance[];
   setDevices: (devices: DeviceInstance[]) => void;
   screenshots: string[];
+  activeDeviceIndex?: number;
+  setActiveDeviceIndex?: (idx: number) => void;
 
   // Typography
   titleText: string;
@@ -147,11 +149,16 @@ interface RightPropertiesPanelProps {
   setTitleFontFamily: (font: string) => void;
   subtitleFontFamily: string;
   setSubtitleFontFamily: (font: string) => void;
+  textOnTop?: boolean;
+  setTextOnTop?: (onTop: boolean) => void;
+  hasTextTransform?: boolean;
+  onResetTextTransform?: () => void;
 
   collapsed?: boolean;
 
   // Icon workspace
   hasIconImage?: boolean;
+  iconSourceDataUrl?: string | null;
   iconPadding?: number;
   setIconPadding?: (v: number) => void;
   iconPaddingY?: number;
@@ -199,6 +206,8 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   devices = [],
   setDevices,
   screenshots = [],
+  activeDeviceIndex: controlledDeviceIndex,
+  setActiveDeviceIndex: setControlledDeviceIndex,
   titleText,
   setTitleText,
   subtitleText,
@@ -211,8 +220,13 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   setTitleFontFamily,
   subtitleFontFamily,
   setSubtitleFontFamily,
+  textOnTop = true,
+  setTextOnTop,
+  hasTextTransform = false,
+  onResetTextTransform,
   collapsed = false,
   hasIconImage = false,
+  iconSourceDataUrl = null,
   iconPadding = 0.12,
   setIconPadding,
   iconPaddingY = 0.12,
@@ -250,7 +264,9 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   ];
 
   const imageFileInputRef = useRef<HTMLInputElement>(null);
-  const [activeDeviceIndex, setActiveDeviceIndex] = useState<number>(0);
+  const [internalDeviceIndex, setInternalDeviceIndex] = useState<number>(0);
+  const activeDeviceIndex = controlledDeviceIndex ?? internalDeviceIndex;
+  const setActiveDeviceIndex = setControlledDeviceIndex ?? setInternalDeviceIndex;
 
   // Auto layout preset triggers
   const applyPresetLayout = (presetType: 'single' | 'double' | 'skew') => {
@@ -362,7 +378,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
   };
 
   const handleSmartColorExtract = async () => {
-    const activeScreenshot = devices.find(d => d.screenshotSrc)?.screenshotSrc || screenshots[0];
+    const activeScreenshot = activeDevice?.screenshotSrc || devices.find(d => d.screenshotSrc)?.screenshotSrc || screenshots[0];
     if (!activeScreenshot) {
       showToast?.('请先在左侧上传或绑定内屏截图');
       return;
@@ -371,9 +387,26 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
       const [c1, c2] = await extractPaletteFromImage(activeScreenshot);
       setBgType('gradient');
       setBgGradient([c1, c2]);
-      showToast?.('✨ 配色提取成功！已自动设置契合内屏的智能渐变色背景');
+      showToast?.('配色提取成功，已自动设置契合内屏的智能渐变色背景');
     } catch (e) {
       console.error('Palette extraction failed', e);
+      showToast?.('色彩提取失败，请重试');
+    }
+  };
+
+  const handleIconSmartColorExtract = async () => {
+    const source = iconSourceDataUrl || devices.find(d => d.screenshotSrc)?.screenshotSrc || screenshots[0];
+    if (!source) {
+      showToast?.('请先上传图标原图或内屏截图');
+      return;
+    }
+    try {
+      const [c1, c2] = await extractPaletteFromImage(source);
+      setIconBgMode?.('gradient');
+      setIconBgGradient?.([c1, c2]);
+      showToast?.('配色提取成功，已设置契合图像的 135° 渐变背景');
+    } catch (e) {
+      console.error('Icon palette extraction failed', e);
       showToast?.('色彩提取失败，请重试');
     }
   };
@@ -385,6 +418,65 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       {activeTool === 'screenshots' ? (
         <>
+          {/* 快速核心控制区：机型、主副标题、置顶开关，无需展开折叠面板即可直接操作 */}
+          <div className="sidebar-title">核心编排</div>
+          <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-primary)' }}>
+            {activeDevice && (
+              <div className="ds-input-group" style={{ marginBottom: '2px' }}>
+                <label className="ds-label" htmlFor="quick-device-model">设备机型</label>
+                <select
+                  id="quick-device-model"
+                  className="ds-select"
+                  value={activeDevice.deviceModel}
+                  onChange={(e) => updateActiveDevice({ deviceModel: e.target.value })}
+                >
+                  <optgroup label="真机边框 (fastlane/frameit-frames)">
+                    <option value="iphone_17_pro_max_silver">iPhone 17 Pro Max (银色)</option>
+                    <option value="iphone_17_pro_max_deep_blue">iPhone 17 Pro Max (深蓝色)</option>
+                    <option value="iphone_17_pro_max_cosmic_orange">iPhone 17 Pro Max (橙色)</option>
+                    <option value="iphone_17_pro_silver">iPhone 17 Pro (银色)</option>
+                    <option value="iphone_17_pro_deep_blue">iPhone 17 Pro (深蓝色)</option>
+                    <option value="iphone_16_pro_max_black_titanium">iPhone 16 Pro Max (黑色钛金属)</option>
+                    <option value="iphone_16_pro_max_natural_titanium">iPhone 16 Pro Max (原色钛金属)</option>
+                    <option value="iphone_16_pro_max_white_titanium">iPhone 16 Pro Max (白色钛金属)</option>
+                    <option value="iphone_16_black">iPhone 16 (黑色)</option>
+                    <option value="iphone_16_white">iPhone 16 (白色)</option>
+                    <option value="iphone_16_ultramarine">iPhone 16 (蓝色)</option>
+                    <option value="ipad_pro_12_9_space_gray">iPad Pro 12.9" (深空灰)</option>
+                    <option value="ipad_pro_12_9_silver">iPad Pro 12.9" (银色)</option>
+                    <option value="galaxy_s21_ultra_black">Samsung Galaxy S21 Ultra (黑色)</option>
+                    <option value="galaxy_s21_ultra_silver">Samsung Galaxy S21 Ultra (银色)</option>
+                    <option value="pixel_5_black">Google Pixel 5 (黑色)</option>
+                    <option value="pixel_5_sage">Google Pixel 5 (鼠尾草绿)</option>
+                  </optgroup>
+                  <optgroup label="手绘矢量外壳 (经典款)">
+                    <option value="iphone_16_pro">iPhone 16 Pro (深空黑)</option>
+                    <option value="iphone_16_pro_light">iPhone 16 Pro (银色)</option>
+                    <option value="iphone_16_pro_gold">iPhone 16 Pro (金色)</option>
+                    <option value="iphone_16_pro_rose_gold">iPhone 16 Pro (玫瑰金)</option>
+                    <option value="ipad_pro">iPad Pro (银色)</option>
+                    <option value="ipad_pro_dark">iPad Pro (深空黑)</option>
+                    <option value="google_pixel">Google Pixel (深色)</option>
+                    <option value="google_pixel_light">Google Pixel (银色)</option>
+                  </optgroup>
+                </select>
+              </div>
+            )}
+
+            <div className="ds-input-group" style={{ marginBottom: '2px' }}>
+              <label className="ds-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0, cursor: 'pointer' }} htmlFor="text-on-top-toggle">
+                <span>文字置于设备上方</span>
+                <input
+                  id="text-on-top-toggle"
+                  type="checkbox"
+                  checked={textOnTop}
+                  onChange={(e) => setTextOnTop?.(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--ink-primary)' }}
+                />
+              </label>
+            </div>
+          </div>
+
           {/* 画布背景 */}
           <SectionAccordion
             title="画布背景"
@@ -708,6 +800,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           {/* 设备与布局设置 */}
           <SectionAccordion
             title="设备布局与变换"
+            defaultOpen={true}
             headerAction={
               activeDevice ? (
                 <button
@@ -1084,7 +1177,25 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
           </SectionAccordion>
 
           {/* 文案与排版 */}
-          <SectionAccordion title="文案与排版">
+          <SectionAccordion
+            title="文案与排版"
+            defaultOpen={true}
+            headerAction={
+              hasTextTransform && onResetTextTransform ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onResetTextTransform();
+                    showToast?.('已恢复默认文案位置');
+                  }}
+                  title="恢复主副标题的默认排版位置与角度"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-tertiary)', fontSize: '11px', textTransform: 'none', letterSpacing: 'normal', padding: 0 }}
+                >
+                  恢复默认位置
+                </button>
+              ) : undefined
+            }
+          >
           <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div className="ds-input-group">
               <label className="ds-label" htmlFor="title-font">标题字体</label>
@@ -1130,7 +1241,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 aria-describedby={titleOverLimit ? 'title-text-hint' : undefined}
               />
               {titleOverLimit && (
-                <p id="title-text-hint" role="status" style={{ fontSize: '11px', color: '#d97706', marginTop: '4px', lineHeight: 1.4 }}>
+                <p id="title-text-hint" role="status" style={{ fontSize: '11px', color: 'var(--ink-secondary)', borderLeft: '1px solid var(--border-focus)', paddingLeft: '8px', marginTop: '4px', lineHeight: 1.4 }}>
                   文案较长（{titleText.length} 字），当前字号下可能自动换行过多甚至超出画布，建议精简文案或调低字号
                 </p>
               )}
@@ -1161,7 +1272,7 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                 aria-describedby={subtitleOverLimit ? 'subtitle-text-hint' : undefined}
               />
               {subtitleOverLimit && (
-                <p id="subtitle-text-hint" role="status" style={{ fontSize: '11px', color: '#d97706', marginTop: '4px', lineHeight: 1.4 }}>
+                <p id="subtitle-text-hint" role="status" style={{ fontSize: '11px', color: 'var(--ink-secondary)', borderLeft: '1px solid var(--border-focus)', paddingLeft: '8px', marginTop: '4px', lineHeight: 1.4 }}>
                   文案较长（{subtitleText.length} 字），当前字号下可能自动换行过多甚至超出画布，建议精简文案或调低字号
                 </p>
               )}
@@ -1251,6 +1362,27 @@ export const RightPropertiesPanel: React.FC<RightPropertiesPanelProps> = ({
                   </button>
                 </div>
               </div>
+
+              <button
+                className="ds-btn"
+                onClick={handleIconSmartColorExtract}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  borderColor: 'var(--border-focus)',
+                  borderStyle: 'solid',
+                  fontSize: '11px',
+                  padding: '8px 0',
+                  marginTop: '-4px',
+                  marginBottom: '4px',
+                }}
+              >
+                <Palette size={13} strokeWidth={2} style={{ color: 'var(--ink-secondary)' }} />
+                <span>智能提取色彩一键渐变配色</span>
+              </button>
 
               {iconBgMode === 'solid' ? (
                 <div className="ds-input-group">

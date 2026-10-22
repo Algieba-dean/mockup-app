@@ -125,7 +125,7 @@ export const AppHeader: React.FC<AppHeaderProps> = React.memo(({
       </nav>
 
       <div className="app-actions">
-        {activeTool !== 'privacy' && (
+        {activeTool === 'screenshots' && (
           <>
             <button
               className="ds-btn ds-btn-icon-only"

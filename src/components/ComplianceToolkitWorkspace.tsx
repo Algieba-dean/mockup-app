@@ -53,7 +53,7 @@ interface ToolkitState {
 
 const DEFAULT_TOOLKIT_STATE: ToolkitState = {
   highRiskType: 'none',
-  checked: { privacy: false, terms: false, eula: false, att: false, nutrition: false, deletion: false, csv: false },
+  checked: { privacy: true, terms: false, eula: false, att: false, nutrition: false, deletion: false, csv: false },
 };
 
 function loadToolkitState(): ToolkitState {
@@ -95,7 +95,7 @@ function downloadBlob(content: string, filename: string, mime: string) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 // ============================================================================
@@ -273,7 +273,7 @@ export function ComplianceToolkitWorkspace({ onToast }: { onToast: (msg: string)
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
       onToast('已打包下载 ZIP');
     } catch {
       onToast('打包下载失败，请稍后重试');

@@ -28,6 +28,7 @@ export interface CanvasState {
   subtitleFontSize: number;
   titleFontFamily: string;
   subtitleFontFamily: string;
+  textOnTop?: boolean;
   layout?: 'text-top' | 'text-bottom' | 'full-device';
   showGlassReflection?: boolean;
   showStatusBar?: boolean;
@@ -116,7 +117,7 @@ function renderScreenOverlays(
       const pixel = tempCtx.getImageData(padding, sbHeight / 2, 1, 1).data;
       const brightness = (pixel[0] * 299 + pixel[1] * 587 + pixel[2] * 114) / 1000;
       isLightBg = brightness > 140;
-    } catch (e) {
+    } catch {
       isLightBg = isLightFallback;
     }
     const sbColor = isLightBg ? '#111111' : '#ffffff';
@@ -391,8 +392,11 @@ const TEXT_BOTTOM_DEVICE_ANCHOR = 220;
  * updateCanvas 的主渲染与 computeTextTransformUpdate 的交互反解必须共用同一份计算，
  * 否则拖拽标题结束后下一次重建会因基准不一致发生"跳位"。
  */
-function computeTextBottomTitleTop(devices: DeviceInstance[] | undefined, canvasHeight: number): number {
-  const R = canvasHeight / 2208;
+const computeScaleRatio = (canvasWidth: number, canvasHeight: number) =>
+  Math.min(canvasHeight / 2208, canvasWidth / 1080);
+
+function computeTextBottomTitleTop(devices: DeviceInstance[] | undefined, canvasHeight: number, canvasWidth: number = 1242): number {
+  const R = computeScaleRatio(canvasWidth, canvasHeight);
   const anchorY = TEXT_BOTTOM_DEVICE_ANCHOR * R;
   let deviceMaxBottom = anchorY;
   if (devices && devices.length > 0) {
@@ -406,24 +410,53 @@ function computeTextBottomTitleTop(devices: DeviceInstance[] | undefined, canvas
   return deviceMaxBottom + TEXT_TO_DEVICE_GAP * R;
 }
 
+let renderGeneration = 0;
+
+const isValidCssColor = (color: string | undefined): boolean => {
+  if (!color || typeof color !== 'string') return false;
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color.trim()) ||
+    /^(rgb|rgba|hsl|hsla)\(/.test(color.trim());
+};
+
+const safeColor = (color: string | undefined, fallback: string = '#f5f5f4'): string =>
+  isValidCssColor(color) ? color!.trim() : fallback;
+
 export const updateCanvas = async (
   canvas: Canvas,
   state: CanvasState,
-  pageIndex: number = 0
+  pageIndex: number = 0,
+  skipConcurrencyGuard: boolean = false
 ) => {
-  // 1. 清空画布
-  canvas.clear();
+  const currentGen = skipConcurrencyGuard ? renderGeneration : ++renderGeneration;
+  const isStale = () => !skipConcurrencyGuard && currentGen !== renderGeneration;
 
   // 获取当前实际画布分辨率以进行动态比率缩放 (基准物理高度为 2208)
   const canvasWidth = canvas.getWidth();
   const canvasHeight = canvas.getHeight();
-  const R = canvasHeight / 2208; // 相对重采样缩放系数
+  // 同时兼顾宽高缩放比，避免在较窄长屏 (如 1290x2796) 下仅按高度放大导致横向溢出画布
+  const R = Math.min(canvasHeight / 2208, canvasWidth / 1080);
+  let imageTextColor: string | undefined;
+  const cleanBgColor = safeColor(state.bgColor, '#f5f5f4');
+
+  // 先预加载所有需要的异步图像资源，避免在 await 期间 clear() 导致并发重绘互相叠加
+  let loadedBgImg: FabricImage | null = null;
+  if ((state.bgType === 'panoramic' || state.bgType === 'image') && state.bgImageSrc) {
+    try {
+      loadedBgImg = await FabricImage.fromURL(state.bgImageSrc);
+    } catch (error) {
+      console.error('Failed to load background image', error);
+    }
+  }
+  if (isStale()) return;
+
+  // 1. 清空画布
+  canvas.clear();
 
   // 2. 绘制画布背景
-  if (state.bgType === 'panoramic' && state.bgImageSrc) {
+  if (state.bgType === 'panoramic' && loadedBgImg) {
     // ASO 全局连图模式
     try {
-      const bgImg = await FabricImage.fromURL(state.bgImageSrc);
+      const bgImg = loadedBgImg;
       const scale = (canvasHeight / bgImg.height!) * (state.bgImageScale ?? 1);
       
       bgImg.set({
@@ -436,6 +469,17 @@ export const updateCanvas = async (
         selectable: false,
         hoverCursor: 'default',
       });
+      imageTextColor = sampleImageTextColor(
+        bgImg.getElement() as HTMLImageElement,
+        bgImg.left ?? 0,
+        bgImg.top ?? 0,
+        bgImg.scaleX ?? 1,
+        bgImg.scaleY ?? 1,
+        canvasWidth,
+        180 * R,
+        120 * R,
+        cleanBgColor,
+      );
 
       if (state.bgBlur > 0) {
         const blurFilter = new filters.Blur({ blur: state.bgBlur / 30 });
@@ -445,12 +489,12 @@ export const updateCanvas = async (
       canvas.add(bgImg);
     } catch (error) {
       console.error('Failed to load panoramic background', error);
-      drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
+      drawSolidBackground(canvas, canvasWidth, canvasHeight, cleanBgColor);
     }
-  } else if (state.bgType === 'image' && state.bgImageSrc) {
+  } else if (state.bgType === 'image' && loadedBgImg) {
     // 普通单页纹理背景
     try {
-      const bgImg = await FabricImage.fromURL(state.bgImageSrc);
+      const bgImg = loadedBgImg;
       const imgWidth = bgImg.width || (bgImg.getElement() as HTMLImageElement)?.naturalWidth || (bgImg.getElement() as HTMLImageElement)?.width || 1242;
       const imgHeight = bgImg.height || (bgImg.getElement() as HTMLImageElement)?.naturalHeight || (bgImg.getElement() as HTMLImageElement)?.height || 2208;
       
@@ -468,6 +512,17 @@ export const updateCanvas = async (
         selectable: false,
         hoverCursor: 'default',
       });
+      imageTextColor = sampleImageTextColor(
+        bgImg.getElement() as HTMLImageElement,
+        bgImg.left ?? 0,
+        bgImg.top ?? 0,
+        bgImg.scaleX ?? 1,
+        bgImg.scaleY ?? 1,
+        canvasWidth,
+        180 * R,
+        120 * R,
+        cleanBgColor,
+      );
 
       if (state.bgBlur > 0) {
         const blurFilter = new filters.Blur({ blur: state.bgBlur / 30 });
@@ -477,7 +532,7 @@ export const updateCanvas = async (
       canvas.add(bgImg);
     } catch (error) {
       console.error('Failed to load template background image', error);
-      drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
+      drawSolidBackground(canvas, canvasWidth, canvasHeight, cleanBgColor);
     }
   } else if (state.bgType === 'gradient' && state.bgGradient && state.bgGradient.length >= 2) {
     // 渐变填充模式
@@ -494,43 +549,47 @@ export const updateCanvas = async (
         hoverCursor: 'default',
       });
 
-      // 注意：必须使用真实的 Gradient 类实例 (具备 toLive() 方法)，
-      // 否则 Fabric.js v7 不会将其识别为渐变，会静默回退为上一次绘制留下的 fillStyle，
-      // 导致背景只有局部区域被意外的颜色覆盖(即“只填充了左上角”的根本原因)。
+      const stop0 = safeColor(state.bgGradient[0], '#f5f5f4');
+      const stop1 = safeColor(state.bgGradient[1], '#e5e5e4');
       const linearGrad = new Gradient({
         type: 'linear',
         gradientUnits: 'pixels',
         coords: { x1: 0, y1: 0, x2: 0, y2: canvasHeight },
         colorStops: [
-          { offset: 0, color: state.bgGradient[0] },
-          { offset: 1, color: state.bgGradient[1] }
+          { offset: 0, color: stop0 },
+          { offset: 1, color: stop1 }
         ]
       });
       gradientBackground.set({ fill: linearGrad });
       canvas.add(gradientBackground);
     } catch (error) {
       console.error('Failed to render gradient background', error);
-      drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
+      drawSolidBackground(canvas, canvasWidth, canvasHeight, cleanBgColor);
     }
   } else {
     // 默认纯色背景
-    drawSolidBackground(canvas, canvasWidth, canvasHeight, state.bgColor);
+    drawSolidBackground(canvas, canvasWidth, canvasHeight, cleanBgColor);
   }
 
   // 3. 相对定位计算对比色
-  const contrastingColor = getContrastingColor(state.bgColor, state.bgType);
+  const colorForContrast = state.bgType === 'gradient' && state.bgGradient?.length
+    ? safeColor(state.bgGradient[0], cleanBgColor)
+    : cleanBgColor;
+  const contrastingColor = imageTextColor ?? getContrastingColor(colorForContrast, state.bgType);
   const layoutMode = state.layout || 'text-top';
 
   // 4. 绘制标题与副标题 (根据布局模式动态调整)
   let titleTop = 180 * R;
   if (layoutMode === 'text-bottom') {
-    titleTop = computeTextBottomTitleTop(state.devices, canvasHeight);
+    titleTop = computeTextBottomTitleTop(state.devices, canvasHeight, canvasWidth);
   }
 
   // 文案区实际占用的底部坐标 (标题+副标题自然排版高度)，用于 'text-top' 布局下动态
   // 计算设备起始位置 —— 避免旧版硬编码 680 的固定基准线在字号变化后产生巨大空白间隙
   // 或反之与文案重叠 (即"画布利用率不高"的根本原因)。
   let textBlockBottom = titleTop;
+  let titleObj: Textbox | undefined;
+  let subtitleObj: Textbox | undefined;
 
   if (layoutMode !== 'full-device') {
     const title = new Textbox(state.titleText || '主标题文本', {
@@ -554,6 +613,7 @@ export const updateCanvas = async (
     // 仅保留四角缩放 + 旋转手柄，隐藏四边中点手柄 (避免拖出与自动换行宽度冲突的独立拉伸)
     title.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
     canvas.add(title);
+    titleObj = title;
     // 记录本次实际渲染的标题高度，供副标题基准定位与交互反解使用
     (canvas as unknown as { _lastTitleHeight: number })._lastTitleHeight = title.height || 0;
 
@@ -578,6 +638,7 @@ export const updateCanvas = async (
     (subtitle as unknown as { data: Record<string, unknown> }).data = { role: 'subtitle' };
     subtitle.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
     canvas.add(subtitle);
+    subtitleObj = subtitle;
     // 记录本次实际渲染的副标题高度，供动态设备基准线与交互反解使用
     (canvas as unknown as { _lastSubtitleHeight: number })._lastSubtitleHeight = subtitle.height || 0;
     textBlockBottom = titleTop + title.height! + 24 * R + subtitle.height!;
@@ -685,6 +746,7 @@ export const updateCanvas = async (
         // ---------------------------------------------------------------
         try {
           const frameImg = await FabricImage.fromURL(dev.frameImage);
+          if (isStale()) return;
           const frameNativeW = frameImg.width!;
           const frameNativeH = frameImg.height!;
           // dev.width 为归一化后的"设计单位"基准宽度 (与矢量外壳同基准)，需除以边框 PNG
@@ -695,6 +757,7 @@ export const updateCanvas = async (
             try {
               const screenNativeW = dev.frameScreenWidth || frameNativeW;
               const img = await FabricImage.fromURL(devInst.screenshotSrc);
+              if (isStale()) return;
               // 注意：屏幕高度必须使用设备真实屏幕分辨率的宽高比 (dev.screenHeight)，
               // 不能按上传截图自身的宽高比反推——用户截图（尤其是长截图/文档截图）宽高比
               // 往往和真机屏幕差异很大，若按截图比例反推屏幕框高度，画面会大幅溢出边框
@@ -838,6 +901,7 @@ export const updateCanvas = async (
 
           // 1. 载入原始图片
           const img = await FabricImage.fromURL(devInst.screenshotSrc);
+          if (isStale()) return;
 
           // 2. 创建离线 Canvas 进行高保真区域裁剪与缩放，防止溢出边框影响 Group 中心点计算
           const tempCanvas = document.createElement('canvas');
@@ -997,6 +1061,12 @@ export const updateCanvas = async (
     }
   }
 
+  // 默认将文字置于设备上方，防止用户放大或上移设备后遮盖标题/副标题
+  if (state.textOnTop !== false) {
+    if (titleObj) canvas.bringObjectToFront(titleObj);
+    if (subtitleObj) canvas.bringObjectToFront(subtitleObj);
+  }
+
   // 重新渲染画布
   canvas.requestRenderAll();
 };
@@ -1025,7 +1095,7 @@ export function computeDeviceTransformUpdate(
   lastTitleHeight: number = 0,
   lastSubtitleHeight: number = 0
 ): Partial<DeviceInstance> {
-  const R = canvasHeight / 2208;
+  const R = computeScaleRatio(canvasWidth, canvasHeight);
   const deviceMeta = DEVICE_DB[dev.deviceModel] || DEVICE_DB.iphone_16_pro;
   const avgScale = (target.scaleX + target.scaleY) / 2;
   const newScale = Math.max(0.1, (dev.scale || 1) * avgScale);
@@ -1068,7 +1138,7 @@ export function computeDeviceRect(
   lastTitleHeight: number = 0,
   lastSubtitleHeight: number = 0
 ): { centerX: number; centerY: number; width: number; height: number } {
-  const R = canvasHeight / 2208;
+  const R = computeScaleRatio(canvasWidth, canvasHeight);
   const deviceMeta = DEVICE_DB[dev.deviceModel] || DEVICE_DB.iphone_16_pro;
   const devScale = dev.scale || 1.0;
   const devWidth = deviceMeta.width * devScale * R;
@@ -1098,11 +1168,12 @@ export function computeTextTransformUpdate(
   canvasHeight: number,
   currentFontSize: number,
   lastTitleHeight: number,
-  devices?: DeviceInstance[]
+  devices?: DeviceInstance[],
+  canvasWidth: number = 1242
 ): { offsetX: number; offsetY: number; angle: number; fontSize: number } {
-  const R = canvasHeight / 2208;
+  const R = computeScaleRatio(canvasWidth, canvasHeight);
   let titleTop = 180 * R;
-  if (layoutMode === 'text-bottom') titleTop = computeTextBottomTitleTop(devices, canvasHeight);
+  if (layoutMode === 'text-bottom') titleTop = computeTextBottomTitleTop(devices, canvasHeight, canvasWidth);
 
   const avgScale = (target.scaleX + target.scaleY) / 2;
   const newFontSize = Math.max(8, Math.round(currentFontSize * avgScale));
@@ -1144,6 +1215,51 @@ const drawSolidBackground = (canvas: Canvas, w: number, h: number, color: string
     hoverCursor: 'default',
   });
   canvas.add(bg);
+};
+
+const sampleImageTextColor = (
+  image: HTMLImageElement,
+  imageLeft: number,
+  imageTop: number,
+  scaleX: number,
+  scaleY: number,
+  canvasWidth: number,
+  sampleTop: number,
+  sampleHeight: number,
+  fallbackColor: string,
+): string => {
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  if (!imageWidth || !imageHeight || scaleX <= 0 || scaleY <= 0) return '#0f0f0f';
+
+  const sourceLeft = Math.max(0, Math.min(imageWidth, (0 - imageLeft) / scaleX));
+  const sourceRight = Math.max(sourceLeft, Math.min(imageWidth, (canvasWidth - imageLeft) / scaleX));
+  const sourceTop = Math.max(0, Math.min(imageHeight, (sampleTop - imageTop) / scaleY));
+  const sourceBottom = Math.max(sourceTop, Math.min(imageHeight, (sampleTop + sampleHeight - imageTop) / scaleY));
+  if (sourceRight <= sourceLeft || sourceBottom <= sourceTop) return '#0f0f0f';
+
+  const sample = document.createElement('canvas');
+  sample.width = 32;
+  sample.height = 4;
+  const context = sample.getContext('2d', { willReadFrequently: true });
+  if (!context) return '#0f0f0f';
+  context.fillStyle = fallbackColor;
+  context.fillRect(0, 0, sample.width, sample.height);
+  try {
+    context.drawImage(image, sourceLeft, sourceTop, sourceRight - sourceLeft, sourceBottom - sourceTop, 0, 0, sample.width, sample.height);
+    const { data } = context.getImageData(0, 0, sample.width, sample.height);
+    let luminance = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const channels = [data[index], data[index + 1], data[index + 2]].map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      luminance += channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    }
+    return luminance / (data.length / 4) > 0.179 ? '#0f0f0f' : '#ffffff';
+  } catch {
+    return '#0f0f0f';
+  }
 };
 
 /**

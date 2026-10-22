@@ -263,6 +263,8 @@ p, span, label, input, button, textarea, select {
 }
 
 .app-logo h1 {
+  font-family: var(--font-sans);
+  font-weight: 600;
   font-size: 1.125rem;
   letter-spacing: -0.02em;
 }
@@ -504,6 +506,7 @@ p, span, label, input, button, textarea, select {
 }
 
 .compliance-form-section-title {
+  font-family: var(--font-sans);
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink-primary);
@@ -531,6 +534,7 @@ p, span, label, input, button, textarea, select {
 }
 
 .compliance-output-title {
+  font-family: var(--font-sans);
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink-primary);

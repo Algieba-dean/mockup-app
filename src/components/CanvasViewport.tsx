@@ -231,8 +231,16 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
   };
 
   const clampPadding = (p: number) => Math.min(ICON_PADDING_MAX, Math.max(ICON_PADDING_MIN, p));
-  const handleIconZoomIn = () => setIconPadding?.(clampPadding(iconPadding - 0.02));
-  const handleIconZoomOut = () => setIconPadding?.(clampPadding(iconPadding + 0.02));
+  const handleIconZoomIn = () => {
+    const next = clampPadding(iconPadding - 0.02);
+    setIconPadding?.(next);
+    setIconPaddingY?.(next);
+  };
+  const handleIconZoomOut = () => {
+    const next = clampPadding(iconPadding + 0.02);
+    setIconPadding?.(next);
+    setIconPaddingY?.(next);
+  };
   const handleIconZoomReset = () => {
     setIconPadding?.(0.12);
     setIconPaddingY?.(0.12);
@@ -799,7 +807,11 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = React.memo(({
               min={0}
               max={100}
               value={zoomPercent}
-              onChange={(e) => setIconPadding?.((100 - parseInt(e.target.value)) / 100 * ICON_PADDING_MAX)}
+              onChange={(e) => {
+                const nextPad = (100 - parseInt(e.target.value)) / 100 * ICON_PADDING_MAX;
+                setIconPadding?.(nextPad);
+                setIconPaddingY?.(nextPad);
+              }}
               aria-label="图像缩放滑动条"
               style={{ width: '100px', accentColor: 'var(--ink-primary)' }}
             />

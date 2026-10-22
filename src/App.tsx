@@ -33,6 +33,7 @@ interface MockupPage {
   subtitleFontFamily: string;
   titleFontSize: number;
   subtitleFontSize: number;
+  textOnTop?: boolean;
   layout?: 'text-top' | 'text-bottom' | 'full-device';
   showGlassReflection?: boolean;
   showStatusBar?: boolean;
@@ -72,6 +73,7 @@ const DEFAULT_PAGES: MockupPage[] = [
     subtitleFontFamily: 'Geist',
     titleFontSize: 92,
     subtitleFontSize: 44,
+    textOnTop: true,
     layout: 'text-top',
     showGlassReflection: true,
     showStatusBar: true,
@@ -94,6 +96,7 @@ const DEFAULT_PAGES: MockupPage[] = [
     subtitleFontFamily: 'Geist',
     titleFontSize: 92,
     subtitleFontSize: 44,
+    textOnTop: true,
     layout: 'text-top',
     showGlassReflection: true,
     showStatusBar: true,
@@ -143,8 +146,8 @@ const HELP_ENTRIES: HelpEntry[] = [
   { category: '商店截图 · 使用提示', desc: '"画布背景"与"设备布局与变换"区块标题旁的"恢复默认"可一键复原对应设置' },
   { category: '商店截图 · 使用提示', desc: '所有编辑都会实时自动保存在当前浏览器本地，无需手动保存，关闭标签页也不会丢失' },
   { category: '商店截图 · 使用提示', desc: '删除画幅或设备是可撤销操作，误删后点击提示中的"撤销"或按 Ctrl+Z 即可恢复' },
-  { category: '图标生成 · 使用提示', desc: '上传正方形、分辨率越高越好的原始图标图，可分别设置内边距、背景色、圆角与投影' },
-  { category: '图标生成 · 使用提示', desc: '"智能配色"会从当前内屏截图中提取主色，一键生成契合的渐变背景' },
+  { category: '图标生成 · 使用提示', desc: '上传正方形、分辨率越高越好的原始图标图，可分别设置 iOS / Android 的内边距、偏移、缩放与纯色/渐变背景' },
+  { category: '图标生成 · 使用提示', desc: '"智能提取色彩一键渐变配色"会从图标或截图中提取主色，一键生成契合的 135° 渐变背景' },
   { category: '图标生成 · 使用提示', desc: '每次修改都可在"历史记录"抽屉里保存为具名方案，方便对比与回滚' },
   { category: '图标生成 · 使用提示', desc: '导出前可选择只导出 iOS、只导出 Android 或两者都导出，一次性打包为 ZIP' },
   { category: '文案助手 · 说明', desc: '该模块仍在开发中，敬请期待' },
@@ -153,14 +156,44 @@ const HELP_ENTRIES: HelpEntry[] = [
   { category: '隐私与条款 · 使用提示', desc: '高风险 App 类型（如金融、医疗、儿童向）会自动在 EULA 中插入 Apple 要求的强制性条款' },
 ];
 
+function dehydratePagesForStorage(pages: MockupPage[], screenshots: string[]): MockupPage[] {
+  const indexBySrc = new Map<string, number>();
+  screenshots.forEach((src, idx) => indexBySrc.set(src, idx));
+  return pages.map((page) => ({
+    ...page,
+    devices: page.devices.map((dev) => {
+      if (dev.screenshotSrc && indexBySrc.has(dev.screenshotSrc)) {
+        return { ...dev, screenshotSrc: `__ss_ref__:${indexBySrc.get(dev.screenshotSrc)}` };
+      }
+      return dev;
+    }),
+  }));
+}
+
+function hydratePagesFromStorage(pages: MockupPage[], screenshots: string[]): MockupPage[] {
+  return pages.map((page) => ({
+    ...page,
+    devices: page.devices.map((dev) => {
+      if (dev.screenshotSrc && dev.screenshotSrc.startsWith('__ss_ref__:')) {
+        const refIdx = parseInt(dev.screenshotSrc.slice('__ss_ref__:'.length), 10);
+        return { ...dev, screenshotSrc: screenshots[refIdx] };
+      }
+      return dev;
+    }),
+  }));
+}
+
+const DEFAULT_BG_GRADIENT = ['#f5f5f4', '#e5e5e4'];
+
 function App() {
   // App Routing & Theme State
   const [activeTool, setActiveTool] = useState<string>('screenshots');
-  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => loadSavedState<'dark' | 'light'>('mockup_app_theme', 'dark'));
 
   // Sidebar Toggles
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState<boolean>(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState<boolean>(false);
+  const [activeDeviceIndex, setActiveDeviceIndex] = useState<number>(0);
 
   // Export States
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -174,18 +207,18 @@ function App() {
     'android-phone': true,
   });
 
-  // Multi-page slides list (with undo/redo)
-  const { state: pages, set: setPages, undo, redo, canUndo, canRedo } = useHistory<MockupPage[]>(
-    loadSavedState('mockup_app_pages', DEFAULT_PAGES)
-  );
-  const [activePageIndex, setActivePageIndex] = useState<number>(0);
-  // Note: undo/redo keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) are handled by useHistory hook
-
   // Asset Library
   const [screenshots, setScreenshots] = useState<string[]>(
     () => loadSavedState<string[]>('mockup_app_screenshots', [])
   );
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<number>(-1);
+
+  // Multi-page slides list (with undo/redo)
+  const { state: pages, set: setPages, undo, redo, canUndo, canRedo } = useHistory<MockupPage[]>(
+    hydratePagesFromStorage(loadSavedState('mockup_app_pages', DEFAULT_PAGES), screenshots),
+    activeTool === 'screenshots'
+  );
+  const [activePageIndex, setActivePageIndex] = useState<number>(0);
 
   // Toast notification (replaces alert())。可选携带一个操作按钮 (如"撤销")，
   // 用于把原本需要二次确认弹窗拦截的可逆操作，改为"直接执行 + 事后可撤销"的轻量模式。
@@ -574,7 +607,7 @@ function App() {
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(downloadUrl);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 10000);
       setIconExportDone(true);
     } catch (error) {
       console.error('Error generating icon ZIP export:', error);
@@ -594,6 +627,7 @@ function App() {
         bgColor,
         bgGradient,
         bgImageSrc,
+        bgImageScale,
         bgBlur,
         showFrostedGlass,
         titleText,
@@ -602,6 +636,17 @@ function App() {
         subtitleFontSize,
         titleFontFamily,
         subtitleFontFamily,
+        textOnTop,
+        layout,
+        showGlassReflection,
+        showStatusBar,
+        shadowPreset,
+        titleOffsetX,
+        titleOffsetY,
+        titleAngle,
+        subtitleOffsetX,
+        subtitleOffsetY,
+        subtitleAngle,
         devices: devices.map(({ id, deviceModel, angle, skewX, scale, offsetX, offsetY, screenshotScale, screenshotOffsetY }) => ({
           id,
           deviceModel,
@@ -617,13 +662,19 @@ function App() {
     };
     const updated = [...customPresets, newPreset];
     setCustomPresets(updated);
-    localStorage.setItem('mockup_app_custom_presets', JSON.stringify(updated));
+    try {
+      localStorage.setItem('mockup_app_custom_presets', JSON.stringify(updated));
+    } catch {
+      showToast('本地存储空间已满，预设仅在当前会话生效');
+    }
   };
 
   const handleDeletePreset = (id: string) => {
     const updated = customPresets.filter(p => p.id !== id);
     setCustomPresets(updated);
-    localStorage.setItem('mockup_app_custom_presets', JSON.stringify(updated));
+    try {
+      localStorage.setItem('mockup_app_custom_presets', JSON.stringify(updated));
+    } catch { /* ignore */ }
   };
 
   const handleApplyPreset = (preset: CustomPreset) => {
@@ -632,6 +683,7 @@ function App() {
       bgColor: preset.state.bgColor,
       bgGradient: preset.state.bgGradient,
       bgImageSrc: preset.state.bgImageSrc,
+      bgImageScale: preset.state.bgImageScale ?? 1,
       bgBlur: preset.state.bgBlur,
       showFrostedGlass: preset.state.showFrostedGlass,
       title: preset.state.titleText,
@@ -640,6 +692,17 @@ function App() {
       subtitleFontSize: preset.state.subtitleFontSize,
       titleFontFamily: preset.state.titleFontFamily,
       subtitleFontFamily: preset.state.subtitleFontFamily,
+      textOnTop: preset.state.textOnTop !== false,
+      layout: preset.state.layout || 'text-top',
+      showGlassReflection: preset.state.showGlassReflection !== false,
+      showStatusBar: preset.state.showStatusBar !== false,
+      shadowPreset: preset.state.shadowPreset || 'premium',
+      titleOffsetX: preset.state.titleOffsetX || 0,
+      titleOffsetY: preset.state.titleOffsetY || 0,
+      titleAngle: preset.state.titleAngle || 0,
+      subtitleOffsetX: preset.state.subtitleOffsetX || 0,
+      subtitleOffsetY: preset.state.subtitleOffsetY || 0,
+      subtitleAngle: preset.state.subtitleAngle || 0,
       devices: preset.state.devices.map((presetDev, index) => {
         const currentDev = activePage.devices[index];
         return {
@@ -650,17 +713,25 @@ function App() {
     });
   };
 
-  // Single source of truth: derive current values from the active page
-  const activePage = pages[activePageIndex];
+  // Safe index clamping: prevent out-of-bounds crash after undo/redo or page deletion
+  const safePageIndex = Math.min(Math.max(0, activePageIndex), Math.max(0, pages.length - 1));
+  useEffect(() => {
+    if (activePageIndex !== safePageIndex) {
+      setActivePageIndex(safePageIndex);
+    }
+  }, [activePageIndex, safePageIndex]);
 
-  const updateActivePage = (fields: Partial<MockupPage>) => {
-    setPages(prev => prev.map((p, i) => i === activePageIndex ? { ...p, ...fields } : p));
-  };
+  // Single source of truth: derive current values from the active page
+  const activePage = pages[safePageIndex] || pages[0] || DEFAULT_PAGES[0];
+
+  const updateActivePage = useCallback((fields: Partial<MockupPage>, options?: { coalesceKey?: string }) => {
+    setPages(prev => prev.map((p, i) => i === safePageIndex ? { ...p, ...fields } : p), options);
+  }, [setPages, safePageIndex]);
 
   // Convenience aliases for the active page's fields
   const bgType = activePage.bgType;
   const bgColor = activePage.bgColor;
-  const bgGradient = activePage.bgGradient || ['#f5f5f4', '#e5e5e4'];
+  const bgGradient = activePage.bgGradient || DEFAULT_BG_GRADIENT;
   const bgImageSrc = activePage.bgImageSrc || '';
   const bgImageScale = activePage.bgImageScale ?? 1;
   const bgBlur = activePage.bgBlur;
@@ -672,6 +743,7 @@ function App() {
   const subtitleFontSize = activePage.subtitleFontSize;
   const titleFontFamily = activePage.titleFontFamily;
   const subtitleFontFamily = activePage.subtitleFontFamily;
+  const textOnTop = activePage.textOnTop !== false;
   const layout = activePage.layout || 'text-top';
   const showGlassReflection = activePage.showGlassReflection !== false;
   const showStatusBar = activePage.showStatusBar !== false;
@@ -682,12 +754,31 @@ function App() {
   const subtitleOffsetX = activePage.subtitleOffsetX || 0;
   const subtitleOffsetY = activePage.subtitleOffsetY || 0;
   const subtitleAngle = activePage.subtitleAngle || 0;
+  const hasTextTransform = !!(titleOffsetX || titleOffsetY || titleAngle || subtitleOffsetX || subtitleOffsetY || subtitleAngle);
+
+  const handleResetTextTransform = useCallback(() => {
+    updateActivePage({
+      titleOffsetX: 0,
+      titleOffsetY: 0,
+      titleAngle: 0,
+      subtitleOffsetX: 0,
+      subtitleOffsetY: 0,
+      subtitleAngle: 0,
+    });
+  }, [updateActivePage]);
+
+  // Ensure activeDeviceIndex stays in bounds when switching pages or deleting devices
+  useEffect(() => {
+    if (activeDeviceIndex >= devices.length && devices.length > 0) {
+      setActiveDeviceIndex(Math.max(0, devices.length - 1));
+    }
+  }, [activeDeviceIndex, devices.length]);
 
   // "连图" (panoramic) 模式下，一张超宽图会按页面索引横向切片铺满所有故事帧，
   // 因此其类型/图源/模糊/缩放必须同步广播到全部页面，而不能只写入当前激活页，
   // 否则切换页面后连图背景就会消失或与其他帧脱节。
-  const updateBgAcrossPages = (fields: Partial<MockupPage>) => {
-    setPages(prev => prev.map(p => ({ ...p, ...fields })));
+  const updateBgAcrossPages = (fields: Partial<MockupPage>, options?: { coalesceKey?: string }) => {
+    setPages(prev => prev.map(p => ({ ...p, ...fields })), options);
   };
   const isPanoramicContext = (nextType?: 'solid' | 'gradient' | 'image' | 'panoramic') =>
     activePage.bgType === 'panoramic' || nextType === 'panoramic';
@@ -695,32 +786,33 @@ function App() {
   // Setter functions that update the active page directly
   const setBgType = (v: 'solid' | 'gradient' | 'image' | 'panoramic') =>
     isPanoramicContext(v) ? updateBgAcrossPages({ bgType: v }) : updateActivePage({ bgType: v });
-  const setBgColor = (v: string) => updateActivePage({ bgColor: v });
-  const setBgGradient = (v: string[]) => updateActivePage({ bgGradient: v });
+  const setBgColor = (v: string) => updateActivePage({ bgColor: v }, { coalesceKey: 'bgColor' });
+  const setBgGradient = (v: string[]) => updateActivePage({ bgGradient: v }, { coalesceKey: 'bgGradient' });
   const setBgImageSrc = (v: string) =>
     isPanoramicContext() ? updateBgAcrossPages({ bgImageSrc: v }) : updateActivePage({ bgImageSrc: v });
   const setBgImageScale = (v: number) =>
-    isPanoramicContext() ? updateBgAcrossPages({ bgImageScale: v }) : updateActivePage({ bgImageScale: v });
+    isPanoramicContext() ? updateBgAcrossPages({ bgImageScale: v }, { coalesceKey: 'bgImageScale' }) : updateActivePage({ bgImageScale: v }, { coalesceKey: 'bgImageScale' });
   const setBgBlur = (v: number) =>
-    isPanoramicContext() ? updateBgAcrossPages({ bgBlur: v }) : updateActivePage({ bgBlur: v });
+    isPanoramicContext() ? updateBgAcrossPages({ bgBlur: v }, { coalesceKey: 'bgBlur' }) : updateActivePage({ bgBlur: v }, { coalesceKey: 'bgBlur' });
   const setShowFrostedGlass = (v: boolean) => updateActivePage({ showFrostedGlass: v });
   const setLayout = (v: 'text-top' | 'text-bottom' | 'full-device') => updateActivePage({ layout: v });
   const setShowGlassReflection = (v: boolean) => updateActivePage({ showGlassReflection: v });
   const setShowStatusBar = (v: boolean) => updateActivePage({ showStatusBar: v });
   const setShadowPreset = (v: 'none' | 'soft' | 'premium') => updateActivePage({ shadowPreset: v });
-  const setDevices = (v: DeviceInstance[] | ((prev: DeviceInstance[]) => DeviceInstance[])) => {
+  const setDevices = useCallback((v: DeviceInstance[] | ((prev: DeviceInstance[]) => DeviceInstance[]), options?: { coalesceKey?: string }) => {
     if (typeof v === 'function') {
-      setPages(prev => prev.map((p, i) => i === activePageIndex ? { ...p, devices: v(p.devices) } : p));
+      setPages(prev => prev.map((p, i) => i === safePageIndex ? { ...p, devices: v(p.devices) } : p), options);
     } else {
-      updateActivePage({ devices: v });
+      updateActivePage({ devices: v }, options);
     }
-  };
+  }, [setPages, safePageIndex, updateActivePage]);
   const setTitleText = (v: string) => updateActivePage({ title: v });
   const setSubtitleText = (v: string) => updateActivePage({ subtitle: v });
-  const setTitleFontSize = (v: number) => updateActivePage({ titleFontSize: v });
-  const setSubtitleFontSize = (v: number) => updateActivePage({ subtitleFontSize: v });
+  const setTitleFontSize = (v: number) => updateActivePage({ titleFontSize: v }, { coalesceKey: 'titleFontSize' });
+  const setSubtitleFontSize = (v: number) => updateActivePage({ subtitleFontSize: v }, { coalesceKey: 'subtitleFontSize' });
   const setTitleFontFamily = (v: string) => updateActivePage({ titleFontFamily: v });
   const setSubtitleFontFamily = (v: string) => updateActivePage({ subtitleFontFamily: v });
+  const setTextOnTop = (v: boolean) => updateActivePage({ textOnTop: v });
 
   // Viewport Zoom
   // 初始值仅为 ResizeObserver 首次测量完成前的占位；CanvasViewport 会在挂载后
@@ -743,6 +835,9 @@ function App() {
     } else {
       root.classList.add('light');
     }
+    try {
+      localStorage.setItem('mockup_app_theme', JSON.stringify(theme));
+    } catch { /* ignore */ }
   }, [theme]);
 
   // Initialize Fabric.js Canvas instance
@@ -787,6 +882,28 @@ function App() {
   useEffect(() => {
     if (!fabricCanvas) return;
 
+    const handleObjectSelected = (e: { selected?: unknown[] }) => {
+      const target = e.selected?.[0] as { data?: { role?: string; deviceId?: string } } | undefined;
+      if (target?.data?.role === 'device' && target.data.deviceId) {
+        const { devices: curDevices } = latestEditableStateRef.current;
+        const idx = curDevices.findIndex((d) => d.id === target.data?.deviceId);
+        if (idx !== -1) {
+          setActiveDeviceIndex(idx);
+        }
+      }
+    };
+
+    const handleTextEditingExited = (e: { target?: unknown }) => {
+      const target = e.target as { text?: string; data?: { role?: string } } | undefined;
+      if (!target?.data?.role || typeof target.text !== 'string') return;
+      const { updateActivePage: curUpdateActivePage } = latestEditableStateRef.current;
+      if (target.data.role === 'title') {
+        curUpdateActivePage({ title: target.text });
+      } else if (target.data.role === 'subtitle') {
+        curUpdateActivePage({ subtitle: target.text });
+      }
+    };
+
     const handleObjectModified = (e: { target?: unknown }) => {
       const target = e.target as (Record<string, unknown> & {
         left: number; top: number; scaleX: number; scaleY: number; angle: number;
@@ -820,10 +937,11 @@ function App() {
       if (data.role === 'device' && data.deviceId) {
         const idx = curDevices.findIndex((d) => d.id === data.deviceId);
         if (idx === -1) return;
+        setActiveDeviceIndex(idx);
         const updates = computeDeviceTransformUpdate(snapshot, curDevices[idx], curLayout, canvasWidth, canvasHeight, lastTitleHeight, lastSubtitleHeight);
         curSetDevices(curDevices.map((d, i) => (i === idx ? { ...d, ...updates } : d)));
       } else if (data.role === 'title') {
-        const result = computeTextTransformUpdate(snapshot, 'title', curLayout, canvasHeight, curTitleFontSize, lastTitleHeight, curDevices);
+        const result = computeTextTransformUpdate(snapshot, 'title', curLayout, canvasHeight, curTitleFontSize, lastTitleHeight, curDevices, canvasWidth);
         curUpdateActivePage({
           titleOffsetX: result.offsetX,
           titleOffsetY: result.offsetY,
@@ -831,7 +949,7 @@ function App() {
           titleFontSize: result.fontSize,
         });
       } else if (data.role === 'subtitle') {
-        const result = computeTextTransformUpdate(snapshot, 'subtitle', curLayout, canvasHeight, curSubtitleFontSize, lastTitleHeight, curDevices);
+        const result = computeTextTransformUpdate(snapshot, 'subtitle', curLayout, canvasHeight, curSubtitleFontSize, lastTitleHeight, curDevices, canvasWidth);
         curUpdateActivePage({
           subtitleOffsetX: result.offsetX,
           subtitleOffsetY: result.offsetY,
@@ -842,8 +960,14 @@ function App() {
     };
 
     fabricCanvas.on('object:modified', handleObjectModified);
+    fabricCanvas.on('selection:created', handleObjectSelected);
+    fabricCanvas.on('selection:updated', handleObjectSelected);
+    fabricCanvas.on('text:editing:exited', handleTextEditingExited);
     return () => {
       fabricCanvas.off('object:modified', handleObjectModified);
+      fabricCanvas.off('selection:created', handleObjectSelected);
+      fabricCanvas.off('selection:updated', handleObjectSelected);
+      fabricCanvas.off('text:editing:exited', handleTextEditingExited);
     };
   }, [fabricCanvas]);
 
@@ -857,17 +981,16 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('mockup_app_pages', JSON.stringify(pages));
-      setLastSavedAt(Date.now());
-    } catch { /* quota exceeded */ }
-  }, [pages]);
-
-  useEffect(() => {
-    try {
       localStorage.setItem('mockup_app_screenshots', JSON.stringify(screenshots));
+      localStorage.setItem('mockup_app_pages', JSON.stringify(dehydratePagesForStorage(pages, screenshots)));
       setLastSavedAt(Date.now());
-    } catch { /* quota exceeded */ }
-  }, [screenshots]);
+    } catch {
+      // Quota exceeded: still keep dehydrated pages metadata if possible
+      try {
+        localStorage.setItem('mockup_app_pages', JSON.stringify(dehydratePagesForStorage(pages, [])));
+      } catch { /* ignore */ }
+    }
+  }, [pages, screenshots]);
 
   // Draw and render the FabricJS canvas when state changes (debounced)
   const drawTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -904,6 +1027,7 @@ function App() {
             subtitleFontSize,
             titleFontFamily,
             subtitleFontFamily,
+            textOnTop,
             layout,
             showGlassReflection,
             showStatusBar,
@@ -915,7 +1039,7 @@ function App() {
             subtitleOffsetY,
             subtitleAngle,
           },
-          activePageIndex
+          safePageIndex
         );
 
         if (devices.length > 0) {
@@ -943,7 +1067,7 @@ function App() {
     return () => clearTimeout(drawTimerRef.current);
   }, [
     fabricCanvas,
-    activePageIndex,
+    safePageIndex,
     bgType,
     bgColor,
     bgGradient,
@@ -958,6 +1082,7 @@ function App() {
     subtitleFontSize,
     titleFontFamily,
     subtitleFontFamily,
+    textOnTop,
     layout,
     showGlassReflection,
     showStatusBar,
@@ -969,6 +1094,33 @@ function App() {
     subtitleOffsetY,
     subtitleAngle,
   ]);
+
+  // Select screenshot from LeftSidebar -> also bind it to the currently active device
+  const handleSelectScreenshot = useCallback((index: number) => {
+    setSelectedScreenshotIndex(index);
+    const src = screenshots[index];
+    if (!src) return;
+    setDevices((prevDevs) => {
+      const targetIdx = prevDevs[activeDeviceIndex] ? activeDeviceIndex : 0;
+      return prevDevs.map((d, i) => (i === targetIdx ? { ...d, screenshotSrc: src } : d));
+    });
+  }, [screenshots, activeDeviceIndex, setDevices]);
+
+  // Delete screenshot from LeftSidebar asset library
+  const handleDeleteScreenshot = useCallback((index: number) => {
+    const removedSrc = screenshots[index];
+    setScreenshots((prev) => prev.filter((_, i) => i !== index));
+    setSelectedScreenshotIndex((prevIdx) => (prevIdx === index ? -1 : prevIdx > index ? prevIdx - 1 : prevIdx));
+    if (removedSrc) {
+      setPages((prevPages) =>
+        prevPages.map((p) => ({
+          ...p,
+          devices: p.devices.map((d) => (d.screenshotSrc === removedSrc ? { ...d, screenshotSrc: undefined } : d)),
+        }))
+      );
+    }
+    showToast('已移除截图素材');
+  }, [screenshots, setPages]);
 
   // Handle uploading screenshots
   const handleUploadScreenshot = useCallback((file: File) => {
@@ -982,13 +1134,14 @@ function App() {
         });
         
         // Auto bind uploaded screen to the active selected device
-        setDevices((prevDevs) =>
-          prevDevs.map((d, i) => i === 0 ? { ...d, screenshotSrc: newSrc } : d)
-        );
+        setDevices((prevDevs) => {
+          const targetIdx = prevDevs[activeDeviceIndex] ? activeDeviceIndex : 0;
+          return prevDevs.map((d, i) => i === targetIdx ? { ...d, screenshotSrc: newSrc } : d);
+        });
       }
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [setDevices, activeDeviceIndex]);
 
   // 批量导入截图：第一张沿用原有行为绑定到当前激活画幅的设备0，其余每张各自
   // 新建一个画幅 (复用当前画幅的背景/设备/文案设置)，方便一次性铺好一整套多画幅商店截图。
@@ -1014,13 +1167,14 @@ function App() {
           setSelectedScreenshotIndex(prev.length);
           return [...prev, ...dataUrls];
         });
-        setDevices((prevDevs) =>
-          prevDevs.map((d, i) => (i === 0 ? { ...d, screenshotSrc: first } : d))
-        );
+        setDevices((prevDevs) => {
+          const targetIdx = prevDevs[activeDeviceIndex] ? activeDeviceIndex : 0;
+          return prevDevs.map((d, i) => (i === targetIdx ? { ...d, screenshotSrc: first } : d));
+        });
 
         if (rest.length > 0) {
           setPages((prevPages) => {
-            const basePage = prevPages[activePageIndex] ?? prevPages[0];
+            const basePage = prevPages[safePageIndex] ?? prevPages[0];
             const newPages: MockupPage[] = rest.map((src, idx) => ({
               ...basePage,
               id: `page-${Date.now()}-${idx}`,
@@ -1039,7 +1193,7 @@ function App() {
         console.error('Batch screenshot upload failed', error);
         showToast('部分截图导入失败，请重试');
       });
-  }, [activePageIndex, setPages]);
+  }, [safePageIndex, activeDeviceIndex, setPages, setDevices]);
 
   useEffect(() => {
     (window as any).__uploadScreenshot = (dataUrl: string) => {
@@ -1052,7 +1206,7 @@ function App() {
         prevDevs.map((d, i) => i === 0 ? { ...d, screenshotSrc: dataUrl } : d)
       );
     };
-  }, []);
+  }, [setDevices]);
 
   // Manage slides
   const handleAddPage = () => {
@@ -1073,6 +1227,7 @@ function App() {
       subtitleFontFamily: subtitleFontFamily,
       titleFontSize: titleFontSize,
       subtitleFontSize: subtitleFontSize,
+      textOnTop: textOnTop,
       layout: layout,
       showGlassReflection: showGlassReflection,
       showStatusBar: showStatusBar,
@@ -1090,8 +1245,12 @@ function App() {
       return;
     }
     setPages((prev) => prev.filter((_, i) => i !== index));
-    const previousActiveIndex = activePageIndex;
-    setActivePageIndex(Math.max(0, index - 1));
+    const previousActiveIndex = safePageIndex;
+    setActivePageIndex((prevIdx) => {
+      if (prevIdx > index) return prevIdx - 1;
+      if (prevIdx === index) return Math.max(0, index - 1);
+      return prevIdx;
+    });
     showToast(`已删除画幅 P${index + 1}`, {
       label: '撤销',
       onClick: () => {
@@ -1099,12 +1258,12 @@ function App() {
         setActivePageIndex(previousActiveIndex);
       },
     });
-  }, [pages.length, setPages, activePageIndex, undo]);
+  }, [pages.length, setPages, safePageIndex, undo]);
 
   // 复制当前画幅：克隆完整状态 (背景/设备/文案) 插入到紧随其后的位置并激活，
   // 支持点击 AssetDock 上的复制按钮，也支持 Ctrl/Cmd+D 快捷键。
   const handleDuplicatePage = useCallback((index?: number) => {
-    const sourceIndex = index ?? activePageIndex;
+    const sourceIndex = index ?? safePageIndex;
     setPages((prev) => {
       const source = prev[sourceIndex];
       if (!source) return prev;
@@ -1119,7 +1278,7 @@ function App() {
     });
     setActivePageIndex(sourceIndex + 1);
     showToast('已复制画幅');
-  }, [activePageIndex, setPages]);
+  }, [safePageIndex, setPages]);
 
   // 全局快捷键：Ctrl/Cmd+D 复制当前画幅，Ctrl/Cmd + +/- 缩放画布。
   // +/- 会被浏览器默认拦截为整页缩放，这里主动 preventDefault 改为缩放画布本身；
@@ -1176,18 +1335,6 @@ function App() {
     });
   }, [setPages]);
 
-  // Helper utility: Convert Data URL to binary Blob
-  const dataURItoBlob = (dataURI: string) => {
-    const byteString = atob(dataURI.split(',')[1]);
-    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mimeString });
-  };
-
   // Trigger size modal config
   const handleExport = () => {
     if (activeTool === 'icons') {
@@ -1216,9 +1363,9 @@ function App() {
     try {
       const zip = new JSZip();
 
-      // 创建离线 canvas 元素
+      // 创建离线静态 canvas 元素 (StaticCanvas 无需绑定 mouse/touch 交互层，导出重采样更快)
       const exportEl = document.createElement('canvas');
-      const exportCanvas = new Canvas(exportEl);
+      const exportCanvas = new Canvas(exportEl, { renderOnAddRemove: false, skipTargetFind: true });
 
       for (const preset of selectedPresets) {
         // 重置物理像素大小以重采样
@@ -1245,6 +1392,7 @@ function App() {
               subtitleFontSize: page.subtitleFontSize || 44,
               titleFontFamily: page.titleFontFamily || 'Playfair Display',
               subtitleFontFamily: page.subtitleFontFamily || 'Geist',
+              textOnTop: page.textOnTop !== false,
               layout: page.layout || 'text-top',
               showGlassReflection: page.showGlassReflection !== false,
               showStatusBar: page.showStatusBar !== false,
@@ -1256,18 +1404,19 @@ function App() {
               subtitleOffsetY: page.subtitleOffsetY || 0,
               subtitleAngle: page.subtitleAngle || 0,
             },
-            i
+            i,
+            true
           );
+          exportCanvas.renderAll();
 
-          // 导出 PNG
-          const dataUrl = exportCanvas.toDataURL({ format: 'png', quality: 1.0, multiplier: 1 });
-          const blob = dataURItoBlob(dataUrl);
-          zip.file(`${preset.folder}/page_${i + 1}.png`, blob);
+          // 导出 PNG：直接写入 base64 到 JSZip，省去 6 次大尺寸 PNG 重复编码/解码与 Blob 分配
+          const dataUrl = exportCanvas.getElement().toDataURL('image/png');
+          zip.file(`${preset.folder}/page_${i + 1}.png`, dataUrl.split(',')[1], { base64: true });
         }
       }
 
       setExportProgress('正在生成压缩包，请稍候...');
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
 
       // 下载
       const downloadUrl = URL.createObjectURL(zipBlob);
@@ -1277,7 +1426,7 @@ function App() {
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(downloadUrl);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 10000);
 
       exportCanvas.dispose();
     } catch (error) {
@@ -1325,7 +1474,8 @@ function App() {
           screenshots={screenshots}
           onUploadScreenshot={handleUploadScreenshot}
           onUploadScreenshots={handleUploadScreenshots}
-          onSelectScreenshot={setSelectedScreenshotIndex}
+          onSelectScreenshot={handleSelectScreenshot}
+          onDeleteScreenshot={handleDeleteScreenshot}
           selectedScreenshotIndex={selectedScreenshotIndex}
           customPresets={customPresets}
           onSavePreset={handleSavePreset}
@@ -1336,7 +1486,7 @@ function App() {
           iconSizePreviews={iconSizePreviews}
           onUploadIcon={handleUploadIcon}
           pages={pages}
-          activePageIndex={activePageIndex}
+          activePageIndex={safePageIndex}
           setActivePageIndex={setActivePageIndex}
           onAddPage={handleAddPage}
           onDeletePage={handleDeletePage}
@@ -1426,6 +1576,8 @@ function App() {
           devices={devices}
           setDevices={setDevices}
           screenshots={screenshots}
+          activeDeviceIndex={activeDeviceIndex}
+          setActiveDeviceIndex={setActiveDeviceIndex}
           titleText={titleText}
           setTitleText={setTitleText}
           subtitleText={subtitleText}
@@ -1438,6 +1590,10 @@ function App() {
           setTitleFontFamily={setTitleFontFamily}
           subtitleFontFamily={subtitleFontFamily}
           setSubtitleFontFamily={setSubtitleFontFamily}
+          textOnTop={textOnTop}
+          setTextOnTop={setTextOnTop}
+          hasTextTransform={hasTextTransform}
+          onResetTextTransform={handleResetTextTransform}
           layout={layout}
           setLayout={setLayout}
           showGlassReflection={showGlassReflection}
@@ -1450,6 +1606,7 @@ function App() {
           onUndoLastAction={undo}
           collapsed={rightSidebarCollapsed}
           hasIconImage={!!iconSourceDataUrl}
+          iconSourceDataUrl={iconSourceDataUrl}
           iconPadding={iconPadding}
           setIconPadding={setIconPadding}
           iconPaddingY={iconPaddingY}
@@ -1868,7 +2025,7 @@ function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', margin: 0 }}>
-                🎉 图标包导出成功！
+                图标包导出成功
               </h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', textAlign: 'left', lineHeight: 1.5 }}>
